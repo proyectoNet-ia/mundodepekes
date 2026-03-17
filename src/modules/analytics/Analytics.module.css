@@ -1,0 +1,136 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  animation: fadeIn 0.5s ease;
+}
+
+.header h2 {
+  color: var(--text-primary);
+}
+
+.header p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.metricCard {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metricLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metricValue {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--brand-600);
+}
+
+.trendUp {
+  font-size: 0.75rem;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.trendDown {
+  font-size: 0.75rem;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+}
+
+.chartCard {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.chartCard h3 {
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-secondary);
+}
+
+.chartWrapper {
+  width: 100%;
+}
+
+.aiInsightBox {
+  background: linear-gradient(135deg, var(--brand-50) 0%, #fff 100%);
+  border: 1px solid var(--brand-200);
+  padding: 2rem;
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.aiInsightBox::after {
+  content: '⚡';
+  position: absolute;
+  font-size: 10rem;
+  bottom: -2rem;
+  right: -1rem;
+  opacity: 0.05;
+}
+
+.aiHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.aiIcon {
+  font-size: 1.25rem;
+}
+
+.aiHeader h4 {
+  color: var(--brand-700);
+  margin: 0;
+}
+
+.aiText {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-style: italic;
+  max-width: 800px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 768px) {
+  .chartsGrid {
+    grid-template-columns: 1fr;
+  }
+}

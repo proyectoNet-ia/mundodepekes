@@ -1,0 +1,210 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    animation: fadeIn 0.4s ease;
+}
+
+.header {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1.5rem;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-color);
+}
+
+.navButton {
+    background: none;
+    border: none;
+    padding: 1rem;
+    text-align: left;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.navButton:hover {
+    background: var(--bg-tertiary);
+    color: var(--brand-600);
+}
+
+.navButton.active {
+    background: var(--brand-50);
+    color: var(--brand-600);
+}
+
+.content {
+    background: var(--bg-secondary);
+    padding: 2rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    min-height: 500px;
+}
+
+.configCard h3 {
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+}
+
+.tableActions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+}
+
+.addButton {
+    background: var(--brand-500);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 1rem;
+    border-bottom: 2px solid var(--bg-tertiary);
+}
+
+.table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--bg-tertiary);
+    font-size: 0.95rem;
+}
+
+.activeLabel {
+    background: var(--success);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.warningBox {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+}
+
+.safetyGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.formGroup label {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.input {
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-tertiary);
+}
+
+.emptyState {
+    padding: 3rem;
+    text-align: center;
+    color: var(--text-tertiary);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-xl);
+    margin-top: 1rem;
+}
+
+.brandingGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.uploadBox {
+    border: 2px dashed var(--border-color);
+    padding: 2rem;
+    text-align: center;
+    border-radius: var(--radius-lg);
+    color: var(--text-tertiary);
+}
+
+.braceletPreview {
+    background: #eee;
+    height: 60px;
+    width: 250px;
+    border-radius: 30px;
+    border: 1px solid #ccc;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.previewContent {
+    display: flex;
+    flex-direction: column;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.7rem;
+}
+
+.previewContent strong { font-size: 0.8rem; }
+
+.saveButton {
+    margin-top: 2rem;
+    background: var(--brand-600);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    width: 100%;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+}

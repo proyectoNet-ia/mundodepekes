@@ -1,0 +1,45 @@
+.bar {
+    background: var(--bg-tertiary);
+    padding: 0.4rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.offline {
+    background: var(--danger);
+    color: white;
+}
+
+.statusGroup {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.separator {
+    opacity: 0.3;
+}
+
+.hardware {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.connected { color: var(--success); }
+.offline .connected { color: white; }
+.disconnected { color: var(--danger); }
+.checking { color: var(--warning); }
+
+.syncGroup {
+    opacity: 0.8;
+}
+
+@media (max-width: 600px) {
+    .syncGroup { display: none; }
+}

@@ -1,0 +1,267 @@
+.dashboardContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  animation: slideUp 0.4s ease-out;
+}
+
+.header {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.statsOverview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.statCard {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.statCard:hover {
+  transform: translateY(-5px);
+}
+
+.capacityIndicator {
+  margin-top: 1rem;
+}
+
+.capacityText {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.capacityBarBg {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.capacityBarFill {
+  height: 100%;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.statusFull { color: var(--danger); }
+.statusOptim { color: var(--success); }
+.statusMed { color: var(--warning); }
+
+.statLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statValue {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.zonesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+}
+
+.zoneSection {
+  background: var(--bg-tertiary);
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  min-height: 400px;
+}
+
+.zoneTitle {
+  margin-bottom: 1.5rem;
+  font-size: 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.zoneTitle::before {
+  content: '';
+  width: 4px;
+  height: 1.25rem;
+  background: var(--brand-500);
+  border-radius: 2px;
+}
+
+.sessionGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sessionCard {
+  background: var(--bg-secondary);
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  border: 1px solid var(--border-color);
+  transition: transform 0.2s ease;
+}
+
+.sessionCard:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-md);
+}
+
+.sessionCard.mixed {
+  border-left: 5px solid #a855f7; /* Purple for mixed */
+  background: linear-gradient(to right, #faf5ff, white);
+}
+
+.sessionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.kidName {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.timeTag {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.mixedBadge {
+  background: #f3e8ff;
+  color: #7e22ce;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.progressBarBg {
+  height: 10px;
+  background: var(--bg-tertiary);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progressBarFill {
+  height: 100%;
+  transition: width 1s ease-in-out, background-color 0.3s ease;
+}
+
+.sessionFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.startTime {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.iconButton {
+  background: var(--bg-tertiary);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.iconButton:hover {
+  background: var(--brand-100);
+  color: var(--brand-600);
+}
+
+/* Alert States */
+.critical {
+  border: 2px solid var(--warning);
+  animation: pulseWarning 2s infinite;
+}
+
+.expired {
+  border: 2px solid var(--danger);
+  background: var(--brand-50);
+}
+
+.alertBadge {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: var(--warning);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.expiredBadge {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: var(--danger);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  animation: blink 1s infinite;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseWarning {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+@keyframes blink {
+  50% { opacity: 0.3; }
+}
+
+@media (max-width: 768px) {
+  .zonesGrid {
+    grid-template-columns: 1fr;
+  }
+}

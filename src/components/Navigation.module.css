@@ -1,0 +1,99 @@
+.navContainer {
+  background: var(--bg-secondary);
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+@media (prefers-color-scheme: dark) {
+  .navContainer {
+    background: rgba(15, 23, 42, 0.8);
+  }
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logoIcon {
+  font-size: 1.5rem;
+}
+
+.logoText {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.adminText {
+  color: var(--brand-500);
+}
+
+.tabs {
+  display: flex;
+  background: var(--bg-tertiary);
+  padding: 0.25rem;
+  border-radius: var(--radius-lg);
+  gap: 0.25rem;
+}
+
+.tab {
+  background: none;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.tabIcon {
+  font-size: 1.1rem;
+}
+
+.tab.active {
+  background: var(--bg-secondary);
+  color: var(--brand-600);
+  box-shadow: var(--shadow-sm);
+}
+
+.userProfile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-tertiary);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  background: var(--success);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.userName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .logoText { display: none; }
+  .navContainer { padding: 0.5rem 1rem; }
+}
