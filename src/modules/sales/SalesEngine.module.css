@@ -1060,5 +1060,75 @@
 @keyframes bounceIn {
     0% { transform: scale(0.9); opacity: 0; }
     70% { transform: scale(1.05); }
-    100% { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 768px) {
+    .engineContainer {
+        min-height: auto;
+        border-radius: var(--radius-lg);
+    }
+    .engineHeader {
+        flex-direction: column;
+        gap: 1.5rem;
+        padding: 1.5rem 1rem;
+    }
+    .stepper {
+        width: 100%;
+        justify-content: space-between;
+        gap: 0.2rem;
+    }
+    .stepIndicator span {
+        font-size: 0.55rem;
+        text-align: center;
+    }
+    .engineMain {
+        padding: 1.5rem 1rem;
+    }
+    .premiumFormCard {
+        padding: 1.5rem;
+    }
+    .formGrid, .paymentGrid {
+        grid-template-columns: 1fr;
+    }
+    .childRow {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        position: relative;
+        padding-top: 3.5rem;
+    }
+    .childToggleWrapper {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        padding: 0;
+    }
+    .packageGrid {
+        grid-template-columns: 1fr;
+    }
+    .paymentSummary {
+        padding: 1.5rem 1rem;
+    }
+    .paymentInputBg {
+        padding: 1.5rem 1rem;
+    }
+    .changeBadge {
+        padding: 1rem;
+        font-size: 1.4rem;
+        gap: 0.5rem;
+    }
+    .navigationButtons {
+        flex-direction: column-reverse;
+        gap: 1rem;
+    }
+    .navigationButtons button {
+        width: 100%;
+        margin: 0 !important;
+        justify-content: center;
+    }
+    .inputGroup input {
+        font-size: 1rem;
+    }
+    .areaTabs {
+        padding-bottom: 1.5rem;
+    }
 }

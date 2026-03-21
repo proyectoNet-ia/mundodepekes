@@ -151,7 +151,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
           )}
         </div>
 
-        <div style={{ marginTop: 'auto', marginBottom: '1rem' }}>
+        <div className={styles.premiumCardWrapper}>
           {user && (
             <div className={styles.userPremiumCard}>
               <div className={styles.userAvatar}>

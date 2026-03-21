@@ -71,10 +71,10 @@ function App() {
             )}
             <SystemBar />
             
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            <div className="main-layout">
                 {user && <Navigation activeTab={activeTab} setActiveTab={setActiveTab} userRole={user.role} user={user} />}
                 
-                <main className="container" style={{ flex: 1, overflowY: 'auto', padding: '2rem', marginTop: 0 }}>
+                <main className="container main-content">
                     {activeTab === 'dashboard' && <Dashboard onReentry={handleExternalEntry} />}
                     {activeTab === 'ingresos' && (
                         <SalesEngine 
