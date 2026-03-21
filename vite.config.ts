@@ -9,6 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5000000 // 5 MB para evitar error de caché
+      },
       manifest: {
         name: 'PekePark Admin OS',
         short_name: 'PekePark',
