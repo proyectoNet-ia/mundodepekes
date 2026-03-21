@@ -1,136 +1,1273 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  animation: fadeIn 0.5s ease;
+  gap: 2.5rem;
+  padding: 2.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease;
+  transition: opacity 0.3s ease;
+}
+
+.refreshing {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.titleArea {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.iconCircle {
+  width: 54px;
+  height: 54px;
+  background: white;
+  color: var(--brand-600);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
 }
 
 .header h2 {
+  font-size: 1.75rem;
   color: var(--text-primary);
+  margin-bottom: 0.25rem;
 }
 
 .header p {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  color: var(--text-tertiary);
+  font-size: 0.95rem;
 }
 
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.exportBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    background: white;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.exportBtn:hover {
+    background: var(--brand-50);
+    color: var(--brand-600);
+    border-color: var(--brand-300);
+}
+
+.exportBtn.excel:hover {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.rangeSelector {
+    background: #f1f5f9;
+    padding: 0.3rem;
+    border-radius: 12px;
+    display: flex;
+    gap: 0.2rem;
+    border: 1px solid var(--border-color);
+}
+
+.rangeSelector button {
+    background: transparent;
+    border: none;
+    padding: 0.4rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.rangeSelector button.activeRange {
+    background: white;
+    color: var(--brand-600);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Metrics */
 .metricsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1.5rem;
 }
 
 .metricCard {
-  background: var(--bg-secondary);
-  padding: 1.5rem;
-  border-radius: var(--radius-xl);
+  background: white;
+  padding: 2rem;
+  border-radius: var(--radius-2xl);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  transition: transform 0.2s;
+}
+
+.metricCard:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.metricHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
 }
 
 .metricLabel {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
+.metIcon {
+    font-size: 1.25rem;
+}
+
 .metricValue {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--brand-600);
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  display: block;
+}
+
+.metaInfo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
 }
 
 .trendUp {
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
   font-size: 0.75rem;
-  color: var(--success);
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.trendDown {
-  font-size: 0.75rem;
-  color: var(--danger);
-  font-weight: 600;
+.subText {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
 }
 
+/* Charts Main */
 .chartsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
   gap: 2rem;
 }
 
 .chartCard {
-  background: var(--bg-secondary);
-  padding: 1.5rem;
-  border-radius: var(--radius-xl);
+  background: white;
+  padding: 2rem;
+  border-radius: var(--radius-2xl);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
 }
 
-.chartCard h3 {
-  font-size: 1rem;
-  margin-bottom: 1.5rem;
-  color: var(--text-secondary);
+.chartHeader {
+    margin-bottom: 2rem;
+}
+
+.chartHeader h3 {
+  font-size: 1.15rem;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.chartHeader p {
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
 }
 
 .chartWrapper {
   width: 100%;
 }
 
-.aiInsightBox {
-  background: linear-gradient(135deg, var(--brand-50) 0%, #fff 100%);
-  border: 1px solid var(--brand-200);
-  padding: 2rem;
-  border-radius: var(--radius-xl);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  position: relative;
-  overflow: hidden;
+/* Distribution Row */
+.distributionRow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
 }
 
-.aiInsightBox::after {
-  content: '⚡';
-  position: absolute;
-  font-size: 10rem;
-  bottom: -2rem;
-  right: -1rem;
-  opacity: 0.05;
+.distCard {
+    background: white;
+    padding: 2rem;
+    border-radius: var(--radius-2xl);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+/* AI Insight Box (Enhanced) */
+.aiInsightBox {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  padding: 3.5rem;
+  border-radius: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+.aiGlow {
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);
+    filter: blur(40px);
 }
 
 .aiHeader {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.25rem;
+  z-index: 2;
 }
 
 .aiIcon {
-  font-size: 1.25rem;
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
 }
 
 .aiHeader h4 {
-  color: var(--brand-700);
+  color: white;
+  font-size: 1.4rem;
   margin: 0;
 }
 
+.aiBadge {
+    display: block;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 0.25rem;
+}
+
+.aiContent {
+    z-index: 2;
+    margin-top: 1.5rem;
+    width: 100%;
+}
+
 .aiText {
-  color: var(--text-secondary);
-  line-height: 1.6;
-  font-style: italic;
-  max-width: 800px;
+  color: #f1f5f9;
+  width: 100%;
+}
+
+.aiGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.aiBullet {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1.5rem;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.aiBullet:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.aiBullet strong {
+    color: white;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.aiBadgeCFO {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-right: 8px;
+}
+
+.aiBullet p {
+    color: #cbd5e1;
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    flex: 1;
+}
+
+.aiBullet span {
+    color: #64748b;
+    font-size: 0.8rem;
+    margin-top: 1rem;
+    display: block;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.aiMetrics {
+    display: flex;
+    gap: 2rem;
+}
+
+.aiStat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.aiStat span {
+    color: #94a3b8;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.aiStat strong {
+    color: white;
+    font-size: 1.5rem;
+}
+
+/* Loading */
+.loadingContainer {
+    padding: 100px 0;
+    text-align: center;
+    color: var(--text-tertiary);
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--brand-500);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1.5rem;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
+    .distributionRow { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
   .chartsGrid {
     grid-template-columns: 1fr;
   }
+  .header { flex-direction: column; align-items: stretch; }
+  .headerActions { flex-direction: column; align-items: stretch; }
+}
+
+/* Financial & Expense Management Styles */
+.expenseScrollContainer {
+    display: flex;
+    flex-direction: column;
+    margin-top: 1.5rem;
+}
+
+.expenseScrollBody {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 1.25rem;
+}
+
+.expenseTotalRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1rem;
+    background: #f8fafc;
+    border-top: 2px solid #e2e8f0;
+    border-radius: 0 0 16px 16px;
+    margin-top: 0.5rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.totalLabel {
+    font-weight: 800;
+    color: #475569;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.totalValue {
+    font-weight: 800;
+    color: #ef4444;
+    font-size: 1.15rem;
+}
+
+.expenseTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.expenseTable th {
+    text-align: left;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.expenseTable td {
+    padding: 1rem 0;
+    border-bottom: 1px solid #f8fafc;
+    font-size: 0.9rem;
+}
+
+.catBadge {
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.delBtn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.delBtn:hover {
+    color: #ef4444;
+}
+
+.emptyExpenses {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-tertiary);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* Modal System */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal {
+    background: white;
+    width: 100%;
+    max-width: 500px;
+    border-radius: 32px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    padding: 2.5rem;
+    position: relative;
+    animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.alertIcon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin: 0 auto;
+}
+
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.modalHeader h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.closeBtn {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-tertiary);
+    cursor: pointer;
+}
+
+.expenseForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.formGroup label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    background: #f8fafc;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--brand-500);
+}
+
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+/* History Card Styles */
+.historyCard {
+    background: white;
+    padding: 2rem;
+    border-radius: var(--radius-2xl);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    margin-top: 2rem;
+}
+
+.historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    max-height: 800px;
+    overflow-y: auto;
+    padding-right: 1.25rem;
+}
+
+.historyItem {
+    padding: 1.25rem;
+    background: #f8fafc;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.historyItem:hover {
+    border-color: var(--brand-300);
+    background: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.historyDetails {
+    flex: 1;
+}
+
+.historyDate strong {
+    display: block;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.historyDate span {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
+.historyStatus {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.statusBadgeOpen {
+    background: #dcfce7;
+    color: #166534;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.statusBadgeClosed {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.historyAmount {
+    font-weight: 800;
+    color: var(--brand-600);
+    font-size: 1.1rem;
+}
+
+.historyActions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* ROI Progress Bar */
+.roiSection {
+    background: white;
+    padding: 2.5rem;
+    border-radius: var(--radius-2xl);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    width: 100%;
+}
+
+.roiHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.roiBadge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.roiStats {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.progressBarContainer {
+    position: relative;
+    padding: 10px 0;
+}
+
+.progressBarBg {
+    height: 36px;
+    background: #f1f5f9;
+    border-radius: 18px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid #e2e8f0;
+}
+
+.progressBarFill {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 1.5rem;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 800;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.profitMarker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: rgba(255,255,255,0.7);
+    z-index: 5;
+    pointer-events: none;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+
+.roiControls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.roiSelect {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--brand-700);
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.roiSelect:hover {
+    background: white;
+    border-color: var(--brand-300);
+}
+
+.roiSelect:focus {
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.expenseTabs {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.expenseTab {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.expenseTab:hover {
+    color: var(--brand-600);
+}
+
+.expenseTab.active {
+    color: var(--brand-600);
+    border-bottom-color: var(--brand-600);
+}
+
+/* Pagination Styles */
+.paginationHeader {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 0.5rem;
+}
+
+.expenseListContainer {
+    display: flex;
+    flex-direction: column;
+    min-height: 480px;
+    justify-content: space-between;
+}
+
+.paginatedTableArea {
+    flex: 1;
+}
+
+.expenseFooter {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.miniPagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: #f8fafc;
+    padding: 0.5rem;
+    border-radius: 12px;
+}
+
+.miniPageBtn {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+}
+
+.miniPageBtn:hover:not(:disabled) {
+    color: var(--brand-600);
+    border-color: var(--brand-300);
+}
+
+.miniPageBtn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.miniPageInfo {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--text-tertiary);
+}
+
+.pageBtn {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-primary);
+}
+
+.pageBtn:hover:not(:disabled) {
+    background: white;
+    color: var(--brand-600);
+    border-color: var(--brand-300);
+    box-shadow: var(--shadow-sm);
+}
+
+.pageBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: transparent;
+}
+
+.pageInfo {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    min-width: 100px;
+    text-align: center;
+}
+
+/* Salud Financiera Dashboard */
+.healthDashboard {
+    margin-bottom: 2rem;
+    animation: fadeIn 0.5s ease;
+}
+
+.healthGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+}
+
+.healthCard {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--radius-2xl);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.miniCard {
+    background: #fbfdff;
+}
+
+.healthHeader {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.healthIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.healthLabel {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.healthSubLabel {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+/* Thermometer */
+.thermometerContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.thermometerValue {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.thermometerValue span {
+    font-size: 1.75rem;
+    font-weight: 800;
+}
+
+.thermometerValue small {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    font-weight: 600;
+}
+
+.thermometerTrack {
+    height: 12px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.thermometerFill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.thermometerMeta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+/* Cash in Hand */
+.cashInHandValue {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #10b981;
+}
+
+.cashSymbol {
+    font-size: 1.5rem;
+    opacity: 0.5;
+}
+
+.cashBreakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-color);
+}
+
+.breakdownItem {
+    display: flex;
+    flex-direction: column;
+}
+
+.breakdownItem small {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.breakdownItem strong {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.subValue {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #8b5cf6;
+}
+
+/* Mini Metrics Bar */
+.miniMetricsBar {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.miniMetric {
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    flex: 1;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: transform 0.2s ease;
+}
+
+.miniMetric:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.miniMetric small {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+}
+
+.miniMetric strong {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+/* AI Insight Box Pro */
+.aiInsightBox {
+    position: relative;
+    background: #0f172a; /* Slate 900 */
+    border-radius: var(--radius-2xl);
+    padding: 2rem;
+    color: white;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.aiGlow {
+    position: absolute;
+    top: -50%;
+    left: -20%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.aiHeader {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+    position: relative;
+    z-index: 1;
+}
+
+.aiIcon {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #6366f1;
+}
+
+.aiHeader h4 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.aiBadge {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.aiContent {
+    position: relative;
+    z-index: 1;
+}
+
+.aiGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.aiBullet {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1.25rem;
+    border-radius: 15px;
+    transition: transform 0.2s ease;
+}
+
+.aiBullet p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #e2e8f0;
+}
+
+.aiBadgeCFO {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 900;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Outflow Alert Card */
+.outflowCard {
+    background: #fffafa;
+    border-color: #fee2e2;
+}
+
+.outflowChronology {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.outflowItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #fee2e2;
+}
+
+.outflowMeta {
+    display: flex;
+    flex-direction: column;
+}
+
+.outflowTime {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.outflowDesc {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.outflowAmt {
+    color: #ef4444;
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.emptyOutflow {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-align: center;
+    padding: 1rem;
+    font-style: italic;
+}
+
+.moreOutflows {
+    font-size: 0.7rem;
+    color: #ef4444;
+    text-align: right;
+    font-weight: 700;
+    text-transform: uppercase;
 }

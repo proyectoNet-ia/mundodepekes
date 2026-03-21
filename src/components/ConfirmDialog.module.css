@@ -1,0 +1,98 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 27, 72, 0.4);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 1.5rem;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.content {
+    text-align: center;
+}
+
+.title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--brand-700);
+    margin-bottom: 0.75rem;
+}
+
+.message {
+    color: #475569;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-bottom: 2rem;
+}
+
+.actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.confirmBtn {
+    background: var(--brand-500);
+    color: white;
+    padding: 0.85rem 2.5rem;
+    border-radius: 2rem;
+    font-weight: 800;
+    font-size: 1.05rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 140px;
+    box-shadow: 0 4px 12px rgba(2, 69, 122, 0.2);
+}
+
+.confirmBtn:hover {
+    background: var(--brand-600);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(2, 69, 122, 0.3);
+}
+
+.cancelBtn {
+    background: var(--brand-50);
+    color: var(--brand-700);
+    padding: 0.85rem 2.5rem;
+    border-radius: 2rem;
+    font-weight: 700;
+    font-size: 1.05rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 140px;
+}
+
+.cancelBtn:hover {
+    background: var(--brand-100);
+    color: var(--brand-800);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}

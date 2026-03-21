@@ -1,0 +1,390 @@
+
+.recordsContainer {
+    animation: fadeIn 0.5s ease;
+}
+
+.searchHint {
+    font-size: 0.82rem;
+    color: var(--text-tertiary);
+    margin: -1rem 0 1rem;
+    padding: 0 0.25rem;
+}
+
+.detailsCell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.loadingRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    color: var(--text-tertiary);
+    padding: 2rem 0;
+}
+
+.loadingSpinner {
+    width: 22px;
+    height: 22px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--brand-500);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.pageBtn {
+    background: white;
+    border: 1px solid var(--border-color);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-primary);
+}
+
+.pageBtn:hover:not(:disabled) {
+    background: var(--brand-50);
+    color: var(--brand-600);
+    border-color: var(--brand-300);
+}
+
+.pageBtn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.pageInfo {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.header h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: var(--text-primary);
+}
+
+.totalBadge {
+    background: var(--brand-100);
+    color: var(--brand-700);
+    padding: 0.4rem 1rem;
+    border-radius: var(--radius-full);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.clearBtn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    font-size: 1rem;
+}
+
+.actionGroup {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.avatarChild {
+    background: var(--brand-100);
+    color: var(--brand-700);
+}
+
+.avatarTutor {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.blacklisted {
+    color: var(--danger);
+    text-decoration: line-through;
+}
+
+.contextMenu {
+    position: fixed;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+    z-index: 9999;
+    min-width: 180px;
+    overflow: hidden;
+    animation: menuFadeIn 0.15s ease;
+}
+
+@keyframes menuFadeIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 1.25rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    text-align: left;
+    transition: background 0.15s;
+}
+
+.menuItem:hover {
+    background: var(--bg-tertiary);
+    color: var(--brand-600);
+}
+
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.editModal {
+    background: white;
+    width: 100%;
+    max-width: 440px;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    animation: slideUp 0.25s ease;
+}
+
+.editModalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.editModalHeader h3 { margin: 0; }
+
+.editModalBody {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.editInput {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.editInput:focus {
+    outline: none;
+    border-color: var(--brand-500);
+}
+
+.editModalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+}
+
+.searchBar {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.searchInput {
+    flex: 1;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 0.8rem 1.2rem;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.searchInput:focus {
+    outline: none;
+    border-color: var(--brand-500);
+}
+
+.filterTabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    background: var(--bg-secondary);
+    padding: 0.5rem;
+    border-radius: var(--radius-lg);
+    width: fit-content;
+}
+
+.filterBtn {
+    padding: 0.6rem 1.5rem;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    transition: all 0.2s;
+}
+
+.activeFilter {
+    background: white;
+    color: var(--brand-600);
+    box-shadow: var(--shadow-sm);
+}
+
+.tableWrapper {
+    background: white;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    overflow: visible;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.table th {
+    background: var(--bg-tertiary);
+    padding: 1rem 1.5rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table td {
+    padding: 1.2rem 1.5rem;
+    border-top: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.clientName {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--brand-100);
+    color: var(--brand-700);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.primaryText {
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.secondaryText {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+}
+
+.badge {
+    padding: 0.3rem 0.8rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.badgeSuccess { background: #E6FFFA; color: #2C7A7B; }
+.badgeWarning { background: #FFFBEB; color: #B45309; }
+.badgeDanger { background: #FFF5F5; color: #C53030; }
+
+.actionBtn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.actionBtn:hover {
+    background: var(--bg-tertiary);
+    color: var(--brand-600);
+    border-color: var(--brand-300);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.emptyState {
+    padding: 4rem;
+    text-align: center;
+}
+
+.emptyState i {
+    font-size: 4rem;
+    color: var(--border-color);
+    margin-bottom: 1.5rem;
+    display: block;
+}

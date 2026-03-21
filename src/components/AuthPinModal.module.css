@@ -1,0 +1,158 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+
+.modal {
+    background: white;
+    width: 100%;
+    max-width: 380px;
+    border-radius: var(--radius-2xl);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
+    animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bounceIn {
+    from { opacity: 0; transform: scale(0.9) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.header {
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+}
+
+.shieldIcon {
+    font-size: 1.5rem;
+    color: var(--brand-600);
+}
+
+.header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #1e293b;
+    font-weight: 800;
+}
+
+.header p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    position: absolute;
+    right: 1.5rem;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+.body {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.pinDisplay {
+    background: #f1f5f9;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-size: 2rem;
+    letter-spacing: 0.5rem;
+    color: #0f172a;
+    font-family: monospace;
+    width: 200px;
+    text-align: center;
+    border: 2px solid #e2e8f0;
+}
+
+.errorMessage {
+    color: #ef4444;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #fef2f2;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* Numpad Style */
+.numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    width: 260px;
+}
+
+.numpad button {
+    height: 60px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.numpad .numBtn:hover {
+    background: #f1f5f9;
+    color: var(--brand-600);
+    border-color: var(--brand-300);
+}
+
+.confirmBtn {
+    background: var(--brand-50) !important;
+    color: var(--brand-600) !important;
+    border-color: var(--brand-200) !important;
+}
+
+.confirmBtn:hover {
+    background: var(--brand-600) !important;
+    color: white !important;
+}
+
+.clearBtn {
+    background: #fef2f2 !important;
+    color: #ef4444 !important;
+    border-color: #fee2e2 !important;
+}
+
+.footer {
+    padding: 1rem;
+    text-align: center;
+    background: #f8fafc;
+    color: #94a3b8;
+}
+
+.footer small {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}

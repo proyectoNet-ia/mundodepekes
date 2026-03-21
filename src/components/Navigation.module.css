@@ -1,15 +1,14 @@
 .navContainer {
   background: var(--bg-secondary);
-  padding: 1rem 1.5rem;
+  width: 322px;
+  height: 100%;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  padding: 2rem;
   z-index: 100;
-  backdrop-filter: blur(8px);
-  background: rgba(255, 255, 255, 0.8);
+  overflow-y: auto;
+  flex-shrink: 0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -40,34 +39,166 @@
 
 .tabs {
   display: flex;
-  background: var(--bg-tertiary);
-  padding: 0.25rem;
-  border-radius: var(--radius-lg);
-  gap: 0.25rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 2.5rem;
+  width: 100%;
 }
 
 .tab {
-  background: none;
+  background: transparent;
   border: none;
-  padding: 0.5rem 1.25rem;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  color: var(--text-secondary);
+  padding: 1.2rem 1.25rem;
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
+  justify-content: flex-start;
+  gap: 1.2rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-align: left;
+  border: 1px solid transparent;
+  width: 100%;
 }
 
 .tabIcon {
-  font-size: 1.1rem;
+  font-size: 1.5rem;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabTextGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tabTitle {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  transition: inherit;
+}
+
+.tabSubtitle {
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.2;
+}
+
+.tab:hover {
+  background: var(--bg-tertiary);
+}
+
+.tab:hover .tabTitle {
+  color: var(--text-primary);
 }
 
 .tab.active {
-  background: var(--bg-secondary);
+  background: #fff7ed;
+  border-color: #ffedd5;
+  box-shadow: 0 4px 15px rgba(249, 115, 22, 0.05);
+}
+
+.tab.active .tabTitle {
   color: var(--brand-600);
-  box-shadow: var(--shadow-sm);
+}
+
+.tab.active .tabSubtitle {
+  color: var(--brand-400);
+}
+
+.tab.active .tabIcon {
+  opacity: 1;
+}
+
+.logoutBtn {
+    width: 100%;
+    background: #fff1f2;
+    color: #e11d48;
+    border: 2px solid #ffe4e6;
+    padding: 1.1rem 1.25rem;
+    border-radius: var(--radius-xl);
+    font-weight: 800;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 1.05rem;
+}
+
+.logoutBtn:hover {
+    background: #e11d48;
+    color: white;
+    border-color: #e11d48;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(225, 29, 72, 0.15);
+}
+
+.logoutBtn i, .logoutBtn svg {
+    font-size: 1.25rem;
+    opacity: 0.9;
+}
+
+.userPremiumCard {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-xl);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.userPremiumCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+.userAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--brand-500);
+  color: white;
+  border-radius: 12px;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 10px rgba(var(--brand-500-rgb, 59, 130, 246), 0.3);
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.userEmail {
+  font-weight: 800;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.userRoleBadge {
+  align-self: flex-start;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
 }
 
 .userProfile {

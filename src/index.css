@@ -1,42 +1,55 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Brand Colors - Naranja Premium */
-  --brand-50: #fff3e5;
-  --brand-100: #ffe4c6;
-  --brand-200: #ffcd96;
-  --brand-300: #ffb15c;
-  --brand-400: #ff8e22;
-  --brand-500: #fa7203; /* Main Brand */
-  --brand-600: #eb5e00;
-  --brand-700: #c24602;
-  --brand-800: #993709;
-  --brand-900: #7b2f0a;
+  /* Palette #Ocean - Professional Monochrome Blue */
+  --color-stratos: #001B48;
+  --color-regal: #02457A;
+  --color-bondi: #018ABE;
+  --color-morning: #97CADB;
+  --color-botticelli: #D6E8EE;
+
+  /* Brand Colors - Monochrome Blue Scale */
+  --brand-50: var(--color-botticelli);
+  --brand-100: #b9d7e1;
+  --brand-200: var(--color-morning);
+  --brand-300: #69b0ca;
+  --brand-400: var(--color-bondi);
+  --brand-500: var(--color-regal);   /* Main Brand Action */
+  --brand-600: #023863;
+  --brand-700: var(--color-stratos); /* Deep Theme / Text */
+  --brand-800: #00102b;
+  --brand-900: #000817;
   
-  /* UI Colors - Sleek Neutral Light Mode */
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
+  /* UI Colors - Clean Ice Theme */
+  --bg-primary: #f5f9fa;      
+  --bg-secondary: #ffffff; 
+  --bg-tertiary: var(--color-botticelli);
   
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
+  --text-primary: var(--color-stratos);
+  --text-secondary: var(--color-regal);
+  --text-tertiary: var(--color-morning);
   
+  /* Accent Color (Bondi Blue) */
+  --accent: var(--color-bondi);
+  --accent-hover: var(--color-regal);
+
   /* Semantic Colors */
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --info: #3b82f6;
+  --success: #059669;
+  --danger: #be123c;
+  --warning: #ca8a04;
+  --info: var(--color-bondi);
 
   /* Surfaces */
-  --border-color: #e2e8f0;
-  --radius-sm: 0.375rem;
+  --border-color: #cbdce2;
+  --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --radius-2xl: 1.5rem;
+  
+  --shadow-sm: 0 1px 3px rgba(0, 27, 72, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 27, 72, 0.08);
+  --shadow-lg: 0 12px 24px rgba(0, 27, 72, 0.12);
 }
 
 /* Dark Mode Variables */
@@ -156,6 +169,26 @@ button {
   color: white;
 }
 
+/* Global Layout & Containers */
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+}
+
 /* Region viva para accesibilidad */
 .sr-only {
   position: absolute;
@@ -167,4 +200,21 @@ button {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* Global Container */
+.container {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }

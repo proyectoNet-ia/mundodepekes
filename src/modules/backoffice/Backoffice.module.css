@@ -30,7 +30,7 @@
 .navButton {
     background: none;
     border: none;
-    padding: 1rem;
+    padding: 1rem 1.5rem;
     text-align: left;
     border-radius: var(--radius-md);
     font-weight: 600;
@@ -38,7 +38,10 @@
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    justify-content: flex-start;
+    gap: 1rem;
+    width: 100%;
+    cursor: pointer;
 }
 
 .navButton:hover {
@@ -159,6 +162,17 @@
     gap: 1.5rem;
 }
 
+.scheduleGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+.stepDescription {
+    margin-bottom: 1.5rem;
+    color: var(--text-secondary);
+}
+
 .uploadBox {
     border: 2px dashed var(--border-color);
     padding: 2rem;
@@ -167,37 +181,73 @@
     color: var(--text-tertiary);
 }
 
+.visualPreview {
+    background: var(--bg-tertiary);
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.visualPreview h4 {
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
 .braceletPreview {
-    background: #eee;
-    height: 60px;
-    width: 250px;
-    border-radius: 30px;
-    border: 1px solid #ccc;
+    background: white;
+    height: 80px;
+    width: 320px;
+    border-radius: 40px;
+    border: 2px solid #ccc;
     display: flex;
     align-items: center;
-    padding: 0 1rem;
+    justify-content: space-between;
+    padding: 0 1.5rem;
     position: relative;
-    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
 .previewContent {
     display: flex;
     flex-direction: column;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
+    line-height: 1.1;
+    color: #333;
 }
 
-.previewContent strong { font-size: 0.8rem; }
+.previewContent strong {
+    font-size: 0.8rem;
+    color: var(--brand-600);
+}
 
-.saveButton {
-    margin-top: 2rem;
-    background: var(--brand-600);
+.barcodePlaceholder {
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 2px;
+    font-size: 0.9rem;
+    transform: rotate(90deg);
+    color: #666;
+}
+
+.logoCircle {
+    width: 60px;
+    height: 60px;
+    background: var(--brand-500);
     color: white;
-    border: none;
-    padding: 1rem 2rem;
-    border-radius: var(--radius-md);
-    font-weight: 700;
-    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin: 0 auto 1rem;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.uploadBox:hover {
+    border-color: var(--brand-500);
+    color: var(--brand-600);
+    cursor: pointer;
 }
 
 @keyframes fadeIn {
@@ -207,4 +257,115 @@
 
 @media (max-width: 800px) {
     .layout { grid-template-columns: 1fr; }
+}
+
+/* Staff Management Styles */
+.sectionHeader {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.roleBadge {
+    padding: 0.35rem 0.75rem;
+    border-radius: 30px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    display: inline-block;
+    letter-spacing: 0.05em;
+}
+
+.admin { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.gerente { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+.analista { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.cajero { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+.pinActive {
+    color: #16a34a;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.pinMissing {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 400;
+    font-style: italic;
+}
+
+/* Modal Styles */
+.modalOverlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    width: 90%;
+    max-width: 500px;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    animation: slideUp 0.3s ease-out forwards;
+}
+
+.modalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 1.5rem 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+.modalHeader h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--brand-700);
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 0.25rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+}
+
+.closeBtn:hover {
+    color: var(--danger);
+    background: var(--bg-tertiary);
+}
+
+.modalForm {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
