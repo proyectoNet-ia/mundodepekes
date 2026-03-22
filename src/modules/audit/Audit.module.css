@@ -251,3 +251,81 @@
         grid-template-columns: 1fr;
     }
 }
+
+@media (max-width: 768px) {
+    .auditContainer {
+        padding: 1rem;
+    }
+    /* Header: icono + título en fila, badge debajo */
+    .auditHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .titleArea {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .shieldIcon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+        margin-bottom: 0;
+        flex-shrink: 0;
+    }
+    .titleArea h1 {
+        font-size: 1.3rem;
+        line-height: 1.3;
+    }
+    .titleArea p {
+        font-size: 0.8rem;
+    }
+    .riskBadge {
+        padding: 0.4rem 1rem;
+        font-size: 0.75rem;
+    }
+    /* Pilares: 1 columna */
+    .pillarsGrid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .pillarCard {
+        padding: 1.25rem;
+        gap: 0.75rem;
+    }
+    .pillarHeader h3 {
+        font-size: 1rem;
+    }
+    /* Tabla de auditoría: card mode */
+    .auditTableSection {
+        padding: 1.25rem;
+        margin-top: 1.5rem;
+    }
+    .tableWrapper {
+        overflow-x: visible;
+    }
+    .auditTable, .auditTable tbody,
+    .auditTable tr, .auditTable td {
+        display: block;
+        width: 100%;
+    }
+    .auditTable thead {
+        display: none;
+    }
+    .auditTable tr {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #e2e8f0;
+    }
+    .auditTable td {
+        padding: 0.25rem 0;
+        font-size: 0.85rem;
+        border-bottom: none;
+    }
+}
