@@ -313,3 +313,37 @@
     from { transform: scale(0.95); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
 }
+
+@media (max-width: 768px) {
+    .posContainer {
+        grid-template-columns: 1fr;
+        max-height: none;
+        height: auto;
+        overflow: visible;
+        padding: 0;
+        gap: 1rem;
+    }
+    
+    .productsSection {
+        max-height: 50vh;
+        padding: 1rem;
+    }
+    
+    .cartSection {
+        min-height: 350px;
+    }
+    
+    .searchBar {
+        width: 100%;
+    }
+    
+    .posHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .productGrid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}

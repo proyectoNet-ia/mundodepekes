@@ -133,6 +133,12 @@
 }
 
 @media (max-width: 800px) {
+    .bar { padding: 0.4rem 0.5rem; }
     .syncBadge span { display: none; }
-    .syncBadge { padding: 0.2rem 0.4rem; }
+    .syncBadge { padding: 0.4rem 0.6rem; border-radius: 50%; }
+    .separator, .hardware { display: none; }
+    .networkStatus span { display: none; }
+    .networkStatus { padding: 0.4rem; border-radius: 50%; gap: 0; }
+    .indicator { font-size: 0.65rem; }
+    .syncGroup { gap: 0.5rem; }
 }
