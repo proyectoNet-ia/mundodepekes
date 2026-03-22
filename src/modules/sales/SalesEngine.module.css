@@ -1120,7 +1120,22 @@
         grid-template-columns: 1fr;
     }
     .paymentSummary {
-        padding: 1.5rem 1rem;
+        padding: 1.25rem 1rem;
+    }
+    .summaryRow {
+        font-size: 0.95rem;
+        gap: 0.5rem;
+        align-items: flex-start;
+    }
+    .summaryRow span:first-child {
+        flex: 1;
+        padding-right: 0.5rem;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+    .totalRow {
+        font-size: 1.25rem !important;
+        align-items: center;
     }
     .paymentInputBg {
         padding: 1.5rem 1rem;
