@@ -244,16 +244,20 @@
 .historyList {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
 }
 
 .historyItem {
     display: flex;
-    gap: 1rem;
-    padding: 1rem;
+    gap: 0.75rem;
+    padding: 0.75rem;
     background: white;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .historyIcon {
@@ -277,17 +281,25 @@
 
 .historyData strong { 
     font-size: 0.85rem; 
-    color: #0f172a; /* Azul casi negro */
+    color: #0f172a;
     font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
 }
 .historyData span { 
-    font-size: 0.75rem; 
-    color: #475569; /* Gris oscuro elegante */
+    font-size: 0.72rem; 
+    color: #475569;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
 }
 .historyData small { 
-    font-size: 0.7rem; 
-    color: #64748b; /* Gris medio legible */
-    margin-top: 0.25rem; 
+    font-size: 0.68rem; 
+    color: #64748b;
+    margin-top: 0.15rem; 
 }
 
 @media (max-width: 1024px) {

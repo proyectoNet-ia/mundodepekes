@@ -195,18 +195,23 @@ export const Stock: React.FC = () => {
                 <aside className={styles.historySidebar}>
                     <h3>Movimientos Recientes</h3>
                     <div className={styles.historyList}>
-                        {movements.map(move => (
-                            <div key={move.id} className={styles.historyItem}>
-                                <div className={`${styles.historyIcon} ${move.tipo === 'entrada' ? styles.in : styles.out}`}>
-                                    <FontAwesomeIcon icon={move.tipo === 'entrada' ? faArrowUp : faArrowDown} />
+                        {movements.slice(0, 20).map(move => {
+                            // Si el motivo contiene un UUID, mostrarlo más legible
+                            const cleanMotivo = (move.motivo || '').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '...');
+                            const shortDate = new Date(move.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                            return (
+                                <div key={move.id} className={styles.historyItem}>
+                                    <div className={`${styles.historyIcon} ${move.tipo === 'entrada' ? styles.in : styles.out}`}>
+                                        <FontAwesomeIcon icon={move.tipo === 'entrada' ? faArrowUp : faArrowDown} />
+                                    </div>
+                                    <div className={styles.historyData}>
+                                        <strong>{move.tipo === 'entrada' ? '+' : '-'}{move.cantidad} {move.inventario?.nombre}</strong>
+                                        <span>{cleanMotivo}</span>
+                                        <small>{shortDate}</small>
+                                    </div>
                                 </div>
-                                <div className={styles.historyData}>
-                                    <strong>{move.tipo === 'entrada' ? '+' : '-'}{move.cantidad} {move.inventario?.nombre}</strong>
-                                    <span>{move.motivo}</span>
-                                    <small>{new Date(move.created_at).toLocaleString()}</small>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </aside>
             </div>
