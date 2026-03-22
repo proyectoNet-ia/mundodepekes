@@ -1283,9 +1283,17 @@
         gap: 1rem;
     }
     .headerActions {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.75rem;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .headerActions .exportBtn {
+        flex: 1;
+        justify-content: center;
+        padding: 0.6rem 0.75rem;
+        font-size: 0.8rem;
+        width: auto;
     }
     .rangeSelector {
         width: 100%;
@@ -1427,10 +1435,48 @@
     }
     .historyList {
         padding-right: 0;
+        max-height: none;
     }
     .historyActions {
-        flex-direction: column;
+        flex-direction: row;
         gap: 0.4rem;
+    }
+    /* Historial de Turnos — card mode para la tabla */
+    .historyCard .expenseTable,
+    .historyCard .expenseTable tbody,
+    .historyCard .expenseTable tr,
+    .historyCard .expenseTable td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .historyCard .expenseTable thead {
+        display: none;
+    }
+    .historyCard .expenseTable tr {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        margin-bottom: 0.75rem;
+        padding: 0.75rem 1rem;
+    }
+    .historyCard .expenseTable td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.3rem 0;
+        font-size: 0.85rem;
+        border-bottom: 1px dashed #f1f5f9;
+    }
+    .historyCard .expenseTable td:last-child {
+        border-bottom: none;
+    }
+    .historyCard .expenseTable td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
     }
 
     /* Export Buttons */

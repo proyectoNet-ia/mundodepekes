@@ -468,9 +468,9 @@ export const Analytics: React.FC = () => {
                   </div>
               )}
           </div>
-          <div className={styles.historyList} style={{ overflowX: 'auto' }}>
+          <div className={styles.historyList}>
               {data.auditHistory.length > 0 ? (
-                  <table className={styles.expenseTable} style={{ minWidth: '800px' }}>
+                  <table className={styles.expenseTable}>
                       <thead>
                           <tr>
                               <th>Fecha / Hora</th>
@@ -479,7 +479,7 @@ export const Analytics: React.FC = () => {
                               <th>Esperado</th>
                               <th>Real</th>
                               <th>Precisión</th>
-                              <th>Acciones</th>
+                              <th>PDF</th>
                           </tr>
                       </thead>
                       <tbody>
@@ -489,12 +489,12 @@ export const Analytics: React.FC = () => {
                               const visibleHistory = sortedHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE_HISTORY);
                               return visibleHistory.map(session => (
                                   <tr key={session.id}>
-                                      <td><strong>{session.date}</strong><div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{session.time}</div></td>
-                                      <td>${session.ventas.toLocaleString('es-MX')}</td>
-                                      <td style={{ color: '#ef4444' }}>-${session.gastos.toLocaleString('es-MX')}</td>
-                                      <td>${session.esperado.toLocaleString('es-MX')}</td>
-                                      <td style={{ fontWeight: 700 }}>${session.real.toLocaleString('es-MX')}</td>
-                                      <td>
+                                      <td data-label="Fecha"><strong>{session.date}</strong><div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{session.time}</div></td>
+                                      <td data-label="Ventas Efe.">${session.ventas.toLocaleString('es-MX')}</td>
+                                      <td data-label="Gastos" style={{ color: '#ef4444' }}>-${session.gastos.toLocaleString('es-MX')}</td>
+                                      <td data-label="Esperado">${session.esperado.toLocaleString('es-MX')}</td>
+                                      <td data-label="Real" style={{ fontWeight: 700 }}>${session.real.toLocaleString('es-MX')}</td>
+                                      <td data-label="Precisión">
                                           <span style={{ 
                                               fontWeight: 800,
                                               color: Math.abs(session.diff) <= 10 ? '#94a3b8' : (session.diff < 0 ? '#ef4444' : '#10b981'),
@@ -504,7 +504,7 @@ export const Analytics: React.FC = () => {
                                               {session.diff === 0 ? 'Exacto' : (session.diff > 0 ? `+$${session.diff}` : `-$${Math.abs(session.diff)}`)}
                                           </span>
                                       </td>
-                                      <td>
+                                      <td data-label="PDF">
                                           <div className={styles.historyActions}>
                                               <button className={styles.exportBtn} onClick={() => ReportService.generateClosureReport(session, {efectivo: session.ventas, tarjeta: 0}, 'PDF')}><FontAwesomeIcon icon={faFilePdf} /></button>
                                           </div>
