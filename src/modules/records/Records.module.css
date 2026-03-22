@@ -388,3 +388,91 @@
     margin-bottom: 1.5rem;
     display: block;
 }
+
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .header h2 {
+        font-size: 1.5rem;
+    }
+    .searchBar {
+        flex-direction: column;
+        padding: 1rem;
+    }
+    .filterTabs {
+        width: 100%;
+        overflow-x: auto;
+    }
+    .filterBtn {
+        flex: 1;
+        text-align: center;
+        padding: 0.6rem 0.5rem;
+    }
+    
+    .tableWrapper {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+    
+    .table, .table tbody, .table tr, .table td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .table thead {
+        display: none;
+    }
+    
+    .table tr {
+        background: white;
+        margin-bottom: 1.5rem;
+        border-radius: var(--radius-lg);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid var(--border-color);
+        padding: 0.5rem 1rem;
+    }
+    
+    .table td {
+        text-align: right;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .table td:last-child {
+        border-bottom: none;
+    }
+    
+    .table td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        color: var(--text-tertiary);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        flex-shrink: 0;
+    }
+    
+    .clientName {
+        text-align: right;
+        justify-content: flex-end;
+    }
+    
+    .actionGroup {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .detailsCell {
+        white-space: normal;
+        text-align: right;
+        max-width: none;
+    }
+}

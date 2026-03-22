@@ -240,7 +240,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                             </tr>
                         ) : data.length > 0 ? data.map(item => (
                             <tr key={item.id}>
-                                <td>
+                                <td data-label="Nombre">
                                     <div className={styles.clientName}>
                                         <div className={`${styles.avatar} ${item.type === 'child' ? styles.avatarChild : styles.avatarTutor}`}>
                                             <FontAwesomeIcon icon={item.type === 'child' ? faChild : faUser} />
@@ -251,15 +251,15 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                         </div>
                                     </div>
                                 </td>
-                                <td>
+                                <td data-label="Tipo">
                                     <span className={`${styles.badge} ${item.type === 'child' ? styles.badgeSuccess : styles.badgeWarning}`}>
                                         {item.type === 'child' ? 'NIÑO' : 'TUTOR'}
                                     </span>
                                     {item.isBlacklisted && <span className={`${styles.badge} ${styles.badgeDanger}`} style={{ marginLeft: '0.4rem' }}>⛔</span>}
                                 </td>
-                                <td>{item.subtext}</td>
-                                <td className={styles.detailsCell}>{item.details}</td>
-                                <td>
+                                <td data-label="Contacto">{item.subtext}</td>
+                                <td data-label="Detalles" className={styles.detailsCell}>{item.details}</td>
+                                <td data-label="Acciones">
                                     <div className={styles.actionGroup} ref={menuOpenId === item.id ? menuRef : null}>
                                         {item.type === 'child' && (
                                             <button
