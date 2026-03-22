@@ -1294,47 +1294,79 @@
     .rangeSelector button {
         flex: 1;
         text-align: center;
-        padding: 0.4rem 0.4rem;
+        padding: 0.4rem 0.25rem;
+        font-size: 0.75rem;
     }
     .header h2 {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
     }
 
-    /* Health Dashboard — colapsar a 2 columnas */
+    /* Health Dashboard — 1 sola columna */
     .healthGrid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 0.75rem;
     }
     .healthCard {
-        padding: 1rem;
+        padding: 1rem 1.25rem;
+        gap: 0.5rem;
+    }
+    .healthHeader {
         gap: 0.75rem;
     }
     .healthIcon {
         width: 36px;
         height: 36px;
         font-size: 1rem;
+        flex-shrink: 0;
     }
     .healthLabel {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
+    }
+    .healthSubLabel {
+        font-size: 0.7rem;
     }
     .thermometerValue span {
         font-size: 1.4rem;
     }
+    .thermometerMeta {
+        font-size: 0.7rem;
+    }
     .cashInHandValue {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
     }
     .cashBreakdown {
         grid-template-columns: 1fr 1fr;
         gap: 0.5rem;
+        padding-top: 0.75rem;
+    }
+    .breakdownItem strong {
+        font-size: 0.85rem;
+    }
+    .subValue {
+        font-size: 1.2rem;
+    }
+
+    /* Outflow card */
+    .outflowItem {
+        flex-direction: row;
+        gap: 0.5rem;
+    }
+    .outflowDesc {
+        max-width: 130px;
+        font-size: 0.78rem;
+    }
+    .outflowAmt {
+        font-size: 0.8rem;
+        flex-shrink: 0;
     }
 
     /* Metrics Grid — 1 columna */
     .metricsGrid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 0.75rem;
     }
     .metricCard {
-        padding: 1.25rem;
+        padding: 1rem 1.25rem;
     }
     .metricValue {
         font-size: 1.75rem;
@@ -1343,10 +1375,10 @@
     /* Mini Metrics */
     .miniMetricsBar {
         gap: 0.75rem;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
     }
     .miniMetric {
-        min-width: 140px;
+        min-width: 130px;
         padding: 0.75rem 1rem;
     }
 
@@ -1359,7 +1391,7 @@
         padding: 1.25rem;
     }
     .chartHeader {
-        margin-bottom: 1.25rem;
+        margin-bottom: 1rem;
     }
     .distributionRow {
         grid-template-columns: 1fr;
@@ -1371,14 +1403,22 @@
 
     /* AI Box */
     .aiInsightBox {
-        padding: 1.5rem;
+        padding: 1.25rem;
     }
     .aiGrid {
         grid-template-columns: 1fr;
         gap: 1rem;
     }
+    .aiHeader {
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
     .aiHeader h4 {
-        font-size: 1.1rem;
+        font-size: 1rem;
+    }
+    .aiIcon {
+        width: 40px;
+        height: 40px;
     }
 
     /* History Card */
@@ -1407,11 +1447,16 @@
     .roiHeader {
         flex-direction: column;
         align-items: flex-start;
+        gap: 0.75rem;
     }
     .roiStats {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.25rem;
+        font-size: 0.85rem;
+    }
+    .progressBarBg {
+        height: 28px;
     }
 
     /* Expense table — card mode */
@@ -1419,16 +1464,17 @@
     .expenseTable tr, .expenseTable td {
         display: block;
         width: 100%;
+        box-sizing: border-box;
     }
     .expenseTable thead {
         display: none;
     }
     .expenseTable tr {
         border-bottom: 1px solid #f1f5f9;
-        padding: 0.75rem 0;
+        padding: 0.6rem 0;
     }
     .expenseTable td {
-        padding: 0.2rem 0;
+        padding: 0.15rem 0;
         font-size: 0.85rem;
     }
 }
