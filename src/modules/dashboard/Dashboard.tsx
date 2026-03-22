@@ -58,13 +58,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
   const [expiredSessions, setExpiredSessions] = useState<ActiveSession[]>([]);
   const [dismissedExpired, setDismissedExpired] = useState<Set<string>>(new Set());
 
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const refreshData = async () => {
-    const [active, settings] = await Promise.all([
-      getActiveSessions(),
-      getSystemSettings()
-    ]);
-    setSessions(active);
-    setLimits(settings);
+    setIsRefreshing(true);
+    try {
+      const [active, settings] = await Promise.all([
+        getActiveSessions(),
+        getSystemSettings()
+      ]);
+      setSessions(active);
+      setLimits(settings);
+      setLastRefreshed(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -75,17 +84,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
 
     refreshData();
     
+    // Realtime subscription (inmediato cuando hay cambios en DB)
     const subscription = subscribeToSessions(() => {
       refreshData();
     });
 
-    const timer = setInterval(() => {
+    // Reloj: actualiza cada 30s para que las barras de progreso sean más precisas
+    const clockTimer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000);
+    }, 30000);
+
+    // Polling de respaldo: recarga datos desde Supabase cada 45s
+    // Cubre casos donde Realtime falla o se desconecta
+    const pollTimer = setInterval(() => {
+      refreshData();
+    }, 45000);
 
     return () => {
       subscription.unsubscribe();
-      clearInterval(timer);
+      clearInterval(clockTimer);
+      clearInterval(pollTimer);
     };
   }, []);
 
@@ -198,6 +216,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             )}
+          </div>
+          {/* Indicador de actualización en tiempo real */}
+          <div className={styles.liveIndicator} title={`Actualizado: ${lastRefreshed.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}>
+            <span className={`${styles.liveDot} ${isRefreshing ? styles.liveDotRefreshing : ''}`} />
+            <span className={styles.liveText}>{isRefreshing ? 'Actualizando…' : 'En Vivo'}</span>
           </div>
         </div>
 
