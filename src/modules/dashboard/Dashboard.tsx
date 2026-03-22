@@ -169,6 +169,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
 
   const activeExpiredToasts = expiredSessions.filter(s => !dismissedExpired.has(s.id));
 
+  // Estado para la pestaña activa de estadísticas en móvil
+  const [activeStatTab, setActiveStatTab] = useState<'totales' | 'pekes' | 'trampolin'>('totales');
+
   return (
     <div className={styles.dashboardContainer}>
 
@@ -198,60 +201,83 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
           </div>
         </div>
 
-        <div className={styles.statsOverview}>
-          <div className={styles.statCard}>
-            <span className={styles.statLabel}>
-              <FontAwesomeIcon icon={faUsers} className={styles.iconMargin} /> Total en Recinto
-            </span>
-            <span className={styles.statValue}>{sessions.length}</span>
-            <p style={{fontSize: '0.75rem', color: 'var(--text-tertiary)'}}>Niños activos actualmente</p>
-          </div>
-
-          <div className={`${styles.statCard} ${getCapacityStatus(countMundo, limits.mundo_pekes)}`}>
-            <span className={styles.statLabel}>
-              <FontAwesomeIcon icon={faChildReaching} className={styles.iconMargin} /> Mundo de Pekes
-            </span>
-            <span className={styles.statValue}>{countMundo}</span>
-            <div className={styles.capacityIndicator}>
-                <div className={styles.capacityText}>
-                    <span>Ocupación</span>
-                    <span>{Math.round((countMundo / limits.mundo_pekes) * 100)}%</span>
-                </div>
-                <div className={styles.capacityBarBg}>
-                    <div 
-                        className={styles.capacityBarFill} 
-                        style={{ 
-                            width: `${(countMundo / limits.mundo_pekes) * 100}%`,
-                            backgroundColor: countMundo >= limits.mundo_pekes ? 'var(--danger)' : 'var(--brand-500)'
-                        }} 
-                    />
-                </div>
-                <small style={{fontSize: '0.65rem'}}>Límite: {limits.mundo_pekes} niños</small>
+        <div className={styles.statsTabContainer}>
+            <div className={styles.statsTabs}>
+                <button 
+                    className={`${styles.statsTabBtn} ${activeStatTab === 'totales' ? styles.statsTabBtnActive : ''}`} 
+                    onClick={() => setActiveStatTab('totales')}
+                >
+                    <FontAwesomeIcon icon={faUsers} /> Totales
+                </button>
+                <button 
+                    className={`${styles.statsTabBtn} ${activeStatTab === 'pekes' ? styles.statsTabBtnActive : ''}`} 
+                    onClick={() => setActiveStatTab('pekes')}
+                >
+                    <FontAwesomeIcon icon={faChildReaching} /> Mundo de Pekes
+                </button>
+                <button 
+                    className={`${styles.statsTabBtn} ${activeStatTab === 'trampolin' ? styles.statsTabBtnActive : ''}`} 
+                    onClick={() => setActiveStatTab('trampolin')}
+                >
+                    <FontAwesomeIcon icon={faTableTennisPaddleBall} /> Trampolin
+                </button>
             </div>
-          </div>
+            
+            <div className={styles.statsOverview}>
+                <div className={`${styles.statCard} ${activeStatTab === 'totales' ? styles.activeStatCard : styles.hiddenStatCard}`}>
+                    <span className={styles.statLabel}>
+                    <FontAwesomeIcon icon={faUsers} className={styles.iconMargin} /> Total en Recinto
+                    </span>
+                    <span className={styles.statValue}>{sessions.length}</span>
+                    <p style={{fontSize: '0.75rem', color: 'var(--text-tertiary)'}}>Niños activos actualmente</p>
+                </div>
 
-          <div className={`${styles.statCard} ${getCapacityStatus(countTrampolin, limits.trampolin)}`}>
-            <span className={styles.statLabel}>
-              <FontAwesomeIcon icon={faTableTennisPaddleBall} className={styles.iconMargin} /> Trampolin Park
-            </span>
-            <span className={styles.statValue}>{countTrampolin}</span>
-            <div className={styles.capacityIndicator}>
-                <div className={styles.capacityText}>
-                    <span>Ocupación</span>
-                    <span>{Math.round((countTrampolin / limits.trampolin) * 100)}%</span>
+                <div className={`${styles.statCard} ${getCapacityStatus(countMundo, limits.mundo_pekes)} ${activeStatTab === 'pekes' ? styles.activeStatCard : styles.hiddenStatCard}`}>
+                    <span className={styles.statLabel}>
+                    <FontAwesomeIcon icon={faChildReaching} className={styles.iconMargin} /> Mundo de Pekes
+                    </span>
+                    <span className={styles.statValue}>{countMundo}</span>
+                    <div className={styles.capacityIndicator}>
+                        <div className={styles.capacityText}>
+                            <span>Ocupación</span>
+                            <span>{Math.round((countMundo / limits.mundo_pekes) * 100)}%</span>
+                        </div>
+                        <div className={styles.capacityBarBg}>
+                            <div 
+                                className={styles.capacityBarFill} 
+                                style={{ 
+                                    width: `${(countMundo / limits.mundo_pekes) * 100}%`,
+                                    backgroundColor: countMundo >= limits.mundo_pekes ? 'var(--danger)' : 'var(--brand-500)'
+                                }} 
+                            />
+                        </div>
+                        <small style={{fontSize: '0.65rem'}}>Límite: {limits.mundo_pekes} niños</small>
+                    </div>
                 </div>
-                <div className={styles.capacityBarBg}>
-                    <div 
-                        className={styles.capacityBarFill} 
-                        style={{ 
-                            width: `${(countTrampolin / limits.trampolin) * 100}%`,
-                            backgroundColor: countTrampolin >= limits.trampolin ? 'var(--danger)' : '#a855f7'
-                        }} 
-                    />
+
+                <div className={`${styles.statCard} ${getCapacityStatus(countTrampolin, limits.trampolin)} ${activeStatTab === 'trampolin' ? styles.activeStatCard : styles.hiddenStatCard}`}>
+                    <span className={styles.statLabel}>
+                    <FontAwesomeIcon icon={faTableTennisPaddleBall} className={styles.iconMargin} /> Trampolin Park
+                    </span>
+                    <span className={styles.statValue}>{countTrampolin}</span>
+                    <div className={styles.capacityIndicator}>
+                        <div className={styles.capacityText}>
+                            <span>Ocupación</span>
+                            <span>{Math.round((countTrampolin / limits.trampolin) * 100)}%</span>
+                        </div>
+                        <div className={styles.capacityBarBg}>
+                            <div 
+                                className={styles.capacityBarFill} 
+                                style={{ 
+                                    width: `${(countTrampolin / limits.trampolin) * 100}%`,
+                                    backgroundColor: countTrampolin >= limits.trampolin ? 'var(--danger)' : '#a855f7'
+                                }} 
+                            />
+                        </div>
+                        <small style={{fontSize: '0.65rem'}}>Límite: {limits.trampolin} niños</small>
+                    </div>
                 </div>
-                <small style={{fontSize: '0.65rem'}}>Límite: {limits.trampolin} niños</small>
             </div>
-          </div>
         </div>
       </header>
 
