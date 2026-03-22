@@ -1271,3 +1271,164 @@
     font-weight: 700;
     text-transform: uppercase;
 }
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+        gap: 1.5rem;
+    }
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .headerActions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+    .rangeSelector {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .rangeSelector button {
+        flex: 1;
+        text-align: center;
+        padding: 0.4rem 0.4rem;
+    }
+    .header h2 {
+        font-size: 1.5rem;
+    }
+
+    /* Health Dashboard — colapsar a 2 columnas */
+    .healthGrid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+    .healthCard {
+        padding: 1rem;
+        gap: 0.75rem;
+    }
+    .healthIcon {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+    .healthLabel {
+        font-size: 0.8rem;
+    }
+    .thermometerValue span {
+        font-size: 1.4rem;
+    }
+    .cashInHandValue {
+        font-size: 1.5rem;
+    }
+    .cashBreakdown {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+
+    /* Metrics Grid — 1 columna */
+    .metricsGrid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+    .metricCard {
+        padding: 1.25rem;
+    }
+    .metricValue {
+        font-size: 1.75rem;
+    }
+
+    /* Mini Metrics */
+    .miniMetricsBar {
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .miniMetric {
+        min-width: 140px;
+        padding: 0.75rem 1rem;
+    }
+
+    /* Charts — 1 columna */
+    .chartsGrid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+    .chartCard {
+        padding: 1.25rem;
+    }
+    .chartHeader {
+        margin-bottom: 1.25rem;
+    }
+    .distributionRow {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+    .distCard {
+        padding: 1.25rem;
+    }
+
+    /* AI Box */
+    .aiInsightBox {
+        padding: 1.5rem;
+    }
+    .aiGrid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    .aiHeader h4 {
+        font-size: 1.1rem;
+    }
+
+    /* History Card */
+    .historyCard {
+        padding: 1.25rem;
+    }
+    .historyList {
+        padding-right: 0;
+    }
+    .historyActions {
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    /* Export Buttons */
+    .exportBtn {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem;
+    }
+
+    /* ROI Section */
+    .roiSection {
+        padding: 1.25rem;
+    }
+    .roiHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .roiStats {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+
+    /* Expense table — card mode */
+    .expenseTable, .expenseTable tbody,
+    .expenseTable tr, .expenseTable td {
+        display: block;
+        width: 100%;
+    }
+    .expenseTable thead {
+        display: none;
+    }
+    .expenseTable tr {
+        border-bottom: 1px solid #f1f5f9;
+        padding: 0.75rem 0;
+    }
+    .expenseTable td {
+        padding: 0.2rem 0;
+        font-size: 0.85rem;
+    }
+}
