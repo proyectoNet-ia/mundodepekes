@@ -484,7 +484,9 @@
 
     /* Tabla en card-mode */
     .tableWrapper {
-        border-radius: var(--radius-lg);
+        background: transparent;
+        border: none;
+        box-shadow: none;
         overflow: visible;
     }
     .table, .table tbody,
@@ -493,25 +495,33 @@
         width: 100%;
         box-sizing: border-box;
     }
+    .table {
+        background: transparent;
+    }
     .table thead {
         display: none;
     }
     .table tr {
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        margin-bottom: 0.75rem;
-        padding: 0.75rem 1rem;
         background: white;
-        box-shadow: none;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        margin-bottom: 1rem;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .lowStockRow {
+        border-color: #fecaca !important;
+        background: #fffafa !important;
     }
     .table td {
-        padding: 0.35rem 0;
-        font-size: 0.85rem;
-        box-shadow: none;
-        border-bottom: 1px dashed #f1f5f9;
+        padding: 0.4rem 0;
+        font-size: 0.9rem;
+        box-shadow: none !important;
+        border-bottom: 1px solid #f8fafc;
     }
     .table td:last-child {
         border-bottom: none;
+        padding-bottom: 0;
     }
     .table td::before {
         content: attr(data-label);
@@ -520,7 +530,17 @@
         font-weight: 800;
         color: #94a3b8;
         text-transform: uppercase;
-        margin-bottom: 0.15rem;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.2rem;
+    }
+    /* Celda de producto: icono + nombre en fila */
+    .productCellWrapper {
+        gap: 0.75rem;
+    }
+    .productIcon {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
     }
 
     /* Modal */
