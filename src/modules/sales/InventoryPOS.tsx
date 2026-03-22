@@ -205,9 +205,13 @@ export const InventoryPOS: React.FC = () => {
                             className={styles.productCard}
                             onClick={() => addToCart(product)}
                         >
-                            <h4>{product.nombre}</h4>
-                            <span className={styles.productPrice}>${product.precio_venta}.00</span>
-                            <span className={styles.productStock}>{product.cantidad} en stock</span>
+                            <div className={styles.productInfo}>
+                                <h4>{product.nombre}</h4>
+                                <span className={styles.productStock}>{product.cantidad} en stock</span>
+                            </div>
+                            <div className={styles.priceTag}>
+                                <span className={styles.productPrice}>${product.precio_venta}.00</span>
+                            </div>
                         </div>
                     ))}
                     {filteredProducts.length === 0 && !isLoading && (
