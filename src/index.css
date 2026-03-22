@@ -198,10 +198,11 @@ button {
 
 @media (max-width: 768px) {
   .main-layout {
-    flex-direction: column-reverse;
+    flex-direction: column;
+    padding-top: 54px; /* altura del mobileTopBar */
   }
   .main-content {
-    padding: 1.5rem 1rem 1rem 1rem;
+    padding: 1rem;
   }
   .container {
     padding: 0 1rem;

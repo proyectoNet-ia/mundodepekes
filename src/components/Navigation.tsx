@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styles from './Navigation.module.css';
 import { authService, type UserRole, type UserProfile } from '../lib/authService';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -15,7 +15,9 @@ import {
   faGamepad,
   faMoneyBillWave,
   faShieldAlt,
-  faUserCircle
+  faUserCircle,
+  faBars,
+  faTimes
 } from '@fortawesome/free-solid-svg-icons';
 
 interface NavigationProps {
@@ -25,8 +27,21 @@ interface NavigationProps {
   user?: UserProfile;
 }
 
+const TAB_LABELS: Record<string, string> = {
+  dashboard: 'Monitoreo',
+  ingresos: 'Ingresos',
+  pos: 'Tienda / POS',
+  records: 'Registros',
+  treasury: 'Caja / Ventas',
+  analytics: 'Analíticas',
+  audit: 'Auditoría',
+  stock: 'Inventarios',
+  config: 'Ajustes',
+};
+
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, userRole, user }) => {
-    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [drawerOpen, setDrawerOpen] = useState(false);
 
     const handleLogout = async () => {
         await authService.signOut();
@@ -37,31 +52,25 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         if (userRole === 'admin') return true;
         switch (userRole) {
             case 'cajero':
-                // Cajero: POS, Taquilla, Radar (Sin CRM ni cajas fuertes)
                 return ['dashboard', 'ingresos', 'pos'].includes(tab);
             case 'gerente':
-                // Gerente: Todo excepto Backoffice, Auditoría y Analítica
                 return ['dashboard', 'ingresos', 'records', 'treasury', 'stock', 'pos'].includes(tab);
             case 'analista':
-                // Analista: Sólo reportes, auditoría y lectura de tesorería/clientes
                 return ['analytics', 'audit', 'records', 'treasury'].includes(tab);
             default:
                 return ['dashboard'].includes(tab);
         }
     };
 
-    return (
-    <nav className={styles.navContainer}>
-        <div className={styles.logo}>
-          <span className={styles.logoIcon}>
-            <FontAwesomeIcon icon={faGamepad} />
-          </span>
-          <span className={styles.logoText}>PekePark <span className={styles.adminText}>Admin</span></span>
-        </div>
-        
-        <div className={styles.tabs}>
+    const handleTabSelect = (tab: Parameters<typeof setActiveTab>[0]) => {
+        setActiveTab(tab);
+        setDrawerOpen(false);
+    };
+
+    const navItems = (
+        <>
           {canSee('dashboard') && (
-            <button className={`${styles.tab} ${activeTab === 'dashboard' ? styles.active : ''}`} onClick={() => setActiveTab('dashboard')}>
+            <button className={`${styles.tab} ${activeTab === 'dashboard' ? styles.active : ''}`} onClick={() => handleTabSelect('dashboard')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faChartLine} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Monitoreo</span>
@@ -69,9 +78,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-          
           {canSee('ingresos') && (
-            <button className={`${styles.tab} ${activeTab === 'ingresos' ? styles.active : ''}`} onClick={() => setActiveTab('ingresos')}>
+            <button className={`${styles.tab} ${activeTab === 'ingresos' ? styles.active : ''}`} onClick={() => handleTabSelect('ingresos')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faTicketAlt} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Ingresos</span>
@@ -79,9 +87,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-
           {canSee('pos') && (
-            <button className={`${styles.tab} ${activeTab === 'pos' ? styles.active : ''}`} onClick={() => setActiveTab('pos')}>
+            <button className={`${styles.tab} ${activeTab === 'pos' ? styles.active : ''}`} onClick={() => handleTabSelect('pos')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faStore} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Tienda / POS</span>
@@ -89,9 +96,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-
           {canSee('records') && (
-            <button className={`${styles.tab} ${activeTab === 'records' ? styles.active : ''}`} onClick={() => setActiveTab('records')}>
+            <button className={`${styles.tab} ${activeTab === 'records' ? styles.active : ''}`} onClick={() => handleTabSelect('records')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faAddressBook} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Registros</span>
@@ -99,9 +105,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-
           {canSee('treasury') && (
-            <button className={`${styles.tab} ${activeTab === 'treasury' ? styles.active : ''}`} onClick={() => setActiveTab('treasury')}>
+            <button className={`${styles.tab} ${activeTab === 'treasury' ? styles.active : ''}`} onClick={() => handleTabSelect('treasury')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faMoneyBillWave} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Caja / Ventas</span>
@@ -109,9 +114,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-
           {canSee('analytics') && (
-            <button className={`${styles.tab} ${activeTab === 'analytics' ? styles.active : ''}`} onClick={() => setActiveTab('analytics')}>
+            <button className={`${styles.tab} ${activeTab === 'analytics' ? styles.active : ''}`} onClick={() => handleTabSelect('analytics')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faChartPie} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Analíticas</span>
@@ -119,9 +123,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-
           {canSee('audit') && (
-            <button className={`${styles.tab} ${activeTab === 'audit' ? styles.active : ''}`} onClick={() => setActiveTab('audit')}>
+            <button className={`${styles.tab} ${activeTab === 'audit' ? styles.active : ''}`} onClick={() => handleTabSelect('audit')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faShieldAlt} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Auditoría</span>
@@ -129,9 +132,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-
           {canSee('stock') && (
-            <button className={`${styles.tab} ${activeTab === 'stock' ? styles.active : ''}`} onClick={() => setActiveTab('stock')}>
+            <button className={`${styles.tab} ${activeTab === 'stock' ? styles.active : ''}`} onClick={() => handleTabSelect('stock')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faBoxes} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Inventarios</span>
@@ -139,9 +141,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-
           {userRole === 'admin' && (
-            <button className={`${styles.tab} ${activeTab === 'config' ? styles.active : ''}`} onClick={() => setActiveTab('config')}>
+            <button className={`${styles.tab} ${activeTab === 'config' ? styles.active : ''}`} onClick={() => handleTabSelect('config')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faCogs} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Ajustes</span>
@@ -149,26 +150,76 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-        </div>
+        </>
+    );
 
-        <div className={styles.premiumCardWrapper}>
-          {user && (
-            <div className={styles.userPremiumCard}>
-              <div className={styles.userAvatar}>
-                <FontAwesomeIcon icon={faUserCircle} />
-              </div>
-              <div className={styles.userInfo}>
-                <span className={styles.userEmail}>{user.email.split('@')[0].toUpperCase()}</span>
-                <span className={styles.userRoleBadge}>{userRole?.toUpperCase()}</span>
-              </div>
+    return (
+      <>
+        {/* ── DESKTOP SIDEBAR ── */}
+        <nav className={styles.navContainer}>
+            <div className={styles.logo}>
+              <span className={styles.logoIcon}><FontAwesomeIcon icon={faGamepad} /></span>
+              <span className={styles.logoText}>PekePark <span className={styles.adminText}>Admin</span></span>
             </div>
-          )}
+            <div className={styles.tabs}>{navItems}</div>
+            <div className={styles.premiumCardWrapper}>
+              {user && (
+                <div className={styles.userPremiumCard}>
+                  <div className={styles.userAvatar}><FontAwesomeIcon icon={faUserCircle} /></div>
+                  <div className={styles.userInfo}>
+                    <span className={styles.userEmail}>{user.email.split('@')[0].toUpperCase()}</span>
+                    <span className={styles.userRoleBadge}>{userRole?.toUpperCase()}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className={styles.logoutBtn} onClick={() => setShowLogoutConfirm(true)}>
+              <FontAwesomeIcon icon={faArrowRightFromBracket} />
+              <span>Cerrar Sesión</span>
+            </button>
+        </nav>
+
+        {/* ── MOBILE TOP BAR ── */}
+        <div className={styles.mobileTopBar}>
+          <button className={styles.hamburgerBtn} onClick={() => setDrawerOpen(true)} aria-label="Menú">
+            <FontAwesomeIcon icon={faBars} />
+          </button>
+          <span className={styles.mobileActiveLabel}>{TAB_LABELS[activeTab] || 'PekePark'}</span>
+          {/* Spacer */}
+          <div style={{ width: 40 }} />
         </div>
 
-        <button className={styles.logoutBtn} onClick={() => setShowLogoutConfirm(true)}>
-          <FontAwesomeIcon icon={faArrowRightFromBracket} />
-          <span>Cerrar Sesión</span>
-        </button>
+        {/* ── DRAWER OVERLAY ── */}
+        <div className={`${styles.drawerOverlay} ${drawerOpen ? styles.open : ''}`} onClick={() => setDrawerOpen(false)} />
+
+        {/* ── MOBILE DRAWER ── */}
+        <nav className={`${styles.drawer} ${drawerOpen ? styles.open : ''}`}>
+          <div className={styles.drawerHeader}>
+            <div className={styles.logo}>
+              <span className={styles.logoIcon}><FontAwesomeIcon icon={faGamepad} /></span>
+              <span className={styles.logoText}>PekePark <span className={styles.adminText}>Admin</span></span>
+            </div>
+            <button className={styles.drawerCloseBtn} onClick={() => setDrawerOpen(false)} aria-label="Cerrar menú">
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
+          <div className={styles.tabs}>{navItems}</div>
+          <div className={styles.premiumCardWrapper}>
+            {user && (
+              <div className={styles.userPremiumCard}>
+                <div className={styles.userAvatar}><FontAwesomeIcon icon={faUserCircle} /></div>
+                <div className={styles.userInfo}>
+                  <span className={styles.userEmail}>{user.email.split('@')[0].toUpperCase()}</span>
+                  <span className={styles.userRoleBadge}>{userRole?.toUpperCase()}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <button className={styles.logoutBtn} onClick={() => setShowLogoutConfirm(true)}>
+            <FontAwesomeIcon icon={faArrowRightFromBracket} />
+            <span>Cerrar Sesión</span>
+          </button>
+        </nav>
 
         <ConfirmDialog
             isOpen={showLogoutConfirm}
@@ -177,6 +228,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             onCancel={() => setShowLogoutConfirm(false)}
             onConfirm={handleLogout}
         />
-    </nav>
+      </>
     );
 };
