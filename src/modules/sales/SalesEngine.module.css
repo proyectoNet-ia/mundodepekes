@@ -1125,8 +1125,34 @@
         margin: 0 !important;
         justify-content: center;
     }
+    .stepHeader {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1.5rem;
+        text-align: center;
+    }
+    .stepHeader h2, .stepContent h2, .stepContent h3 {
+        font-size: 1.25rem;
+        margin-bottom: 0;
+    }
+    .newRegButton {
+        justify-content: center;
+        width: 100%;
+        padding: 1rem;
+    }
+    .inputGroup {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
     .inputGroup input {
         font-size: 1rem;
+        padding: 1rem 1rem 1rem 3rem;
+    }
+    .inputGroup button {
+        width: 100%;
+        padding: 1rem;
+        justify-content: center;
+        font-size: 1.1rem;
     }
     .areaTabs {
         padding-bottom: 1.5rem;
