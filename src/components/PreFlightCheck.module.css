@@ -166,3 +166,34 @@
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
 }
+
+@media (max-width: 768px) {
+    .overlay {
+        padding: 1rem;
+    }
+    .card {
+        width: 100%;
+        padding: 1.5rem;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .iconCircle {
+        width: 48px;
+        height: 48px;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    .header h2 {
+        font-size: 1.25rem;
+    }
+    .checksList {
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .checkItem {
+        padding: 0.8rem;
+    }
+    .checkName {
+        font-size: 0.85rem;
+    }
+}
