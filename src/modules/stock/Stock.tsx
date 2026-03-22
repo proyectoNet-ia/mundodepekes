@@ -144,51 +144,78 @@ export const Stock: React.FC = () => {
                             <p style={{ marginTop: '1rem' }}>Cargando inventario...</p>
                          </div>
                     ) : (
-                        <table className={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th>Categoría</th>
-                                    <th>Estado</th>
-                                    <th>Existencia</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map(item => {
-                                    const isLow = item.cantidad <= item.minimo_alert;
-                                    return (
-                                    <tr key={item.id} className={isLow ? styles.lowStockRow : ''}>
-                                        <td data-label="Producto">
-                                            <div className={styles.productCellWrapper}>
-                                                <div className={styles.productIcon}>📦</div>
-                                                <span className={styles.productName}>{item.nombre}</span>
-                                            </div>
-                                        </td>
-                                        <td data-label="Categoría">{item.categoria}</td>
-                                        <td data-label="Estado">
-                                            <span className={`${styles.badge} ${isLow ? styles.badgeDanger : styles.badgeSuccess}`}>
-                                                {isLow ? 'Stock Bajo' : 'Suficiente'}
-                                            </span>
-                                        </td>
-                                        <td data-label="Existencia" className={styles.stockInfoWrapper}>
-                                            <strong className={isLow ? styles.textDanger : ''}>{item.cantidad}</strong>
-                                            <span className={styles.minText}>/ mín {item.minimo_alert}</span>
-                                        </td>
-                                        <td data-label="Acciones" className={styles.actions}>
-                                            <button 
-                                                className={styles.actionBtn} 
-                                                title="Ajuste de Stock"
-                                                onClick={() => handleOpenAdjust(item)}
-                                            >
-                                                <FontAwesomeIcon icon={faShieldAlt} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                        <>
+                          {/* Tabla para desktop */}
+                          <table className={styles.table}>
+                              <thead>
+                                  <tr>
+                                      <th>Producto</th>
+                                      <th>Categoría</th>
+                                      <th>Estado</th>
+                                      <th>Existencia</th>
+                                      <th>Acciones</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {items.map(item => {
+                                      const isLow = item.cantidad <= item.minimo_alert;
+                                      return (
+                                      <tr key={item.id} className={isLow ? styles.lowStockRow : ''}>
+                                          <td>
+                                              <div className={styles.productCellWrapper}>
+                                                  <div className={styles.productIcon}>📦</div>
+                                                  <span className={styles.productName}>{item.nombre}</span>
+                                              </div>
+                                          </td>
+                                          <td>{item.categoria}</td>
+                                          <td>
+                                              <span className={`${styles.badge} ${isLow ? styles.badgeDanger : styles.badgeSuccess}`}>
+                                                  {isLow ? 'Stock Bajo' : 'Suficiente'}
+                                              </span>
+                                          </td>
+                                          <td className={styles.stockInfoWrapper}>
+                                              <strong className={isLow ? styles.textDanger : ''}>{item.cantidad}</strong>
+                                              <span className={styles.minText}>/ mín {item.minimo_alert}</span>
+                                          </td>
+                                          <td className={styles.actions}>
+                                              <button className={styles.actionBtn} title="Ajuste de Stock" onClick={() => handleOpenAdjust(item)}>
+                                                  <FontAwesomeIcon icon={faShieldAlt} />
+                                              </button>
+                                          </td>
+                                      </tr>
+                                      );
+                                  })}
+                              </tbody>
+                          </table>
+
+                          {/* Cards compactas para móvil */}
+                          <div className={styles.mobileCardList}>
+                              {items.map(item => {
+                                  const isLow = item.cantidad <= item.minimo_alert;
+                                  return (
+                                  <div key={item.id} className={`${styles.mobileCard} ${isLow ? styles.mobileCardLow : ''}`}>
+                                      <div className={styles.mobileCardMain}>
+                                          <div className={styles.productIcon}>📦</div>
+                                          <span className={styles.productName}>{item.nombre}</span>
+                                      </div>
+                                      <div className={styles.mobileCardMeta}>
+                                          <span className={styles.mobileMetaCat}>{item.categoria}</span>
+                                          <span className={`${styles.badge} ${isLow ? styles.badgeDanger : styles.badgeSuccess}`}>
+                                              {isLow ? 'Bajo' : 'OK'}
+                                          </span>
+                                          <span className={`${styles.mobileMetaStock} ${isLow ? styles.textDanger : ''}`}>
+                                              <strong>{item.cantidad}</strong>
+                                              <span className={styles.minText}>/mín {item.minimo_alert}</span>
+                                          </span>
+                                      </div>
+                                      <button className={styles.mobileCardBtn} title="Ajuste" onClick={() => handleOpenAdjust(item)}>
+                                          <FontAwesomeIcon icon={faShieldAlt} />
+                                      </button>
+                                  </div>
+                                  );
+                              })}
+                          </div>
+                        </>
                     )}
                 </div>
 
