@@ -646,3 +646,85 @@
     overflow-y: auto;
     padding-right: 0.5rem;
 }
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+    }
+    .header h2 {
+        font-size: 1.6rem;
+    }
+    .mainGrid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    .summaryCard {
+        padding: 1.25rem;
+    }
+    .metricsGrid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        margin: 1.5rem 0;
+    }
+    .metricItem {
+        padding: 0.75rem 1rem;
+        gap: 1rem;
+        border-radius: var(--radius-lg);
+    }
+    .metricIcon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+    .metricInfo span {
+        font-size: 0.7rem;
+    }
+    .metricInfo strong {
+        font-size: 1.25rem;
+    }
+    .totalSection {
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .finalTotal {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+    }
+    .finalTotal strong {
+        font-size: 1.5rem;
+    }
+    .expenseActionBtn {
+        padding: 0.8rem;
+        font-size: 0.9rem;
+        margin: 1rem 0;
+    }
+    .closeBtn {
+        padding: 1rem;
+        font-size: 0.95rem;
+    }
+    .expensesCard, .historyCard {
+        padding: 1.25rem;
+    }
+    .modalContent {
+        padding: 1.5rem;
+        width: 95%;
+    }
+    .inputGroup input {
+        padding: 0.75rem 1rem;
+        font-size: 1.1rem;
+    }
+    .modalActions {
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+    .modalActions button {
+        padding: 1rem;
+    }
+}
