@@ -159,23 +159,23 @@ export const Stock: React.FC = () => {
                                     const isLow = item.cantidad <= item.minimo_alert;
                                     return (
                                     <tr key={item.id} className={isLow ? styles.lowStockRow : ''}>
-                                        <td>
+                                        <td data-label="Producto">
                                             <div className={styles.productCellWrapper}>
                                                 <div className={styles.productIcon}>📦</div>
                                                 <span className={styles.productName}>{item.nombre}</span>
                                             </div>
                                         </td>
-                                        <td>{item.categoria}</td>
-                                        <td>
+                                        <td data-label="Categoría">{item.categoria}</td>
+                                        <td data-label="Estado">
                                             <span className={`${styles.badge} ${isLow ? styles.badgeDanger : styles.badgeSuccess}`}>
                                                 {isLow ? 'Stock Bajo' : 'Suficiente'}
                                             </span>
                                         </td>
-                                        <td className={styles.stockInfoWrapper}>
+                                        <td data-label="Existencia" className={styles.stockInfoWrapper}>
                                             <strong className={isLow ? styles.textDanger : ''}>{item.cantidad}</strong>
                                             <span className={styles.minText}>/ mín {item.minimo_alert}</span>
                                         </td>
-                                        <td className={styles.actions}>
+                                        <td data-label="Acciones" className={styles.actions}>
                                             <button 
                                                 className={styles.actionBtn} 
                                                 title="Ajuste de Stock"
