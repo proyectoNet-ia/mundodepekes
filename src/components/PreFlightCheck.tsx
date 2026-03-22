@@ -15,8 +15,12 @@ export const PreFlightCheck: React.FC<{ onCompleted: (needsCashOpening: boolean)
     const [cashStatus, setCashStatus] = useState<CheckStatus>('pending');
     const [isOfflineMode, setIsOfflineMode] = useState(false);
     const [allSystemsGo, setAllSystemsGo] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     const runChecks = async () => {
+        const mobileCheck = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        setIsMobile(mobileCheck);
+        
         setIsOfflineMode(false);
         setInternet('checking');
         
@@ -134,27 +138,31 @@ export const PreFlightCheck: React.FC<{ onCompleted: (needsCashOpening: boolean)
                         <StatusIndicator status={database} />
                     </div>
 
-                    <div className={`${styles.checkItem} ${styles[printerEpson]}`}>
-                        <div className={styles.checkInfo}>
-                            <FontAwesomeIcon icon={faPrint} className={styles.checkIcon} />
-                            <div>
-                                <span className={styles.checkName}>Impresora EPSON (Tickets)</span>
-                                <span className={styles.checkSub}>{printerEpson === 'success' ? 'READY' : printerEpson === 'fail' ? 'OFFLINE' : 'Searching...'}</span>
+                    {!isMobile && (
+                        <>
+                            <div className={`${styles.checkItem} ${styles[printerEpson]}`}>
+                                <div className={styles.checkInfo}>
+                                    <FontAwesomeIcon icon={faPrint} className={styles.checkIcon} />
+                                    <div>
+                                        <span className={styles.checkName}>Impresora EPSON (Tickets)</span>
+                                        <span className={styles.checkSub}>{printerEpson === 'success' ? 'READY' : printerEpson === 'fail' ? 'OFFLINE' : 'Searching...'}</span>
+                                    </div>
+                                </div>
+                                <StatusIndicator status={printerEpson} />
                             </div>
-                        </div>
-                        <StatusIndicator status={printerEpson} />
-                    </div>
 
-                    <div className={`${styles.checkItem} ${styles[printerZebra]}`}>
-                        <div className={styles.checkInfo}>
-                            <FontAwesomeIcon icon={faPrint} className={styles.checkIcon} />
-                            <div>
-                                <span className={styles.checkName}>Impresora ZEBRA (Pulseras)</span>
-                                <span className={styles.checkSub}>{printerZebra === 'success' ? 'READY' : printerZebra === 'fail' ? 'OFFLINE' : 'Searching...'}</span>
+                            <div className={`${styles.checkItem} ${styles[printerZebra]}`}>
+                                <div className={styles.checkInfo}>
+                                    <FontAwesomeIcon icon={faPrint} className={styles.checkIcon} />
+                                    <div>
+                                        <span className={styles.checkName}>Impresora ZEBRA (Pulseras)</span>
+                                        <span className={styles.checkSub}>{printerZebra === 'success' ? 'READY' : printerZebra === 'fail' ? 'OFFLINE' : 'Searching...'}</span>
+                                    </div>
+                                </div>
+                                <StatusIndicator status={printerZebra} />
                             </div>
-                        </div>
-                        <StatusIndicator status={printerZebra} />
-                    </div>
+                        </>
+                    )}
 
                     <div className={`${styles.checkItem} ${cashStatus === 'fail' ? styles.warning : styles[cashStatus]}`}>
                         <div className={styles.checkInfo}>
