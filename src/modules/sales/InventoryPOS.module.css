@@ -624,8 +624,23 @@
     }
 
     .payBtn {
+        width: calc(100% - 100px); /* Espacio libre para la campana de notificaciones */
+        margin-right: 15px;
         padding: 1.15rem;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
+        border-radius: 1rem;
+        font-weight: 850;
+    }
+
+    .cartFooter {
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start; /* Alinear a la izquierda para dejar libre el espacio del botón de notificaciones */
+    }
+
+    .summaryTotal, .paymentMethods, .cashInputWrapper {
+        width: 100%; /* El resto sí ocupa todo el ancho */
     }
 
     /* Ajuste de Bóveda en móvil */
