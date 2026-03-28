@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { notificationsService } from './notificationsService';
 
 export interface StockItem {
     id: string;
@@ -67,7 +68,7 @@ export const stockService = {
             // 1. Get current stock
             const { data: item, error: fetchError } = await supabase
                 .from('inventario')
-                .select('cantidad')
+                .select('cantidad, nombre, minimo_alert')
                 .eq('id', itemId)
                 .single();
             
@@ -94,6 +95,16 @@ export const stockService = {
                 });
             
             if (logError) throw logError;
+
+            // 4. Check for low stock notification
+            if (type === 'salida' && newQty <= (item.minimo_alert || 5)) {
+                await notificationsService.notify(
+                    'low_stock',
+                    '📦 Stock Crítico',
+                    `El producto "${item.nombre}" se está agotando (Restan: ${newQty} unidades).`,
+                    { item_id: itemId, current_stock: newQty }
+                );
+            }
         } catch (e) {
             if (isSync) throw e;
             console.warn('⚠️ Error al registrar movimiento. Guardando en cola offline:', e);

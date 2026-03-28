@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { AuditService } from './auditService';
+import { notificationsService } from './notificationsService';
 
 export type CashSessionStatus = 'abierta' | 'en_operacion' | 'corte_pendiente' | 'corte_cerrado' | 'auditoria';
 
@@ -91,6 +92,13 @@ export const openCash = async (montoInicial: number): Promise<CashSession> => {
     descripcion: `Apertura de caja con fondo de $ ${montoInicial}`,
     metadatos: { arqueo_id: data.id }
   });
+
+  await notificationsService.notify(
+    'cash_open',
+    '🔓 Caja Abierta',
+    `Se ha iniciado un nuevo turno con un fondo de $${montoInicial}.`,
+    { arqueo_id: data.id, monto: montoInicial }
+  );
 
   return data;
 };
@@ -279,6 +287,13 @@ export const closeCash = async (id: string, data: {
     metadatos: { arqueo_id: id, diferencia, real: data.real, esperado: esperadoEfectivo },
     severidad: estadoFinal === 'auditoria' ? 'CRITICAL' : 'INFO'
   });
+
+  const title = estadoFinal === 'auditoria' ? '⚠️ DISCREPANCIA EN CIERRE' : '🔒 Caja Cerrada';
+  const msg = estadoFinal === 'auditoria' 
+    ? `Cierre con diferencia de $${diferencia.toFixed(2)}. (Esperado: $${esperadoEfectivo.toFixed(2)} | Real: $${data.real.toFixed(2)})`
+    : `Turno finalizado con un saldo real de $${data.real.toFixed(2)}.`;
+
+  await notificationsService.notify('cash_close', title, msg, { arqueo_id: id, diferencia, estado: estadoFinal });
 
   return { success: true, estado: estadoFinal };
 };
