@@ -475,7 +475,122 @@
 }
 
 @media (max-width: 768px) {
-    /* ... (existing media queries) */
+    .posContainer {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        gap: 0;
+        border-radius: 0;
+        max-height: 100vh;
+        height: 100vh;
+    }
+
+    .productsSection {
+        flex: 1;
+        padding: 1rem;
+        border-radius: 0;
+        border: none;
+        padding-bottom: 220px; /* Espacio para el carrito fijo */
+    }
+
+    .posHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .searchBar {
+        width: 100%;
+    }
+
+    .searchBar input {
+        font-size: 1rem !important;
+        padding: 0.75rem 1rem 0.75rem 3rem !important;
+    }
+
+    .productCard {
+        padding: 1rem;
+    }
+
+    .productCard h4 {
+        font-size: 1.1rem;
+    }
+
+    .cartSection {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        max-height: 80vh;
+        z-index: 100;
+        border-radius: 2rem 2rem 0 0;
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+        background: white;
+    }
+
+    .cartHeader {
+        padding: 1rem;
+        cursor: pointer;
+    }
+
+    .cartItems {
+        max-height: 200px;
+        background: #fdfdfd;
+    }
+
+    .cartItem {
+        padding: 0.85rem 1rem;
+    }
+
+    .qtyBtn {
+        width: 36px; /* Botones más grandes para dedos */
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    .cartFooter {
+        padding: 1rem;
+    }
+
+    .summaryTotal {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .paymentMethods {
+        gap: 0.5rem;
+    }
+
+    .methodBtn {
+        padding: 0.75rem;
+        font-size: 0.8rem;
+    }
+
+    .cashInput input {
+        font-size: 1.75rem !important;
+        padding: 0.75rem 1rem 0.75rem 2.5rem !important;
+    }
+
+    .payBtn {
+        padding: 1.15rem;
+        font-size: 1.2rem;
+    }
+
+    /* Ajuste de Bóveda en móvil */
+    .premiumLockCard {
+        padding: 2.5rem 1.5rem;
+        width: 95%;
+        border-radius: 2rem;
+    }
+
+    .premiumLockCard h2 {
+        font-size: 1.75rem;
+    }
+
+    .openInputGroup span,
+    .openInputGroup input {
+        font-size: 1.75rem !important;
+    }
 }
 
 /* --- PREMIUM MODAL LOCK SCREEN --- */
