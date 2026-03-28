@@ -24,6 +24,10 @@ interface CartItem extends StockItem {
     quantity: number;
 }
 
+interface InventoryPOSProps {
+    onCancel: () => void;
+}
+
 const formatMoney = (val: string) => {
     const clean = val.replace(/\D/g, '');
     if (!clean) return '';
@@ -34,7 +38,7 @@ const getNumericAmount = (val: string) => {
     return Number(val.replace(/,/g, '')) || 0;
 };
 
-export const InventoryPOS: React.FC = () => {
+export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
     const { showToast } = useToast();
     const [inventory, setInventory] = useState<StockItem[]>([]);
     const [activeSession, setActiveSession] = useState<CashSession | null>(null);
@@ -260,7 +264,7 @@ export const InventoryPOS: React.FC = () => {
                         >
                             {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Abrir Turno Ahora'}
                         </button>
-                        <button className={styles.secondaryNavBtn} onClick={() => window.location.reload()}>
+                        <button className={styles.secondaryNavBtn} onClick={onCancel}>
                             Volver al Dashboard
                         </button>
                     </div>

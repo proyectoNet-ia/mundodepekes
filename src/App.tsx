@@ -120,11 +120,11 @@ function App() {
                         />
                     )}
                     {activeTab === 'records' && <Records onEntry={handleExternalEntry} />}
-                    {activeTab === 'treasury' && <Treasury />}
+                    {activeTab === 'treasury' && <Treasury onCancel={() => setActiveTab('dashboard')} />}
                     {activeTab === 'analytics' && <Analytics />}
                     {activeTab === 'audit' && <Audit />}
                     {activeTab === 'stock' && <Stock />}
-                    {activeTab === 'pos' && <InventoryPOS />}
+                    {activeTab === 'pos' && <InventoryPOS onCancel={() => setActiveTab('dashboard')} />}
                     {activeTab === 'config' && <Backoffice />}
                 </main>
             </div>

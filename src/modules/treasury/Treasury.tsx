@@ -4,7 +4,7 @@ import { getActiveSession, openCash, closeCash, getTransactionsSummary, recordEx
 import { ReportService } from '../../lib/reportService';
 import { useToast } from '../../components/Toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCashRegister, faLock, faLockOpen, faCheckCircle, faExclamationTriangle, faMoneyBillWave, faCreditCard, faMinusCircle, faCartArrowDown, faReceipt, faShieldAlt, faTicketAlt, faBan, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faCashRegister, faLock, faLockOpen, faCheckCircle, faExclamationTriangle, faMoneyBillWave, faCreditCard, faMinusCircle, faCartArrowDown, faReceipt, faShieldAlt, faTicketAlt, faBan, faTimes, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { AuthPinModal } from '../../components/AuthPinModal';
 import type { UserProfile } from '../../lib/authService';
 
@@ -18,7 +18,11 @@ const getNumericAmount = (val: string) => {
     return Number(val.replace(/,/g, '')) || 0;
 };
 
-export const Treasury: React.FC = () => {
+interface TreasuryProps {
+    onCancel: () => void;
+}
+
+export const Treasury: React.FC<TreasuryProps> = ({ onCancel }) => {
     const { showToast } = useToast();
     const [activeSession, setActiveSession] = useState<CashSession | null>(null);
     const [summary, setSummary] = useState({ efectivo: 0, tarjeta: 0, gastos: 0, total: 0 });
@@ -177,27 +181,37 @@ export const Treasury: React.FC = () => {
 
     if (!activeSession && !isLoading) {
         return (
-            <div className={styles.container}>
-                <div className={styles.openingForm}>
-                    <div className={styles.iconCircle}><FontAwesomeIcon icon={faLock} /></div>
-                    <h2>Apertura de Caja</h2>
-                    <p>La caja se encuentra cerrada. Ingrese el fondo inicial para comenzar la jornada.</p>
-                    <div className={styles.inputGroup}>
-                        <label>Fondo de Caja inicial</label>
-                        <div className={styles.inputWithIcon}>
+            <div className={styles.cashClosedNotice}>
+                <div className={styles.premiumLockCard}>
+                    <div className={styles.lockIconCircle}>
+                        <FontAwesomeIcon icon={faLock} />
+                    </div>
+                    <h2>Caja Cerrada</h2>
+                    <p>Para procesar ventas, primero debe iniciar un turno de caja.</p>
+                    
+                    <div className={styles.quickOpenForm}>
+                        <label>FONDO INICIAL EN CAJA</label>
+                        <div className={styles.openInputGroup}>
                             <span>$</span>
                             <input 
                                 type="text" 
-                                placeholder="0.00" 
                                 value={montoApertura} 
-                                onChange={(e) => setMontoApertura(formatMoney(e.target.value))} 
+                                onChange={(e) => setMontoApertura(formatMoney(e.target.value))}
                                 onFocus={(e) => e.target.select()}
+                                placeholder="0.00"
                             />
                         </div>
+                        <button 
+                            className={styles.openCashBtn} 
+                            onClick={handleOpen}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Abrir Turno Ahora'}
+                        </button>
+                        <button className={styles.secondaryNavBtn} onClick={onCancel}>
+                            Volver al Dashboard
+                        </button>
                     </div>
-                    <button className="btn btn-primary" onClick={handleOpen} disabled={isLoading}>
-                        {isLoading ? 'Abriendo...' : 'Abrir Turno de Caja'}
-                    </button>
                 </div>
             </div>
         );
