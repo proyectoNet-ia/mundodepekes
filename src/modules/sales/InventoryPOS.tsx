@@ -381,15 +381,17 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                     </div>
 
                     {paymentMethod === 'efectivo' && total > 0 && (
-                        <div className={styles.cashInput}>
-                            <span>$</span>
-                            <input 
-                                type="text"
-                                value={cashAmount}
-                                onChange={(e) => setCashAmount(formatMoney(e.target.value))}
-                                onFocus={(e) => e.target.select()}
-                                placeholder="0.00"
-                            />
+                        <div className={styles.cashInputWrapper}>
+                            <div className={styles.cashInput}>
+                                <span>$</span>
+                                <input 
+                                    type="text"
+                                    value={cashAmount}
+                                    onChange={(e) => setCashAmount(formatMoney(e.target.value))}
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="0.00"
+                                />
+                            </div>
                             {getNumericAmount(cashAmount) >= total && (
                                 <div className={styles.changeInfo}>
                                     Cambio a entregar: ${change.toFixed(2)}
