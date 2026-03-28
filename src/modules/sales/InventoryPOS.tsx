@@ -12,11 +12,13 @@ import {
     faPlus, 
     faMinus, 
     faSpinner, 
-    faStore
+    faStore,
+    faLock
 } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { StatusModal } from '../../components/StatusModal';
 import { PrinterService } from '../../lib/printerService';
+import { getActiveSession, type CashSession } from '../../lib/treasuryService';
 
 interface CartItem extends StockItem {
     quantity: number;
@@ -35,6 +37,7 @@ const getNumericAmount = (val: string) => {
 export const InventoryPOS: React.FC = () => {
     const { showToast } = useToast();
     const [inventory, setInventory] = useState<StockItem[]>([]);
+    const [activeSession, setActiveSession] = useState<CashSession | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [cart, setCart] = useState<CartItem[]>(() => {
         const saved = localStorage.getItem('pos_cart');
@@ -51,7 +54,13 @@ export const InventoryPOS: React.FC = () => {
 
     useEffect(() => {
         loadInventory();
+        checkSession();
     }, []);
+
+    const checkSession = async () => {
+        const session = await getActiveSession();
+        setActiveSession(session);
+    };
 
     // Persistencia del Carrito
     useEffect(() => {
@@ -181,6 +190,25 @@ export const InventoryPOS: React.FC = () => {
             setIsLoading(false);
         }
     };
+
+    if (activeSession === null && !isLoading) {
+        return (
+            <div className={styles.posContainer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className={styles.closedNotice} style={{ textAlign: 'center', background: 'white', padding: '3rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', maxWidth: '500px' }}>
+                    <div style={{ background: '#fef2f2', color: '#dc2626', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                        <FontAwesomeIcon icon={faLock} size="2x" />
+                    </div>
+                    <h2 style={{ color: '#1e293b', marginBottom: '1rem' }}>Caja Cerrada</h2>
+                    <p style={{ color: '#64748b', fontSize: '1.1rem', lineHeight: '1.6' }}>
+                        No se pueden procesar ventas de inventario sin un turno de caja abierto.
+                    </p>
+                    <p style={{ color: '#64748b', marginTop: '1rem' }}>
+                        Por favor, vaya a la sección de <strong>Caja / Ventas</strong> para abrir su turno.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.posContainer}>

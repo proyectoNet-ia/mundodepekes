@@ -151,6 +151,12 @@ export const registerFullEntry = async (data: {
 
     // 2. Create Transaction vinculada al Arqueo Activo
     const activeSession = await getActiveSession();
+    
+    if (!activeSession && !isSync) {
+        const error = new Error('No hay una sesión de caja abierta. Debe abrir turno para procesar ventas.');
+        (error as any).isValidationError = true;
+        throw error;
+    }
 
     const { data: transaction, error: tError } = await supabase
       .from('transacciones')
@@ -158,7 +164,7 @@ export const registerFullEntry = async (data: {
         cliente_id: customerId,
         total: data.total || 0,
         metodo_pago: data.paymentMethod,
-        arqueo_id: activeSession?.id || null // Vincular inmutablemente al corte activo
+        arqueo_id: activeSession?.id || (isSync ? null : undefined) // Evitar nulls accidentales
       })
       .select().single();
 
@@ -300,6 +306,10 @@ export const registerInventorySale = async (data: {
   try {
     const activeSession = isSync ? null : await getActiveSession();
     
+    if (!activeSession && !isSync) {
+        throw new Error('No hay una sesión de caja abierta.');
+    }
+
     let customerId = null;
     if (data.customer?.phone) {
         const { data: existing } = await supabase.from('clientes').select('id').eq('telefono', data.customer.phone).maybeSingle();
@@ -317,7 +327,7 @@ export const registerInventorySale = async (data: {
         cliente_id: customerId,
         total: data.total,
         metodo_pago: data.paymentMethod,
-        arqueo_id: activeSession?.id || null
+        arqueo_id: activeSession?.id || (isSync ? null : undefined)
       })
       .select().single();
 

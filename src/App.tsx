@@ -42,19 +42,27 @@ function App() {
 
     initAuth();
 
-    const { data: { subscription } } = authService.onAuthStateChange((newUser) => {
+    const { data: { subscription } } = authService.onAuthStateChange(async (newUser) => {
       if (!isMounted) return;
       
-      // Si el cambio es a null, esperamos un momento (debote) para evitar cierres falsos por cortes de 4G/WiFi
+      // Bloqueo de Cierre por Micro-Corte de Red
       if (!newUser && user) {
+        // Si estamos offline, mantenemos al usuario (confianza total en sesión local)
+        if (!navigator.onLine) {
+            console.log('📡 Red caída detectada. Manteniendo sesión local activa...');
+            return;
+        }
+
+        // Si hay internet pero reportó null, esperamos para re-verificar (Evita flickers de Supabase)
         setTimeout(async () => {
           const verifyAgain = await authService.getCurrentUser();
-          if (!verifyAgain && isMounted) {
+          if (!verifyAgain && isMounted && navigator.onLine) {
+            console.warn('🚪 Sesión invalidada tras re-verificación. Redirigiendo a Login.');
             setUser(null);
             setIsLoading(false);
           }
-        }, 1500);
-      } else {
+        }, 3000); // Aumentado a 3s para estabilidad total
+      } else if (newUser) {
         setUser(newUser);
         setIsLoading(false);
       }
