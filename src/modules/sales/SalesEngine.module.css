@@ -1234,3 +1234,162 @@
         padding-bottom: 1.5rem;
     }
 }
+/* --- PREMIUM MODAL LOCK SCREEN --- */
+.cashClosedNotice, .posLockOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    padding: 2rem;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.premiumLockCard {
+    background: white;
+    padding: 3.5rem 2.5rem;
+    border-radius: 2.5rem;
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.5);
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    animation: fadeInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
+
+@keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.lockIconCircle {
+    width: 100px;
+    height: 100px;
+    background: #f0f9ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0284c7;
+    font-size: 3rem;
+    box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.1);
+    margin-bottom: 0.5rem;
+}
+
+.premiumLockCard h2 {
+    color: #0f172a;
+    font-size: 2.2rem;
+    font-weight: 850;
+    margin: 0;
+    letter-spacing: -1px;
+}
+
+.premiumLockCard p {
+    color: #64748b;
+    font-size: 1.15rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.quickOpenForm {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.quickOpenForm label {
+    font-weight: 800;
+    color: #475569;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-align: left;
+}
+
+.openInputGroup {
+    position: relative;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 1.25rem;
+    padding: 0.5rem 1.5rem;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s;
+}
+
+.openInputGroup:focus-within {
+    border-color: #0284c7;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.1);
+}
+
+.openInputGroup span {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #94a3b8;
+    margin-right: 0.5rem;
+}
+
+.openInputGroup input {
+    border: none !important;
+    background: transparent !important;
+    font-size: 2.5rem !important;
+    font-weight: 900 !important;
+    color: #1e293b !important;
+    width: 100%;
+    padding: 0.5rem 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.openCashBtn {
+    background: #0284c7;
+    color: white;
+    border: none;
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    font-size: 1.25rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.2);
+}
+
+.openCashBtn:hover {
+    background: #0369a1;
+    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgba(2, 132, 199, 0.3);
+}
+
+.secondaryNavBtn {
+    background: transparent;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 1rem;
+    border-radius: 1.25rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.secondaryNavBtn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+}

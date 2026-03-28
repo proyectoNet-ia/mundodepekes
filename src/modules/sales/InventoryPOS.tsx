@@ -18,7 +18,7 @@ import {
 import { useToast } from '../../components/Toast';
 import { StatusModal } from '../../components/StatusModal';
 import { PrinterService } from '../../lib/printerService';
-import { getActiveSession, type CashSession } from '../../lib/treasuryService';
+import { getActiveSession, type CashSession, openCash } from '../../lib/treasuryService';
 
 interface CartItem extends StockItem {
     quantity: number;
@@ -38,7 +38,9 @@ export const InventoryPOS: React.FC = () => {
     const { showToast } = useToast();
     const [inventory, setInventory] = useState<StockItem[]>([]);
     const [activeSession, setActiveSession] = useState<CashSession | null>(null);
+    const [isCheckingSession, setIsCheckingSession] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [openingAmount, setOpeningAmount] = useState<string>('');
     const [cart, setCart] = useState<CartItem[]>(() => {
         const saved = localStorage.getItem('pos_cart');
         return saved ? JSON.parse(saved) : [];
@@ -53,13 +55,39 @@ export const InventoryPOS: React.FC = () => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     useEffect(() => {
-        loadInventory();
-        checkSession();
+        const init = async () => {
+            setIsCheckingSession(true);
+            try {
+                const session = await getActiveSession();
+                setActiveSession(session);
+                if (session) {
+                    await loadInventory();
+                }
+            } catch (err) {
+                showToast('Error al verificar sesión de caja', 'error');
+            } finally {
+                setIsCheckingSession(false);
+            }
+        };
+        init();
     }, []);
 
-    const checkSession = async () => {
-        const session = await getActiveSession();
-        setActiveSession(session);
+    const handleOpenCash = async () => {
+        const monto = getNumericAmount(openingAmount);
+        if (!openingAmount || isNaN(monto)) return showToast('Ingrese un monto válido', 'warning');
+        
+        setIsLoading(true);
+        try {
+            await openCash(monto);
+            const session = await getActiveSession();
+            setActiveSession(session);
+            if (session) await loadInventory();
+            showToast('Caja abierta con éxito. ¡Buenas ventas!', 'success');
+        } catch (error) {
+            showToast('Error al abrir la caja.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Persistencia del Carrito
@@ -191,20 +219,51 @@ export const InventoryPOS: React.FC = () => {
         }
     };
 
-    if (activeSession === null && !isLoading) {
+    if (isCheckingSession) {
         return (
-            <div className={styles.posContainer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className={styles.closedNotice} style={{ textAlign: 'center', background: 'white', padding: '3rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', maxWidth: '500px' }}>
-                    <div style={{ background: '#fef2f2', color: '#dc2626', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-                        <FontAwesomeIcon icon={faLock} size="2x" />
+            <div className={styles.posContainer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', height: '100%' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <FontAwesomeIcon icon={faSpinner} spin size="4x" style={{ color: 'var(--brand-500)', marginBottom: '1.5rem' }} />
+                    <h2 style={{ color: '#0f172a' }}>Sincronizando Bóveda...</h2>
+                    <p style={{ color: '#64748b' }}>Verificando turno de caja y paquetes activos</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!activeSession) {
+        return (
+            <div className={styles.posLockOverlay}>
+                <div className={styles.premiumLockCard}>
+                    <div className={styles.lockIconCircle}>
+                        <FontAwesomeIcon icon={faLock} />
                     </div>
-                    <h2 style={{ color: '#1e293b', marginBottom: '1rem' }}>Caja Cerrada</h2>
-                    <p style={{ color: '#64748b', fontSize: '1.1rem', lineHeight: '1.6' }}>
-                        No se pueden procesar ventas de inventario sin un turno de caja abierto.
-                    </p>
-                    <p style={{ color: '#64748b', marginTop: '1rem' }}>
-                        Por favor, vaya a la sección de <strong>Caja / Ventas</strong> para abrir su turno.
-                    </p>
+                    <h2>Caja Cerrada</h2>
+                    <p>Para procesar ventas, primero debe iniciar un turno de caja.</p>
+                    
+                    <div className={styles.quickOpenForm}>
+                        <label>FONDO INICIAL EN CAJA</label>
+                        <div className={styles.openInputGroup}>
+                            <span>$</span>
+                            <input 
+                                type="text" 
+                                value={openingAmount} 
+                                onChange={(e) => setOpeningAmount(formatMoney(e.target.value))}
+                                onFocus={(e) => e.target.select()}
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <button 
+                            className={styles.openCashBtn} 
+                            onClick={handleOpenCash}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Abrir Turno Ahora'}
+                        </button>
+                        <button className={styles.secondaryNavBtn} onClick={() => window.location.reload()}>
+                            Volver al Dashboard
+                        </button>
+                    </div>
                 </div>
             </div>
         );

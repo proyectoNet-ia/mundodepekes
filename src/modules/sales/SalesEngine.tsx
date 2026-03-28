@@ -336,10 +336,22 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
     }
   };
 
+  if (isCashOpen === null || (isCashOpen === true && isLoading && availablePackages.length === 0)) {
+    return (
+        <div className={styles.engineContainer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+                <FontAwesomeIcon icon={faSpinner} spin size="4x" style={{ color: 'var(--brand-500)', marginBottom: '1.5rem' }} />
+                <h2 style={{ color: '#1e293b' }}>Sincronizando Bóveda...</h2>
+                <p style={{ color: '#64748b' }}>Verificando turno de caja y paquetes activos</p>
+            </div>
+        </div>
+    );
+  }
+
   if (isCashOpen === false) {
     return (
         <div className={styles.cashClosedNotice}>
-            <div className={styles.lockCard}>
+            <div className={styles.premiumLockCard}>
                 <div className={styles.lockIconCircle}>
                     <FontAwesomeIcon icon={faLock} />
                 </div>
@@ -347,7 +359,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
                 <p>Para procesar ventas, primero debe iniciar un turno de caja.</p>
                 
                 <div className={styles.quickOpenForm}>
-                    <label>Fondo Inicial en Caja</label>
+                    <label>FONDO INICIAL EN CAJA</label>
                     <div className={styles.openInputGroup}>
                         <span>$</span>
                         <input 
