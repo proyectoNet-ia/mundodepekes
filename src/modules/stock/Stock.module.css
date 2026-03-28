@@ -112,9 +112,8 @@
 
 /* Main Layout */
 .mainContent {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 2rem;
+    width: 100%;
+    margin-bottom: 3rem;
 }
 
 .tableWrapper {
@@ -133,7 +132,7 @@
 }
 
 .table th {
-    background: #1e293b; /* Header oscuro premium */
+    background: #1e293b;
     padding: 1.25rem 1.5rem;
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -147,7 +146,6 @@
     padding: 1.25rem 1.5rem;
     vertical-align: middle;
     color: #334155;
-    /* Usamos box-shadow en lugar de border para evitar fracturas de píxeles */
     box-shadow: inset 0 -1px 0 0 #e5e7eb; 
 }
 
@@ -234,30 +232,95 @@
     border-color: var(--brand-300);
 }
 
-/* Sidebar History */
-.historySidebar h3 {
-    font-size: 1rem;
+.actionBtn.textDanger:hover {
+    background: #fef2f2;
+    color: #ef4444;
+    border-color: #fecaca;
+}
+
+/* History Section Adjusted to Bottom */
+.historySection {
+    background: #f8fafc;
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.historySection .sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1.5rem;
-    color: #f8fafc; /* Texto claro para el fondo oscuro lateral */
 }
 
-.historyList {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    max-height: 400px;
-    overflow-y: auto;
-    padding-right: 0.25rem;
+.historySection h3 {
+    font-size: 1.1rem;
+    color: #1e293b;
+    margin: 0;
 }
 
-.historyItem {
+.pagination {
     display: flex;
-    gap: 0.75rem;
-    padding: 0.75rem;
+    align-items: center;
+    gap: 1rem;
+}
+
+.pageBtn {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border-color);
     background: white;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pageBtn:hover:not(:disabled) {
+    background: var(--brand-50);
+    border-color: var(--brand-300);
+    color: var(--brand-600);
+}
+
+.pageBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pageInfo {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.historyGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.historyCard {
+    background: white;
+    padding: 1rem;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
-    flex-shrink: 0;
+    display: flex;
+    gap: 0.75rem;
+    transition: transform 0.2s;
+}
+
+.historyCard:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.emptyHistory {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+    color: #94a3b8;
+    font-style: italic;
 }
 
 .historyIcon {

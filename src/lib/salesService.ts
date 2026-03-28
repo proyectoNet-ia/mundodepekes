@@ -14,7 +14,7 @@ export interface SearchResult {
   visitsCount: number;
   enListaNegra?: boolean;
   observaciones?: string;
-  registeredChildren?: { id: string; name: string; age: number; observations: string }[];
+  registeredChildren?: { id: string; name: string; age: number; observations: string; enListaNegra?: boolean }[];
 }
 
 export const omniSearch = async (term: string): Promise<SearchResult[]> => {
@@ -47,7 +47,8 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
           id: n.id, 
           name: n.nombre || '', 
           age: n.edad || 0, 
-          observations: n.observaciones || '' 
+          observations: n.observaciones || '',
+          enListaNegra: n.en_lista_negra || false
       })) || []
     });
   });
@@ -67,7 +68,8 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
           id: n.id, 
           name: n.nombre || '', 
           age: n.edad || 0, 
-          observations: n.observaciones || '' 
+          observations: n.observaciones || '',
+          enListaNegra: n.en_lista_negra || false
       })) || []
     });
   });
@@ -82,6 +84,7 @@ export const registerFullEntry = async (data: {
   paymentMethod: string;
   total: number;
   staffEmail?: string;
+  isReentry?: boolean;
 }, isSync = false, originalTimestamp?: number) => {
   const formatOfflineResponse = async (localId: number) => ({
     success: true,
@@ -196,6 +199,14 @@ export const registerFullEntry = async (data: {
       const startTime = originalTimestamp ? new Date(originalTimestamp) : new Date();
       const endTime = new Date(startTime.getTime() + childInfo.duration * 60000);
 
+      // --- LIMPIEZA DE SESIONES PREVIAS (Evita Duplicados) ---
+      // Si el niño ya estaba adentro, cerramos su sesión anterior para que la nueva tome el control
+      await supabase
+        .from('sesiones')
+        .update({ estado: 'finalizado' })
+        .eq('nino_id', childId)
+        .eq('estado', 'activo');
+
       const { error: sError } = await supabase
         .from('sesiones')
         .insert({
@@ -220,14 +231,16 @@ export const registerFullEntry = async (data: {
         );
     }
 
-    // 5. Update Loyalty
-    try {
-        await supabase.rpc('increment_visit_count', { client_uuid: customerId });
-    } catch (e) {
-        console.warn('RPC loyalty increment failed, trying manual update:', e);
-        await supabase.from('clientes')
-            .update({ visitas_acumuladas: (customer as any).visitas_acumuladas + 1 })
-            .eq('id', customerId);
+    // 5. Update Loyalty (Solo si NO es reingreso)
+    if (!data.isReentry) {
+        try {
+            await supabase.rpc('increment_visit_count', { client_uuid: customerId });
+        } catch (e) {
+            console.warn('RPC loyalty increment failed, trying manual update:', e);
+            await supabase.from('clientes')
+                .update({ visitas_acumuladas: (customer as any).visitas_acumuladas + 1 })
+                .eq('id', customerId);
+        }
     }
 
     return { 

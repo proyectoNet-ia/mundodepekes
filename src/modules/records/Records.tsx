@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faPen, faPhone, faChevronLeft, faChevronRight, faAddressBook } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faPen, faPhone, faChevronLeft, faChevronRight, faAddressBook, faLock } from '@fortawesome/free-solid-svg-icons';
+import { PINModal } from '../../components/PINModal';
 
 interface RecordData {
     id: string;
@@ -37,6 +38,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [editName, setEditName]   = useState('');
     const [editPhone, setEditPhone] = useState('');
     const [isSaving, setIsSaving]   = useState(false);
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [pendingChild, setPendingChild] = useState<RecordData | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
     // Debounce del término de búsqueda
@@ -130,7 +133,30 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
 
     const handleNewEntry = (item: RecordData) => {
         if (!onEntry) { alert('Sin manejador de ingresos configurado.'); return; }
-        onEntry({ childName: item.name, tutorName: item.tutorName, tutorContact: item.tutorPhone, childId: item.id });
+        
+        if (item.isBlacklisted) {
+            setPendingChild(item);
+            setShowPinModal(true);
+            return;
+        }
+
+        onEntry({ 
+            childName: item.name, 
+            tutorName: item.tutorName, 
+            tutorContact: item.tutorPhone, 
+            childId: item.id 
+        });
+    };
+
+    const handleAuthorizedEntry = () => {
+        if (!pendingChild || !onEntry) return;
+        onEntry({ 
+            childName: pendingChild.name, 
+            tutorName: pendingChild.tutorName, 
+            tutorContact: pendingChild.tutorPhone, 
+            childId: pendingChild.id 
+        });
+        setPendingChild(null);
     };
 
     const openEditModal = (item: RecordData) => {
@@ -263,12 +289,19 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                     <div className={styles.actionGroup} ref={menuOpenId === item.id ? menuRef : null}>
                                         {item.type === 'child' && (
                                             <button
-                                                className="btn btn-primary"
-                                                style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                                                className={`btn ${item.isBlacklisted ? 'btn-danger' : 'btn-primary'}`}
+                                                style={{ 
+                                                    padding: '0.4rem 0.9rem', 
+                                                    fontSize: '0.8rem', 
+                                                    whiteSpace: 'nowrap',
+                                                    background: item.isBlacklisted ? '#dc2626' : '',
+                                                    color: '#ffffff'
+                                                }}
                                                 onClick={() => handleNewEntry(item)}
-                                                title="Iniciar ingreso para este niño"
+                                                title={item.isBlacklisted ? "Requiere autorización de gerente" : "Iniciar ingreso para este niño"}
                                             >
-                                                <FontAwesomeIcon icon={faTicket} /> Ingreso
+                                                <FontAwesomeIcon icon={item.isBlacklisted ? faLock : faTicket} /> 
+                                                {item.isBlacklisted ? ' Autorizar' : ' Ingreso'}
                                             </button>
                                         )}
                                         <div style={{ position: 'relative' }}>
@@ -354,6 +387,14 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                     </div>
                 </div>
             )}
+            {/* PIN Modal for Blacklist Overrides */}
+            <PINModal 
+                isOpen={showPinModal}
+                onClose={() => { setShowPinModal(false); setPendingChild(null); }}
+                onSuccess={handleAuthorizedEntry}
+                actionDescription={`Ingreso de niño en Lista Negra: ${pendingChild?.name} (ID: ${pendingChild?.id})`}
+                message={`El niño ${pendingChild?.name} está en LISTA NEGRA. Para autorizar su ingreso excepcional, se requiere PIN de Gerencia.`}
+            />
         </div>
     );
 };

@@ -15,6 +15,7 @@ import { Login } from './modules/auth/Login';
 import { Stock } from './modules/stock/Stock';
 import { InventoryPOS } from './modules/sales/InventoryPOS';
 import { ToastProvider } from './components/Toast';
+import { RemoteAuthBell } from './components/RemoteAuthBell';
 
 function App() {
   const [activeTab, setActiveTab] = React.useState<'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos'>('dashboard');
@@ -24,25 +25,45 @@ function App() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    let isMounted = true;
+    
     const initAuth = async () => {
       try {
         const currUser = await authService.getCurrentUser();
-        if (currUser) setUser(currUser);
+        if (isMounted && currUser) {
+          setUser(currUser);
+        }
       } catch (err) {
-        console.warn('Iniciando en modo local seguro...');
+        console.warn('Network issue during auth check. Retrying…');
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     initAuth();
 
     const { data: { subscription } } = authService.onAuthStateChange((newUser) => {
-      setUser(newUser);
-      setIsLoading(false);
+      if (!isMounted) return;
+      
+      // Si el cambio es a null, esperamos un momento (debote) para evitar cierres falsos por cortes de 4G/WiFi
+      if (!newUser && user) {
+        setTimeout(async () => {
+          const verifyAgain = await authService.getCurrentUser();
+          if (!verifyAgain && isMounted) {
+            setUser(null);
+            setIsLoading(false);
+          }
+        }, 1500);
+      } else {
+        setUser(newUser);
+        setIsLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleExternalEntry = (data: any) => {
@@ -99,6 +120,8 @@ function App() {
                     {activeTab === 'config' && <Backoffice />}
                 </main>
             </div>
+            {/* Campana de Autorizaciones Global */}
+            <RemoteAuthBell />
         </div>
     </ToastProvider>
   );

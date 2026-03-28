@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Backoffice.module.css';
 import { getSystemSettings, updateSystemSettings, type SystemSettings } from '../../lib/settingsService';
-import { getPackages, type Package } from '../../lib/packageService';
+import { getPackages, createPackage, updatePackage, togglePackageStatus, type Package } from '../../lib/packageService';
+import { stockService, type StockItem } from '../../lib/stockService';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 
-type ConfigSection = 'CATALOGS' | 'STAFF' | 'SAFETY' | 'BRANDING' | 'OPERATIONS'| 'LOYALTY' | 'MAINTENANCE';
+type ConfigSection = 'CATALOGS' | 'INVENTORY' | 'STAFF' | 'SAFETY' | 'BRANDING' | 'OPERATIONS'| 'LOYALTY' | 'MAINTENANCE';
 
 export const Backoffice: React.FC = () => {
   const { showToast } = useToast();
@@ -20,7 +21,17 @@ export const Backoffice: React.FC = () => {
   const [staff, setStaff] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingStaff, setEditingStaff] = useState<any | null>(null);
+  const [editingPackage, setEditingPackage] = useState<Package | null>(null);
+  const [deletingPackage, setDeletingPackage] = useState<Package | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUserRole, setNewUserRole] = useState('admin');
+  const [editingStaffRole, setEditingStaffRole] = useState('');
+  const [showCreatePackage, setShowCreatePackage] = useState(false);
+  const [showCreateItem, setShowCreateItem] = useState(false);
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+  const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
+  const [inventory, setInventory] = useState<StockItem[]>([]);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<any | null>(null);
 
@@ -35,13 +46,15 @@ export const Backoffice: React.FC = () => {
             return;
         }
 
-        const [settingsData, packagesData, staffData] = await Promise.all([
+        const [settingsData, packagesData, inventoryData, staffData] = await Promise.all([
           getSystemSettings(),
           getPackages(false),
+          stockService.getInventory(),
           supabase.from('perfiles').select('*')
         ]);
         setSettings(settingsData);
         setPackages(packagesData);
+        setInventory(inventoryData);
         setStaff(staffData.data || []);
     } catch (e) {
         showToast('Error al cargar datos administrativos.', 'error', 'Error de Carga');
@@ -160,7 +173,11 @@ export const Backoffice: React.FC = () => {
                             <td><strong>{member.email}</strong></td>
                             <td><span className={`${styles.roleBadge} ${styles[member.rol_slug]}`}>{member.rol_slug.toUpperCase()}</span></td>
                             <td>{member.pin_seguridad ? <span className={styles.pinActive}><FontAwesomeIcon icon={faKey} /> SI</span> : <span className={styles.pinMissing}>NO</span>}</td>
-                            <td className={styles.actionsCell}><button className={styles.miniBtn} onClick={() => setEditingStaff(member)}><FontAwesomeIcon icon={faEdit} /> Editar</button></td>
+                            <td className={styles.actionsCell}>
+                                <button className={styles.iconBtn} onClick={() => { setEditingStaff(member); setEditingStaffRole(member.rol_slug); }} title="Editar">
+                                    <FontAwesomeIcon icon={faEdit} />
+                                </button>
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -174,20 +191,22 @@ export const Backoffice: React.FC = () => {
                         <h3><FontAwesomeIcon icon={faUserShield} style={{ marginRight: '0.5rem', opacity: 0.8 }} /> Editar Perfil</h3>
                         <button onClick={() => setEditingStaff(null)} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
                     </div>
-                    <form onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); handleUpdateStaff(editingStaff.id, { rol_slug: f.get('rol'), pin_seguridad: f.get('pin') || editingStaff.pin_seguridad }); }} className={styles.modalForm}>
+                    <form onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); handleUpdateStaff(editingStaff.id, { rol_slug: f.get('rol'), pin_seguridad: f.get('pin') || editingStaff.pin_seguridad }); }} className={styles.modalForm} autoComplete="off">
                         <div className={styles.formGroup}>
                             <label><FontAwesomeIcon icon={faUserShield} /> Rol</label>
-                            <select name="rol" className={styles.input} defaultValue={editingStaff.rol_slug}>
-                                <option value="cajero">Cajero</option>
-                                <option value="gerente">Gerente</option>
-                                <option value="analista">Analista</option>
+                            <select name="rol" className={styles.input} defaultValue={editingStaff.rol_slug} onChange={(e) => setEditingStaffRole(e.target.value)}>
                                 <option value="admin">Administrador</option>
+                                <option value="analista">Analista</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="cajero">Cajero</option>
                             </select>
                         </div>
-                        <div className={styles.formGroup}>
-                            <label><FontAwesomeIcon icon={faKey} /> Nuevo PIN</label>
-                            <input name="pin" type="password" className={styles.input} maxLength={6} />
-                        </div>
+                        {!['cajero', 'analista'].includes(editingStaffRole) && (
+                            <div className={styles.formGroup}>
+                                <label><FontAwesomeIcon icon={faKey} /> Nuevo PIN (4 dígitos)</label>
+                                <input name="pin" type="password" className={styles.input} maxLength={4} placeholder="PIN Obligatorio" autoComplete="new-password" />
+                            </div>
+                        )}
                         <div className={styles.modalFooter}>
                             <button type="button" onClick={() => setEditingStaff(null)} className="btn btn-ghost">Cancelar</button>
                             <button type="submit" className="btn btn-primary" disabled={isLoading}>{isLoading ? 'Guardando...' : 'Guardar'}</button>
@@ -209,7 +228,7 @@ export const Backoffice: React.FC = () => {
                         <strong>⚠️ Aviso Importante:</strong> Al crear el usuario, por reglas de seguridad y encriptación, <strong>el sistema cerrará tu sesión actual automáticamente</strong> para validar las nuevas credenciales. Tendrás que volver a ingresar con tu correo.
                     </div>
 
-                    <form onSubmit={handleCreateUser} className={styles.modalForm}>
+                    <form onSubmit={handleCreateUser} className={styles.modalForm} autoComplete="off">
                         <div className={styles.formGroup}>
                             <label><FontAwesomeIcon icon={faUser} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Nombre de Usuario</label>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -219,25 +238,146 @@ export const Backoffice: React.FC = () => {
                         </div>
                         <div className={styles.formGroup}>
                             <label><FontAwesomeIcon icon={faLock} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Contraseña de Acceso (Min 6 caracteres)</label>
-                            <input name="password" type="password" required className={styles.input} minLength={6} placeholder="********" />
+                            <input name="password" type="password" required className={styles.input} minLength={6} placeholder="********" autoComplete="new-password" />
                         </div>
                         <div className={styles.formGroup}>
                             <label><FontAwesomeIcon icon={faUserShield} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Rol Inicial</label>
-                            <select name="role" className={styles.input} defaultValue="cajero">
-                                <option value="cajero">Cajero (Operación Básica)</option>
-                                <option value="gerente">Gerente (Autorizaciones)</option>
-                                <option value="analista">Analista (Auditoría/Reportes)</option>
+                            <select name="role" className={styles.input} defaultValue="admin" onChange={(e) => setNewUserRole(e.target.value)}>
                                 <option value="admin">Administrador (Total)</option>
+                                <option value="analista">Analista (Auditoría/Reportes)</option>
+                                <option value="supervisor">Supervisor (Autorizaciones)</option>
+                                <option value="cajero">Cajero (Operación Básica)</option>
                             </select>
                         </div>
-                        <div className={styles.formGroup}>
-                            <label><FontAwesomeIcon icon={faKey} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> PIN Operativo (Hasta 6 números)</label>
-                            <input name="pin" type="password" className={styles.input} maxLength={6} placeholder="Opcional pero recomendado" />
-                        </div>
+                        {!['cajero', 'analista'].includes(newUserRole) && (
+                            <div className={styles.formGroup}>
+                                <label><FontAwesomeIcon icon={faKey} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> PIN Operativo (4 dígitos)</label>
+                                <input name="pin" type="password" required className={styles.input} maxLength={4} placeholder="PIN Obligatorio" autoComplete="new-password" />
+                            </div>
+                        )}
                         <div className={styles.modalFooter}>
                             <button type="button" onClick={() => setShowCreateUser(false)} className="btn btn-ghost">Cancelar</button>
                             <button type="submit" className="btn btn-primary" disabled={isLoading}>
                                 {isLoading ? 'Creando y Cerrando Sesión...' : 'Crear Usuario'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+    </section>
+  );
+
+  const renderInventorySection = () => (
+    <section className={styles.configCard}>
+        <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+                <h3><FontAwesomeIcon icon={faBoxes} /> Catálogo de Inventarios</h3>
+                <p>Gestione productos, precios y umbrales de alerta de stock.</p>
+            </div>
+            <button className="btn btn-primary" onClick={() => setShowCreateItem(true)}>
+                <FontAwesomeIcon icon={faPlus} /> Nuevo Producto
+            </button>
+        </div>
+
+        <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+                <thead>
+                    <tr><th>Producto</th><th>Categoría</th><th>Alerta Mín.</th><th>Precio Venta</th><th>Acciones</th></tr>
+                </thead>
+                <tbody>
+                    {inventory.map(item => (
+                        <tr key={item.id}>
+                            <td><strong>{item.nombre}</strong></td>
+                            <td>{item.categoria}</td>
+                            <td>
+                                <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                                    <FontAwesomeIcon icon={faExclamationTriangle} size="sm" /> {item.minimo_alert}
+                                </span>
+                            </td>
+                            <td>${item.precio_venta.toFixed(2)}</td>
+                            <td className={styles.actionsCell}>
+                                <button className={styles.iconBtn} onClick={() => setEditingItem(item)} title="Editar">
+                                    <FontAwesomeIcon icon={faEdit} />
+                                </button>
+                                <button className={`${styles.iconBtn} ${styles.iconBtnDanger}`} onClick={() => setDeletingItem(item)} title="Eliminar">
+                                    <FontAwesomeIcon icon={faTrash} />
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+
+        {(showCreateItem || editingItem) && (
+            <div className={styles.modalOverlay}>
+                <div className={styles.modal} style={{ maxWidth: '450px' }}>
+                    <div className={styles.modalHeader}>
+                        <h3>
+                            <FontAwesomeIcon icon={editingItem ? faEdit : faPlus} style={{ marginRight: '0.5rem', opacity: 0.8 }} />
+                            {editingItem ? 'Editar Producto' : 'Nuevo Producto'}
+                        </h3>
+                        <button onClick={() => { setShowCreateItem(false); setEditingItem(null); }} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
+                    </div>
+
+                    <form 
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            const f = new FormData(e.currentTarget);
+                            const data = {
+                                nombre: f.get('nombre') as string,
+                                categoria: f.get('categoria') as string,
+                                minimo_alert: parseInt(f.get('minimo_alert') as string),
+                                precio_venta: parseFloat(f.get('precio_venta') as string),
+                                cantidad: editingItem ? editingItem.cantidad : 0
+                            };
+
+                            setIsLoading(true);
+                            try {
+                                if (editingItem) {
+                                    await stockService.updateItem(editingItem.id, data);
+                                    showToast('Producto actualizado.', 'success');
+                                } else {
+                                    await stockService.createItem(data);
+                                    showToast('Producto creado.', 'success');
+                                }
+                                setShowCreateItem(false);
+                                setEditingItem(null);
+                                loadData();
+                            } catch (err: any) {
+                                showToast('Error al guardar el producto.', 'error');
+                            } finally {
+                                setIsLoading(false);
+                            }
+                        }}
+                        className={styles.modalForm}
+                    >
+                        <div className={styles.formGroup}>
+                            <label><FontAwesomeIcon icon={faTag} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Nombre del Producto</label>
+                            <input name="nombre" type="text" required defaultValue={editingItem?.nombre || ''} className={styles.input} placeholder="Ej. Botella de Agua 350ml" />
+                        </div>
+                        
+                        <div className={styles.formGroup}>
+                            <label><FontAwesomeIcon icon={faLayerGroup} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Categoría</label>
+                            <input name="categoria" type="text" required defaultValue={editingItem?.categoria || ''} className={styles.input} placeholder="Ej. Bebidas" />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <div className={styles.formGroup} style={{ flex: 1 }}>
+                                <label><FontAwesomeIcon icon={faExclamationTriangle} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Umbral Alerta</label>
+                                <input name="minimo_alert" type="number" required defaultValue={editingItem?.minimo_alert || 10} min="0" className={styles.input} />
+                            </div>
+                            <div className={styles.formGroup} style={{ flex: 1 }}>
+                                <label><FontAwesomeIcon icon={faMoneyBillWave} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Precio Venta ($)</label>
+                                <input name="precio_venta" type="number" required defaultValue={editingItem?.precio_venta || 0} min="0" step="0.01" className={styles.input} />
+                            </div>
+                        </div>
+
+                        <div className={styles.modalFooter}>
+                            <button type="button" onClick={() => { setShowCreateItem(false); setEditingItem(null); }} className="btn btn-ghost">Cancelar</button>
+                            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                                {isLoading ? 'Guardando...' : (editingItem ? 'Actualizar' : 'Crear')}
                             </button>
                         </div>
                     </form>
@@ -265,6 +405,7 @@ export const Backoffice: React.FC = () => {
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
           <button className={`${styles.navButton} ${activeSection === 'CATALOGS' ? styles.active : ''}`} onClick={() => setActiveSection('CATALOGS')}>📂 Paquetes</button>
+          <button className={`${styles.navButton} ${activeSection === 'INVENTORY' ? styles.active : ''}`} onClick={() => setActiveSection('INVENTORY')}>📦 Inventarios</button>
           <button className={`${styles.navButton} ${activeSection === 'STAFF' ? styles.active : ''}`} onClick={() => setActiveSection('STAFF')}>👥 Personal</button>
           <button className={`${styles.navButton} ${activeSection === 'SAFETY' ? styles.active : ''}`} onClick={() => setActiveSection('SAFETY')}>🛡️ Seguridad</button>
           <button className={`${styles.navButton} ${activeSection === 'BRANDING' ? styles.active : ''}`} onClick={() => setActiveSection('BRANDING')}>🏷️ Marca</button>
@@ -274,8 +415,169 @@ export const Backoffice: React.FC = () => {
         </aside>
         <main className={styles.content}>
           {activeSection === 'CATALOGS' && (
-            <section className={styles.configCard}><h3>Catálogo de Paquetes</h3><table className={styles.table}><thead><tr><th>Paquete</th><th>Área</th><th>Minutos</th><th>Precio</th></tr></thead><tbody>{packages.map(p => (<tr key={p.id}><td><strong>{p.nombre}</strong></td><td>{p.area}</td><td>{p.duracion_minutos}</td><td>${p.precio}.00</td></tr>))}</tbody></table></section>
+            // ... (keeping existing catalogs code)
+            <section className={styles.configCard}>
+              <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3><FontAwesomeIcon icon={faBoxOpen} /> Catálogo de Paquetes</h3>
+                  <p>Gestione los tipos de entrada y costos del parque infantil.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+                    Ver archivados
+                  </label>
+                  <button className="btn btn-primary" onClick={() => setShowCreatePackage(true)}>
+                    <FontAwesomeIcon icon={faPlus} /> Nuevo Paquete
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Paquete</th>
+                      <th>Área</th>
+                      <th>Minutos</th>
+                      <th>Precio</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {packages.filter(p => showInactive ? true : p.activo).map(p => (
+                        <tr key={p.id} style={{ opacity: p.activo ? 1 : 0.5, background: p.activo ? 'transparent' : '#f8fafc' }}>
+                        <td><strong>{p.nombre}</strong></td>
+                        <td>{p.area}</td>
+                        <td>{p.duracion_minutos} min</td>
+                        <td>${p.precio}.00</td>
+                        <td>
+                           <span className={`${styles.statusBadge} ${p.activo ? styles.active : styles.inactive}`}>
+                              {p.activo ? 'Activo' : 'Pausado'}
+                           </span>
+                        </td>
+                        <td className={styles.actionsCell}>
+                          <button className={styles.iconBtn} onClick={() => setEditingPackage(p)} title="Editar">
+                            <FontAwesomeIcon icon={faEdit} />
+                          </button>
+                          
+                          <button 
+                            className={`${styles.iconBtn} ${p.activo ? styles.iconBtnWarning : styles.iconBtnSuccess}`} 
+                            onClick={async () => {
+                              try {
+                                await togglePackageStatus(p.id, p.activo);
+                                showToast(`${p.nombre} ha sido ${p.activo ? 'desactivado' : 'activado'}.`, 'success');
+                                loadData();
+                              } catch (e) {
+                                showToast('Error al actualizar estado.', 'error');
+                              }
+                            }}
+                            title={p.activo ? 'Desactivar' : 'Activar'}
+                          >
+                            <FontAwesomeIcon icon={p.activo ? faLock : faKey} />
+                          </button>
+
+                          <button 
+                            className={`${styles.iconBtn} ${styles.iconBtnDanger}`} 
+                            onClick={() => setDeletingPackage(p)}
+                            title="Eliminar"
+                          >
+                            <FontAwesomeIcon icon={faTrash} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Modal Crear/Editar Paquete */}
+              {(showCreatePackage || editingPackage) && (
+                <div className={styles.modalOverlay}>
+                  <div className={styles.modal} style={{ maxWidth: '450px' }}>
+                    <div className={styles.modalHeader}>
+                      <h3>
+                        <FontAwesomeIcon icon={editingPackage ? faEdit : faPlus} style={{ marginRight: '0.5rem', opacity: 0.8 }} />
+                        {editingPackage ? 'Editar Paquete' : 'Nuevo Paquete'}
+                      </h3>
+                      <button onClick={() => { setShowCreatePackage(false); setEditingPackage(null); }} className={styles.closeBtn}>
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </div>
+
+                    <form 
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        const data = {
+                          nombre: f.get('nombre') as string,
+                          area: f.get('area') as string,
+                          duracion_minutos: parseInt(f.get('duracion') as string),
+                          precio: parseFloat(f.get('precio') as string),
+                          activo: true
+                        };
+
+                        setIsLoading(true);
+                        try {
+                          if (editingPackage) {
+                            await updatePackage(editingPackage.id, data);
+                            showToast('Paquete actualizado.', 'success');
+                          } else {
+                            await createPackage(data);
+                            showToast('Paquete creado.', 'success');
+                          }
+                          setShowCreatePackage(false);
+                          setEditingPackage(null);
+                          loadData();
+                        } catch (err: any) {
+                          showToast(err.message || 'Error al guardar paquete.', 'error');
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }} 
+                      className={styles.modalForm}
+                    >
+                      <div className={styles.formGroup}>
+                        <label><FontAwesomeIcon icon={faTag} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Nombre del Paquete</label>
+                        <input name="nombre" type="text" required defaultValue={editingPackage?.nombre || ''} className={styles.input} placeholder="Ej. Super Salto 2H" />
+                      </div>
+                      
+                      <div className={styles.formGroup}>
+                        <label><FontAwesomeIcon icon={faLayerGroup} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Área del Parque</label>
+                        <select name="area" className={styles.input} defaultValue={editingPackage?.area || 'Mundo Pekes'}>
+                          <option value="Mundo Pekes">Mundo Pekes</option>
+                          <option value="Trampolin">Trampolín</option>
+                          <option value="Mixto">Mixto (Global)</option>
+                          <option value="Eventos">Eventos / Cumpleaños</option>
+                          <option value="General">General</option>
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '1rem' }}>
+                        <div className={styles.formGroup} style={{ flex: 1 }}>
+                          <label><FontAwesomeIcon icon={faClock} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Duración (Minutos)</label>
+                          <input name="duracion" type="number" required defaultValue={editingPackage?.duracion_minutos || 60} min="1" className={styles.input} />
+                        </div>
+                        <div className={styles.formGroup} style={{ flex: 1 }}>
+                          <label><FontAwesomeIcon icon={faTag} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Precio ($)</label>
+                          <input name="precio" type="number" required defaultValue={editingPackage?.precio || 100} min="0" step="0.01" className={styles.input} />
+                        </div>
+                      </div>
+
+                      <div className={styles.modalFooter}>
+                        <button type="button" onClick={() => { setShowCreatePackage(false); setEditingPackage(null); }} className="btn btn-ghost">Cancelar</button>
+                        <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                          {isLoading ? 'Guardando...' : (editingPackage ? 'Actualizar' : 'Crear')}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </section>
           )}
+          {activeSection === 'INVENTORY' && renderInventorySection()}
           {activeSection === 'STAFF' && renderStaffSection()}
           {activeSection === 'SAFETY' && (
             <section className={styles.configCard}><h3>Seguridad y Edades</h3><div className={styles.safetyGrid} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}><div className={styles.formGroup}><label>Edad Mínima</label><input type="number" className={styles.input} value={settings.edad_minima} onChange={(e) => setSettings({...settings, edad_minima: parseInt(e.target.value)})}/></div><div className={styles.formGroup}><label>Edad Máxima</label><input type="number" className={styles.input} value={settings.edad_maxima} onChange={(e) => setSettings({...settings, edad_maxima: parseInt(e.target.value)})}/></div></div><button className="btn btn-primary" onClick={() => handleSaveSettings('Rango de edades actualizado.')} disabled={isLoading}>{isLoading ? 'Guardando...' : 'Guardar Edades'}</button></section>
@@ -390,6 +692,53 @@ export const Backoffice: React.FC = () => {
           )}
         </main>
       </div>
+
+      <ConfirmDialog
+        isOpen={!!deletingPackage}
+        title="Archivar Paquete"
+        message={`¿Está seguro de archivar el paquete "${deletingPackage?.nombre}"? Dejará de estar visible en el kiosko de ventas pero se conservará en tu historial financiero.`}
+        confirmText="SÍ, ARCHIVAR"
+        cancelText="No, Mantenerlo"
+        status="warning"
+        onCancel={() => setDeletingPackage(null)}
+        onConfirm={async () => {
+          if (deletingPackage) {
+            try {
+              // En lugar de borrar, simplemente desactivamos para mantener historia
+              await togglePackageStatus(deletingPackage.id, true);
+              showToast('Paquete archivado correctamente.', 'success');
+              loadData();
+            } catch (e) {
+              showToast('Error al intentar archivar el paquete.', 'error');
+            } finally {
+              setDeletingPackage(null);
+            }
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deletingItem}
+        title="Eliminar Producto"
+        message={`¿Está seguro de eliminar el producto "${deletingItem?.nombre}"? Esto también podría afectar el historial de movimientos de inventario.`}
+        confirmText="SÍ, ELIMINAR"
+        cancelText="Cancelar"
+        status="danger"
+        onCancel={() => setDeletingItem(null)}
+        onConfirm={async () => {
+          if (deletingItem) {
+            try {
+              await stockService.deleteItem(deletingItem.id);
+              showToast('Producto eliminado correctamente.', 'success');
+              loadData();
+            } catch (e) {
+              showToast('Error al intentar eliminar el producto.', 'error');
+            } finally {
+              setDeletingItem(null);
+            }
+          }
+        }}
+      />
     </div>
   );
 };

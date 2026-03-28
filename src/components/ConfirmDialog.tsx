@@ -9,16 +9,18 @@ interface ConfirmDialogProps {
     onConfirm: () => void;
     confirmText?: string;
     cancelText?: string;
+    status?: 'info' | 'warning' | 'danger' | 'error';
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ 
     isOpen, title, message, onCancel, onConfirm, 
-    confirmText = 'Continuar', cancelText = 'Regresar / Cancelar' 
+    confirmText = 'Continuar', cancelText = 'Regresar / Cancelar',
+    status = 'warning'
 }) => {
     return (
         <StatusModal
             isOpen={isOpen}
-            status="info"
+            status={status as any}
             title={title}
             message={message}
             onAction={onConfirm}

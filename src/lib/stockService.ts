@@ -87,5 +87,37 @@ export const stockService = {
             });
         
         if (logError) throw logError;
+    },
+
+    async createItem(item: Omit<StockItem, 'id'>) {
+        const { data, error } = await supabase
+            .from('inventario')
+            .insert(item)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    async updateItem(id: string, updates: Partial<StockItem>) {
+        const { data, error } = await supabase
+            .from('inventario')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteItem(id: string) {
+        const { error } = await supabase
+            .from('inventario')
+            .delete()
+            .eq('id', id);
+        
+        if (error) throw error;
     }
 };

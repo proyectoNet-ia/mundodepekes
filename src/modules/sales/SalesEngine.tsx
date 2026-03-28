@@ -11,6 +11,7 @@ import { type UserProfile } from '../../lib/authService';
 import { useToast } from '../../components/Toast';
 import { StatusModal } from '../../components/StatusModal';
 import { getActiveSessions, type ActiveSession } from '../../lib/sessionService';
+import { PINModal } from '../../components/PINModal';
 
 // Types
 type SalesStep = 'BUSQUEDA' | 'CLIENTE' | 'NINO' | 'PAQUETE' | 'ACCESORIOS' | 'PAGO';
@@ -40,6 +41,7 @@ interface ChildData {
   observations?: string;
   id?: string;
   isAlreadyInside?: boolean;
+  enListaNegra?: boolean;
 }
 
 interface SelectedAcc {
@@ -76,6 +78,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
   const [openingAmount, setOpeningAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta'>('efectivo');
   const [selectedAreas, setSelectedAreas] = useState<Record<number, string>>({});
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [isAuthorizedOverride, setIsAuthorizedOverride] = useState(false);
 
   const handleOpenCash = async () => {
     const monto = getNumericAmount(openingAmount);
@@ -117,6 +121,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
             visitsCount: reentryData.visitsCount || reentryData.clientes?.visitas_acumuladas || 0
           });
           setChildren([{ 
+            id: reentryData.childId,
             name: reentryData.childName || reentryData.nombre || '', 
             age: reentryData.edad || 0,
             included: true
@@ -169,8 +174,10 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
     if (res.registeredChildren && res.registeredChildren.length > 0) {
         setChildren(res.registeredChildren.map((c: any) => ({
             ...c, 
-            included: false, // Desmarcado por defecto por seguridad (evita procesar niños ausentes)
-            isAlreadyInside: activeIds.has(c.id)
+            included: false, 
+            isAlreadyInside: activeIds.has(c.id),
+            enListaNegra: c.enListaNegra,
+            observations: c.observations
         })));
     } else if (res.type === 'child' && res.childName) {
         const isInside = (res.childId && activeIds.has(res.childId)) ? true : false;
@@ -178,8 +185,10 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
             id: res.childId,
             name: res.childName, 
             age: 0, 
-            included: !isInside, // Si buscó al niño específico, lo marcamos
-            isAlreadyInside: isInside
+            included: !isInside && !res.enListaNegra, 
+            isAlreadyInside: isInside,
+            enListaNegra: res.enListaNegra,
+            observations: res.observaciones
         }]);
     } else {
         setChildren([{ name: '', age: 0, included: true }]);
@@ -189,7 +198,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
     setCurrentStep('NINO');
   };
   
-  const activeChildren = children.filter(c => c.included !== false);
+  const activeChildren = children.filter((c: ChildData) => c.included !== false);
 
 
   const handleGoToPackages = () => {
@@ -197,11 +206,23 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
           showToast('Debes marcar al menos un peke para el acceso.', 'warning', 'Ingreso Vacío');
           return;
       }
-      if (activeChildren.some(c => !c.name || !c.age)) {
+      if (activeChildren.some((c: ChildData) => !c.name || !c.age)) {
           showToast('Completa el nombre y edad de los pekes marcados.', 'warning', 'Datos Faltantes');
           return;
       }
+      
+      if (activeChildren.some((c: ChildData) => c.enListaNegra) && !isAuthorizedOverride) {
+          setShowPinModal(true);
+          return;
+      }
+
       setCurrentStep('PAQUETE');
+  };
+
+  const handleAuthorizedSuccess = () => {
+    setIsAuthorizedOverride(true);
+    showToast('Acceso autorizado por Gerencia.', 'success', 'Autorizado');
+    setCurrentStep('PAQUETE');
   };
 
   const totalAccessories = selectedAccessories.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
@@ -259,10 +280,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
             })),
             paymentMethod: method,
             total,
-            // staffEmail y cashAmount se eliminan si no están en la interfaz de registerFullEntry,
-            // pero si salesService los usa, se pueden pasar dentro de un objeto extendido.
-            // Por ahora ajustamos a la interfaz obligatoria:
-        } as any); // Usamos any temporalmente si necesitamos pasar campos extras no definidos en la interfaz base
+            isReentry: !!reentryData,
+        } as any);
         setLastTransaction(registration);
 
         // -- IMPRESIÓN MÚLTIPLE DE TICKETS Y PULSERAS --
@@ -480,16 +499,23 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
                             </div>
 
                             {children.map((child, idx) => (
-                                <div key={idx} className={`${styles.childRow} ${child.included === false ? styles.childRowExcluded : ''}`}>
+                                <div key={idx} className={`
+                                    ${styles.childRow} 
+                                    ${child.included === false ? styles.childRowExcluded : ''}
+                                    ${child.enListaNegra ? styles.childBlacklistRow : ''}
+                                `}>
                                     <div className={styles.childToggleWrapper}>
                                         <label 
-                                            className={`${styles.toggleCheckboxLabel} ${child.isAlreadyInside ? styles.checkboxDisabled : ''}`} 
-                                            title={child.isAlreadyInside ? "Este peke ya tiene una sesión activa" : "Marcar para incluir"}
+                                            className={`
+                                                ${styles.toggleCheckboxLabel} 
+                                                ${(child.isAlreadyInside || child.enListaNegra) ? styles.checkboxDisabled : ''}
+                                            `} 
+                                            title={child.isAlreadyInside ? "Este peke ya tiene una sesión activa" : child.enListaNegra ? "Bloqueado por Lista Negra" : "Marcar para incluir"}
                                         >
                                             <input 
                                                 type="checkbox" 
                                                 checked={child.included} 
-                                                disabled={child.isAlreadyInside}
+                                                disabled={child.isAlreadyInside || child.enListaNegra}
                                                 onChange={() => setChildren(children.map((c, i) => i === idx ? {...c, included: !c.included} : c))} 
                                             />
                                         </label>
@@ -503,8 +529,20 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
                                                     USUARIO ACTIVO
                                                 </div>
                                             )}
+                                            {child.enListaNegra && (
+                                                <div className={styles.blacklistBadge}>
+                                                    <FontAwesomeIcon icon={faLock} />
+                                                    LISTA NEGRA
+                                                </div>
+                                            )}
                                         </div>
                                         <input type="text" value={child.name} onChange={(e) => { const n = [...children]; n[idx].name = e.target.value; setChildren(n); }} placeholder="Ej. Luisito" disabled={child.included === false} autoFocus={idx === 0} required />
+                                        
+                                        {child.enListaNegra && child.observations && (
+                                            <div className={styles.blacklistReason}>
+                                                <strong>Motivo:</strong> {child.observations}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className={styles.inputWrapper} style={{ width: '80px' }}>
                                         <label>Edad</label>
@@ -539,8 +577,15 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
 
                                 return (
                                 <div key={idx} style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0' }}>
-                                    <h4 style={{ marginBottom: '1.5rem', color: '#0f172a' }}>
-                                        <FontAwesomeIcon icon={faChild} /> Paquete para {child.name || `Peke ${idx+1}`}
+                                    <h4 style={{ 
+                                        marginBottom: '1.5rem', 
+                                        color: '#334155', 
+                                        fontSize: '1.4rem', 
+                                        letterSpacing: '-0.5px'
+                                    }}>
+                                        <FontAwesomeIcon icon={faChild} style={{ color: 'var(--brand-500)', marginRight: '0.75rem' }} /> 
+                                        <span style={{fontWeight: '300'}}>Paquete para </span>
+                                        <span style={{ color: 'var(--brand-600)', fontWeight: '900', textTransform: 'uppercase' }}>{child.name || `Peke ${idx+1}`}</span>
                                     </h4>
 
                                     {/* Selector de Áreas (Tabs) */}
@@ -743,6 +788,13 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
                 }
             </div>
         </StatusModal>
+        <PINModal 
+            isOpen={showPinModal}
+            onClose={() => setShowPinModal(false)}
+            onSuccess={handleAuthorizedSuccess}
+            actionDescription={`Autorización de ingreso para pekes en Lista Negra: ${activeChildren.filter(c => c.enListaNegra).map(c => c.name).join(', ')}`}
+            message="Se han detectado pekes en LISTA NEGRA. Para permitir su ingreso, se requiere autorización de un Gerente."
+        />
     </div>
   );
 };

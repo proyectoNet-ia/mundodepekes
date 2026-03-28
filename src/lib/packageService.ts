@@ -77,3 +77,13 @@ export const togglePackageStatus = async (id: string, currentStatus: boolean) =>
   if (error) throw error;
   return true;
 };
+
+export const deletePackage = async (id: string) => {
+  const { error } = await supabase
+    .from('paquetes')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
+};

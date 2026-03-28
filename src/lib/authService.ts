@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export type UserRole = 'admin' | 'analista' | 'gerente' | 'cajero';
+export type UserRole = 'admin' | 'analista' | 'supervisor' | 'cajero';
 
 export interface UserProfile {
     id: string;
@@ -24,16 +24,17 @@ export const authService = {
     },
 
     onAuthStateChange(callback: (user: UserProfile | null) => void) {
-        return supabase.auth.onAuthStateChange(async (_event, session) => {
+        return supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log(`AUTH_EVENT: ${event}`);
             if (session?.user) {
                 try {
                     const profile = await this.getCurrentUser();
                     callback(profile);
                 } catch (e) {
-                    // Fallback rápido si el perfil falla
+                    console.warn('Auth fallback triggered after profile failure');
                     callback({ id: session.user.id, email: session.user.email || '', role: 'cajero' });
                 }
-            } else {
+            } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
                 callback(null);
             }
         });
@@ -123,7 +124,7 @@ export const authService = {
             .from('perfiles')
             .select('*')
             .eq('pin_seguridad', pin)
-            .in('rol_slug', ['admin', 'gerente'])
+            .in('rol_slug', ['admin', 'supervisor'])
             .single();
 
         if (error || !profile) return null;

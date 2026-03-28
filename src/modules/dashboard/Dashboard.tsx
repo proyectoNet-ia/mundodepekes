@@ -21,19 +21,29 @@ import {
   faUser, 
   faStar, 
   faBaby, 
-  faEnvelope
+  faEnvelope,
+  faPlus,
+  faLayerGroup
 } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 const AREA_MAP: Record<string, string> = {
+  'Mundo de Pekes': 'Mundo de Pekes',
   'Mundo Pekes': 'Mundo de Pekes',
-  'Trampolin': 'Trampolin Park',
+  'Trampolín Park': 'Trampolín Park',
+  'Trampolin Park': 'Trampolín Park',
+  'Trampolín': 'Trampolín Park',
+  'Trampolin': 'Trampolín Park',
+  'Área Mixta': 'Área Mixta',
+  'Area Mixta': 'Área Mixta',
   'Mixto': 'Área Mixta'
 };
 
+const UI_ZONES = ['Mundo de Pekes', 'Trampolín Park', 'Área Mixta'];
+
 interface DashboardProps {
-  onReentry?: (child: ActiveSession) => void;
+  onReentry?: (child: ActiveSession | null) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
@@ -57,7 +67,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
   // Estado para las alertas de "Toast" de pantalla completa
   const [expiredSessions, setExpiredSessions] = useState<ActiveSession[]>([]);
   const [dismissedExpired, setDismissedExpired] = useState<Set<string>>(new Set());
-
+  
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -84,21 +94,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
 
     refreshData();
     
-    // Realtime subscription (inmediato cuando hay cambios en DB)
+    // Sincronización Realtime con Supabase
     const subscription = subscribeToSessions(() => {
       refreshData();
     });
 
-    // Reloj: actualiza cada 30s para que las barras de progreso sean más precisas
+    // Reloj: actualiza cada 30s
     const clockTimer = setInterval(() => {
       setCurrentTime(new Date());
     }, 30000);
 
-    // Polling de respaldo: recarga datos desde Supabase cada 45s
-    // Cubre casos donde Realtime falla o se desconecta
-    const pollTimer = setInterval(() => {
-      refreshData();
-    }, 45000);
+    const pollTimer = setInterval(() => { refreshData(); }, 45000);
 
     return () => {
       subscription.unsubscribe();
@@ -178,9 +184,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
     }
   };
 
-  // Occupancy Logic (Mixed counts for both)
-  const countMundo = sessions.filter(s => s.area === 'Mundo Pekes' || s.area === 'Mixto').length;
-  const countTrampolin = sessions.filter(s => s.area === 'Trampolin' || s.area === 'Mixto').length;
+  // Áreas reconocidas por el sistema
+  const KNOWN_AREAS = Object.keys(AREA_MAP); // ['Mundo Pekes', 'Trampolin', 'Mixto']
+
+  // Total real: solo sesiones en áreas conocidas, sin duplicados por childId
+  const visibleSessions = sessions.filter(s => KNOWN_AREAS.includes(s.area));
+  const uniqueChildIds = new Set(visibleSessions.map(s => s.childId));
+  const totalEnRecinto = uniqueChildIds.size;
+
+  // Occupancy Logic (Mixed counts for both areas)
+  const countMundo = sessions.filter(s => AREA_MAP[s.area] === 'Mundo de Pekes' || AREA_MAP[s.area] === 'Área Mixta').length;
+  const countTrampolin = sessions.filter(s => AREA_MAP[s.area] === 'Trampolín Park' || AREA_MAP[s.area] === 'Área Mixta').length;
+  const countMixta = sessions.filter(s => AREA_MAP[s.area] === 'Área Mixta').length;
 
   const normalizeText = (text: string) => 
     text ? text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
@@ -188,7 +203,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
   const activeExpiredToasts = expiredSessions.filter(s => !dismissedExpired.has(s.id));
 
   // Estado para la pestaña activa de estadísticas en móvil
-  const [activeStatTab, setActiveStatTab] = useState<'totales' | 'pekes' | 'trampolin'>('totales');
+  const [activeStatTab, setActiveStatTab] = useState<'totales' | 'pekes' | 'trampolin' | 'mixta'>('totales');
 
   return (
     <div className={styles.dashboardContainer}>
@@ -204,7 +219,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 // Reset pages when searching
-                setCurrentPages({'Mundo Pekes': 1, 'Trampolin': 1, 'Mixto': 1});
+                const resetPages = UI_ZONES.reduce((acc, zone) => ({ ...acc, [zone]: 1 }), {});
+                setCurrentPages(resetPages);
               }}
               className={styles.searchInput}
             />
@@ -217,10 +233,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
               </button>
             )}
           </div>
-          {/* Indicador de actualización en tiempo real */}
-          <div className={styles.liveIndicator} title={`Actualizado: ${lastRefreshed.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}>
-            <span className={`${styles.liveDot} ${isRefreshing ? styles.liveDotRefreshing : ''}`} />
-            <span className={styles.liveText}>{isRefreshing ? 'Actualizando…' : 'En Vivo'}</span>
+          
+          <div className={styles.headerActions}>
+            {/* Indicador de actualización en tiempo real */}
+            <div className={styles.liveIndicator} title={`Actualizado: ${lastRefreshed.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}>
+              <span className={`${styles.liveDot} ${isRefreshing ? styles.liveDotRefreshing : ''}`} />
+              <span className={styles.liveText}>{isRefreshing ? 'En Vivo' : 'En Vivo'}</span>
+            </div>
           </div>
         </div>
 
@@ -244,6 +263,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                 >
                     <FontAwesomeIcon icon={faTableTennisPaddleBall} /> Trampolin
                 </button>
+                <button 
+                    className={`${styles.statsTabBtn} ${activeStatTab === 'mixta' ? styles.statsTabBtnActive : ''}`} 
+                    onClick={() => setActiveStatTab('mixta')}
+                >
+                    <FontAwesomeIcon icon={faLayerGroup} /> Área Mixta
+                </button>
             </div>
             
             <div className={styles.statsOverview}>
@@ -251,8 +276,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                     <span className={styles.statLabel}>
                     <FontAwesomeIcon icon={faUsers} className={styles.iconMargin} /> Total en Recinto
                     </span>
-                    <span className={styles.statValue}>{sessions.length}</span>
-                    <p style={{fontSize: '0.75rem', color: 'var(--text-tertiary)'}}>Niños activos actualmente</p>
+                    <span className={styles.statValue}>{totalEnRecinto}</span>
+                    <p style={{fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '1rem'}}>Niños activos actualmente</p>
+                    <button className={styles.newEntryBtnCard} onClick={() => onReentry?.(null)}>
+                      <FontAwesomeIcon icon={faPlus} />
+                      <span>NUEVO INGRESO</span>
+                    </button>
                 </div>
 
                 <div className={`${styles.statCard} ${getCapacityStatus(countMundo, limits.mundo_pekes)} ${activeStatTab === 'pekes' ? styles.activeStatCard : styles.hiddenStatCard}`}>
@@ -300,24 +329,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                         <small style={{fontSize: '0.65rem'}}>Límite: {limits.trampolin} niños</small>
                     </div>
                 </div>
+
+                <div className={`${styles.statCard} ${activeStatTab === 'mixta' ? styles.activeStatCard : styles.hiddenStatCard}`}>
+                    <span className={styles.statLabel}>
+                    <FontAwesomeIcon icon={faLayerGroup} className={styles.iconMargin} /> Área Mixta
+                    </span>
+                    <span className={styles.statValue}>{countMixta}</span>
+                    <div className={styles.capacityIndicator}>
+                        <div className={styles.capacityText}>
+                            <span>Sesiones Activas</span>
+                            <span>Acceso Total</span>
+                        </div>
+                        <div className={styles.capacityBarBg}>
+                            <div 
+                                className={styles.capacityBarFill} 
+                                style={{ 
+                                    width: '100%',
+                                    backgroundColor: '#0ea5e9'
+                                }} 
+                            />
+                        </div>
+                        <small style={{fontSize: '0.65rem'}}>Área de juego sin restricciones</small>
+                    </div>
+                </div>
             </div>
         </div>
       </header>
 
       <section className={styles.zonesGrid}>
-        {Object.entries(AREA_MAP).map(([dbArea, uiArea]) => (
-          <div key={dbArea} className={styles.zoneSection}>
+        {UI_ZONES.map(uiArea => (
+          <div key={uiArea} className={styles.zoneSection}>
             <div className={styles.zoneHeader}>
               <h3 className={styles.zoneTitle}>{uiArea}</h3>
               <span className={styles.zoneCount}>
-                {sessions.filter(s => s.area === dbArea).length} niños
+                {new Set(sessions.filter(s => AREA_MAP[s.area] === uiArea).map(s => s.childId)).size} niños
               </span>
             </div>
             
             <div className={styles.sessionGrid}>
               {(() => {
-                const areaSessions = sessions
-                  .filter(s => s.area === dbArea)
+                const areaSessionsRaw = sessions.filter(s => AREA_MAP[s.area] === uiArea);
+                const uniqueKids = new Map();
+                areaSessionsRaw.forEach(s => {
+                    // Si ya existe una sesión activa para este niño, mantenemos la que tenga el ID más reciente o mayor duración (o simplemente la primera que encontremos ya que salesService ahora limpia las viejas)
+                    if (!uniqueKids.has(s.childId)) {
+                        uniqueKids.set(s.childId, s);
+                    }
+                });
+
+                const areaSessions = Array.from(uniqueKids.values())
                   .filter(s => {
                     const query = normalizeText(searchQuery);
                     return normalizeText(s.childName).includes(query) || 
@@ -330,7 +390,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                   });
                 
                 const totalPages = Math.ceil(areaSessions.length / ITEMS_PER_PAGE);
-                const currentPage = currentPages[dbArea] || 1;
+                const currentPage = currentPages[uiArea] || 1;
                 const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
                 const visibleSessions = areaSessions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
@@ -432,7 +492,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                         <button 
                           className={styles.pageBtn} 
                           disabled={currentPage === 1}
-                          onClick={() => setCurrentPages(prev => ({ ...prev, [dbArea]: currentPage - 1 }))}
+                          onClick={() => setCurrentPages(prev => ({ ...prev, [uiArea]: currentPage - 1 }))}
                         >
                           <FontAwesomeIcon icon={faChevronLeft} />
                         </button>
@@ -440,7 +500,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                         <button 
                           className={styles.pageBtn} 
                           disabled={currentPage === totalPages}
-                          onClick={() => setCurrentPages(prev => ({ ...prev, [dbArea]: currentPage + 1 }))}
+                          onClick={() => setCurrentPages(prev => ({ ...prev, [uiArea]: currentPage + 1 }))}
                         >
                           <FontAwesomeIcon icon={faChevronRight} />
                         </button>

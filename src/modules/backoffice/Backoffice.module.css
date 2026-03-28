@@ -91,17 +91,24 @@
 
 .table th {
     text-align: left;
-    font-size: 0.75rem;
-    text-transform: uppercase;
+    padding: 1rem 1.5rem;
+    font-size: 0.8rem;
+    font-weight: 800;
     color: var(--text-tertiary);
-    padding: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     border-bottom: 2px solid var(--bg-tertiary);
 }
 
 .table td {
-    padding: 1rem;
+    padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--bg-tertiary);
-    font-size: 0.95rem;
+    vertical-align: middle;
+    color: var(--text-primary);
+}
+
+.table th:last-child {
+    text-align: right;
 }
 
 .activeLabel {
@@ -276,7 +283,7 @@
 }
 
 .admin { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-.gerente { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+.supervisor { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
 .analista { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
 .cajero { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
 
@@ -368,4 +375,95 @@
 @keyframes slideUp {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* Package Management Specifics */
+.statusBadge {
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.statusBadge.active {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #10b98144;
+}
+
+.statusBadge.inactive {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #ef444444;
+}
+
+.miniBtn.btnDanger {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.miniBtn.btnDanger:hover {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.miniBtn.btnSuccess {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+}
+
+.miniBtn.btnSuccess:hover {
+    background: #dcfce7;
+    color: #14532d;
+}
+
+.iconBtn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-color);
+    background: #ffffff;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.iconBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    background: #f8fafc;
+    color: var(--brand-600);
+    border-color: var(--brand-300);
+}
+
+/* Variantes para los botones de icono */
+.iconBtnWarning:hover {
+    color: #f59e0b;
+    border-color: #fef3c7;
+    background: #fffbeb;
+}
+
+.iconBtnSuccess:hover {
+    color: #10b981;
+    border-color: #d1fae5;
+    background: #f0fdf4;
+}
+
+.iconBtnDanger:hover {
+    color: #ef4444;
+    border-color: #fee2e2;
+    background: #fef2f2;
+}
+
+.actionsCell {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: center;
 }

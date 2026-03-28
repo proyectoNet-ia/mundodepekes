@@ -298,9 +298,40 @@
 
 .checkboxDisabled {
     background: #f1f5f9;
-    border-color: #cbd5e1;
     cursor: not-allowed;
-    opacity: 0.5;
+    opacity: 0.6;
+}
+
+.blacklistBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 900;
+    border: 1px solid #fee2e2;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+}
+
+.childBlacklistRow {
+    border: 2px solid #ef4444 !important;
+    background: #fff5f5 !important;
+}
+
+.blacklistReason {
+    grid-column: 1 / -1;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #991b1b;
+    background: #fee2e2;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border-left: 4px solid #ef4444;
+    animation: fadeIn 0.3s ease-out;
 }
 
 .checkboxDisabled input {

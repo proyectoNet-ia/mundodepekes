@@ -19,8 +19,64 @@
 .headerTop {
   width: 100%;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.newEntryBtn {
+  background: #f59e0b;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.7rem;
+  border-radius: 12px;
+  font-weight: 800;
+  display: flex;
   align-items: center;
   gap: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.newEntryBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+  background: #d97706;
+}
+
+.newEntryBtnCard {
+  width: 100%;
+  margin-top: auto;
+  background: #f59e0b;
+  color: white;
+  border: none;
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+  transition: all 0.2s;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.newEntryBtnCard:hover {
+  background: #d97706;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(245, 158, 11, 0.3);
 }
 
 /* ─── Indicador En Vivo ─── */
@@ -180,18 +236,32 @@
   color: white;
 }
 
-.activeStatCard {
-  display: flex;
-  animation: fadeIn 0.3s ease;
+/* Solo se ocultan en móvil si no es la pestaña activa */
+@media (max-width: 1024px) {
+  .hiddenStatCard {
+    display: none !important;
+  }
+  
+  .activeStatCard {
+    display: flex;
+    animation: fadeIn 0.3s ease;
+  }
 }
 
-.hiddenStatCard {
-  display: none !important;
+@media (min-width: 1025px) {
+  .statsTabs {
+    display: none !important;
+  }
+  
+  .hiddenStatCard {
+    display: flex !important; /* Forzamos visibilidad en desktop */
+  }
 }
 
 .statsOverview {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
 }
 
 .statCard {
@@ -213,6 +283,156 @@
 
 .capacityIndicator {
   margin-top: 1rem;
+}
+
+/* NOTIFICACIONES REMOTAS */
+.floatingNotifyBtn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 65px;
+    height: 65px;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2000;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.floatingNotifyBtn:hover {
+    transform: scale(1.1) translateY(-5px);
+}
+
+.floatingNotifyBtn svg {
+    font-size: 1.8rem;
+    color: #64748b;
+}
+
+.floatingNotifyBtn.hasPending {
+    background: var(--brand-500);
+    animation: pulseBell 1.5s infinite;
+}
+
+.floatingNotifyBtn.hasPending svg {
+    color: white;
+}
+
+@keyframes pulseBell {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.notifyBadge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border: 3px solid white;
+}
+
+.requestPanel {
+    position: fixed;
+    bottom: 110px;
+    right: 30px;
+    width: 350px;
+    max-height: 500px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+    z-index: 2001;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideUpNotify 0.3s ease;
+}
+
+@keyframes slideUpNotify {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.panelHeader {
+    padding: 1.2rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panelHeader h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #1e293b;
+    font-weight: 800;
+}
+
+.panelList {
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.requestCard {
+    padding: 1rem;
+    background: #f1f5f9;
+    border-radius: 12px;
+    border: 1px solid transparent;
+}
+
+.requestCard h4 {
+    margin: 0 0 0.3rem 0;
+    font-size: 0.85rem;
+    color: #0f172a;
+}
+
+.requestCard p {
+    margin: 0 0 0.8rem 0;
+    font-size: 0.8rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.cardActions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.cardActions button {
+    flex: 1;
+    padding: 0.5rem;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.7rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.approveBtn { background: var(--brand-500); color: white; }
+.rejectBtn { background: white; color: #64748b; border: 1px solid #e2e8f0 !important; }
+
+.emptyState {
+    padding: 2rem;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.85rem;
 }
 
 .capacityText {

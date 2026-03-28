@@ -4,8 +4,9 @@ import { stockService, type StockItem, type InventoryMovement } from '../../lib/
 import { authService, type UserProfile } from '../../lib/authService';
 import { ReportService } from '../../lib/reportService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faArrowUp, faArrowDown, faTriangleExclamation, faSpinner, faCheck, faTimes, faShieldAlt, faFilePdf, faFileExcel, faBoxes } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faArrowUp, faArrowDown, faTriangleExclamation, faSpinner, faCheck, faTimes, faShieldAlt, faFilePdf, faFileExcel, faBoxes, faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { AuthPinModal } from '../../components/AuthPinModal';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/Toast';
 
 export const Stock: React.FC = () => {
@@ -23,6 +24,12 @@ export const Stock: React.FC = () => {
     const [adjustType, setAdjustType] = useState<'entrada' | 'salida'>('entrada');
     const [adjustReason, setAdjustReason] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    // Config States
+    const [showCreateItem, setShowCreateItem] = useState(false);
+    const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+    const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -81,6 +88,8 @@ export const Stock: React.FC = () => {
         }
     };
 
+    const isAdmin = currentUser?.role === 'admin';
+
     return (
         <div className={styles.stockContainer}>
             <header className={styles.header}>
@@ -109,6 +118,11 @@ export const Stock: React.FC = () => {
                     }} title="Exportar Excel">
                         <FontAwesomeIcon icon={faFileExcel} /> Excel
                     </button>
+                    {isAdmin && (
+                        <button className="btn btn-primary" onClick={() => setShowCreateItem(true)}>
+                            <FontAwesomeIcon icon={faPlus} /> Nuevo Producto
+                        </button>
+                    )}
                     <button className="btn btn-primary" onClick={() => loadData()}>
                         <FontAwesomeIcon icon={faSpinner} spin={isLoading} /> Re-cargar
                     </button>
@@ -180,6 +194,16 @@ export const Stock: React.FC = () => {
                                             <button className={styles.actionBtn} title="Ajuste de Stock" onClick={() => handleOpenAdjust(item)}>
                                                 <FontAwesomeIcon icon={faShieldAlt} />
                                             </button>
+                                            {isAdmin && (
+                                                <>
+                                                    <button className={styles.actionBtn} onClick={() => setEditingItem(item)} title="Editar Configuración">
+                                                        <FontAwesomeIcon icon={faEdit} />
+                                                    </button>
+                                                    <button className={`${styles.actionBtn} ${styles.textDanger}`} onClick={() => setDeletingItem(item)} title="Eliminar Producto">
+                                                        <FontAwesomeIcon icon={faTrash} />
+                                                    </button>
+                                                </>
+                                            )}
                                         </td>
                                     </tr>
                                     );
@@ -210,38 +234,72 @@ export const Stock: React.FC = () => {
                                         <span className={styles.minText}>/mín {item.minimo_alert}</span>
                                     </span>
                                 </div>
-                                <button className={styles.mobileCardBtn} title="Ajuste" onClick={() => handleOpenAdjust(item)}>
-                                    <FontAwesomeIcon icon={faShieldAlt} />
-                                </button>
+                                <div className={styles.mobileCardActions} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                                    <button className={styles.mobileCardBtn} title="Ajuste" onClick={() => handleOpenAdjust(item)}>
+                                        <FontAwesomeIcon icon={faShieldAlt} />
+                                    </button>
+                                    {isAdmin && (
+                                        <>
+                                            <button className={styles.mobileCardBtn} onClick={() => setEditingItem(item)}>
+                                                <FontAwesomeIcon icon={faEdit} />
+                                            </button>
+                                            <button className={`${styles.mobileCardBtn} ${styles.textDanger}`} onClick={() => setDeletingItem(item)}>
+                                                <FontAwesomeIcon icon={faTrash} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             );
                         })}
                     </div>
                 )}
-
-                <aside className={styles.historySidebar}>
-                    <h3>Movimientos Recientes</h3>
-                    <div className={styles.historyList}>
-                        {movements.slice(0, 20).map(move => {
-                            // Si el motivo contiene un UUID, mostrarlo más legible
-                            const cleanMotivo = (move.motivo || '').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '...');
-                            const shortDate = new Date(move.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-                            return (
-                                <div key={move.id} className={styles.historyItem}>
-                                    <div className={`${styles.historyIcon} ${move.tipo === 'entrada' ? styles.in : styles.out}`}>
-                                        <FontAwesomeIcon icon={move.tipo === 'entrada' ? faArrowUp : faArrowDown} />
-                                    </div>
-                                    <div className={styles.historyData}>
-                                        <strong>{move.tipo === 'entrada' ? '+' : '-'}{move.cantidad} {move.inventario?.nombre}</strong>
-                                        <span>{cleanMotivo}</span>
-                                        <small>{shortDate}</small>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </aside>
             </div>
+
+            <section className={styles.historySection}>
+                <div className={styles.sectionHeader}>
+                    <h3>Historial de Movimientos</h3>
+                    <div className={styles.pagination}>
+                        <button 
+                            className={styles.pageBtn} 
+                            disabled={currentPage === 1} 
+                            onClick={() => setCurrentPage(p => p - 1)}
+                        >
+                            Anterior
+                        </button>
+                        <span className={styles.pageInfo}>Página {currentPage}</span>
+                        <button 
+                            className={styles.pageBtn} 
+                            disabled={movements.length <= currentPage * 5} 
+                            onClick={() => setCurrentPage(p => p + 1)}
+                        >
+                            Siguiente
+                        </button>
+                    </div>
+                </div>
+                
+                <div className={styles.historyGrid}>
+                    {movements.slice((currentPage - 1) * 5, currentPage * 5).map(move => {
+                        const cleanMotivo = (move.motivo || '').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '...');
+                        const shortDate = new Date(move.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                        return (
+                            <div key={move.id} className={styles.historyCard}>
+                                <div className={`${styles.historyIcon} ${move.tipo === 'entrada' ? styles.in : styles.out}`}>
+                                    <FontAwesomeIcon icon={move.tipo === 'entrada' ? faArrowUp : faArrowDown} />
+                                </div>
+                                <div className={styles.historyData}>
+                                    <strong>{move.tipo === 'entrada' ? '+' : '-'}{move.cantidad} {move.inventario?.nombre}</strong>
+                                    <span>{cleanMotivo}</span>
+                                    <small>{shortDate}</small>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {movements.length === 0 && !isLoading && (
+                        <div className={styles.emptyHistory}>No hay movimientos registrados recientemente.</div>
+                    )}
+                </div>
+            </section>
 
             {/* Modal de Ajuste */}
             {isAdjustOpen && selectedItem && (
@@ -271,7 +329,106 @@ export const Stock: React.FC = () => {
                 </div>
             )}
 
+            {/* Modal Crear/Editar Producto (Configuración) */}
+            {(showCreateItem || editingItem) && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal} style={{ maxWidth: '450px' }}>
+                        <div className={styles.modalHeader}>
+                            <h3>
+                                <FontAwesomeIcon icon={editingItem ? faEdit : faPlus} style={{ marginRight: '0.5rem', opacity: 0.8 }} />
+                                {editingItem ? 'Editar Producto' : 'Nuevo Producto'}
+                            </h3>
+                            <button onClick={() => { setShowCreateItem(false); setEditingItem(null); }} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
+                        </div>
+
+                        <form 
+                            onSubmit={async (e) => {
+                                e.preventDefault();
+                                const f = new FormData(e.currentTarget);
+                                const data = {
+                                    nombre: f.get('nombre') as string,
+                                    categoria: f.get('categoria') as string,
+                                    minimo_alert: parseInt(f.get('minimo_alert') as string),
+                                    precio_venta: parseFloat(f.get('precio_venta') as string),
+                                    cantidad: editingItem ? editingItem.cantidad : 0
+                                };
+
+                                setIsSaving(true);
+                                try {
+                                    if (editingItem) {
+                                        await stockService.updateItem(editingItem.id, data);
+                                        showToast('Producto actualizado.', 'success');
+                                    } else {
+                                        await stockService.createItem(data);
+                                        showToast('Producto creado.', 'success');
+                                    }
+                                    setShowCreateItem(false);
+                                    setEditingItem(null);
+                                    loadData();
+                                } catch (err: any) {
+                                    showToast('Error al guardar el producto.', 'error');
+                                } finally {
+                                    setIsSaving(false);
+                                }
+                            }}
+                            style={{ padding: '1.5rem' }}
+                        >
+                            <div className={styles.inputGroup}>
+                                <label>Nombre del Producto</label>
+                                <input name="nombre" type="text" required defaultValue={editingItem?.nombre || ''} placeholder="Ej. Botella de Agua 350ml" />
+                            </div>
+                            
+                            <div className={styles.inputGroup}>
+                                <label>Categoría</label>
+                                <input name="categoria" type="text" required defaultValue={editingItem?.categoria || ''} placeholder="Ej. Bebidas" />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                                    <label>Umbral Alerta</label>
+                                    <input name="minimo_alert" type="number" required defaultValue={editingItem?.minimo_alert || 10} min="0" />
+                                </div>
+                                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                                    <label>Precio Venta ($)</label>
+                                    <input name="precio_venta" type="number" required defaultValue={editingItem?.precio_venta || 0} min="0" step="0.01" />
+                                </div>
+                            </div>
+
+                            <div className={styles.modalFooter}>
+                                <button type="button" onClick={() => { setShowCreateItem(false); setEditingItem(null); }} className="btn btn-ghost">Cancelar</button>
+                                <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                                    {isSaving ? 'Guardando...' : (editingItem ? 'Actualizar' : 'Crear')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             <AuthPinModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onAuthorized={handleAuthorized} actionLabel={`Autorizar ajuste de stock: ${selectedItem?.nombre}`} />
+
+            <ConfirmDialog
+                isOpen={!!deletingItem}
+                title="Eliminar Producto"
+                message={`¿Está seguro de eliminar el producto "${deletingItem?.nombre}"? Esta acción no se puede deshacer y afectará el historial.`}
+                confirmText="SÍ, ELIMINAR"
+                cancelText="Cancelar"
+                status="danger"
+                onCancel={() => setDeletingItem(null)}
+                onConfirm={async () => {
+                    if (deletingItem) {
+                        try {
+                            await stockService.deleteItem(deletingItem.id);
+                            showToast('Producto eliminado correctamente.', 'success');
+                            loadData();
+                        } catch (e) {
+                            showToast('Error al eliminar producto.', 'error');
+                        } finally {
+                            setDeletingItem(null);
+                        }
+                    }
+                }}
+            />
         </div>
     );
 };
