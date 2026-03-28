@@ -1,5 +1,6 @@
-import { OfflineDB } from './offlineDb';
-import { registerFullEntry } from './salesService';
+import { OfflineDB, type PendingSync } from './offlineDb';
+import { registerFullEntry, registerInventorySale } from './salesService';
+import { stockService } from './stockService';
 
 type SyncCallback = (count: number) => void;
 
@@ -20,42 +21,69 @@ class SyncService {
         this.isSyncing = true;
 
         try {
-            const pending = await OfflineDB.getPendingSales();
+            const pending = await OfflineDB.getPending();
             this.notify(pending.length);
 
-            for (const sale of pending) {
+            for (const item of pending) {
                 try {
-                    console.log(`📡 Sincronizando venta offline #${sale.id}...`);
-                    await registerFullEntry(sale.data, true, sale.timestamp);
-                    await OfflineDB.deleteSale(sale.id!);
-                    console.log(`✅ Venta #${sale.id} sincronizada con éxito.`);
-                } catch (err: any) {
-                    console.error(`❌ Error al sincronizar venta #${sale.id}:`, err);
+                    console.log(`📡 Sincronizando item offline #${item.id} (Tipo: ${item.type})...`);
                     
-                    // Si el error es de validación (datos corruptos que nunca entrarán), 
-                    // la eliminamos de la cola para no ciclar la consola.
-                    if (err.isValidationError) {
-                        await OfflineDB.deleteSale(sale.id!);
-                        console.warn(`🗑️ Venta #${sale.id} descartada por datos inválidos.`);
+                    if (item.type === 'sale') {
+                        await registerFullEntry(item.data, true, item.timestamp);
+                    } else if (item.type === 'inventory_sale') {
+                        await registerInventorySale(item.data, true);
+                    } else if (item.type === 'stock_adjustment') {
+                        await stockService.recordMovement(item.data.itemId, item.data.qty, item.data.type, item.data.reason, true);
                     }
 
-                    // Si el error es de conexión, detenemos el bucle de sincronización por ahora
+                    await OfflineDB.deletePending(item.id!);
+                    this.notifySuccess(item);
+                    console.log(`✅ Item #${item.id} sincronizado con éxito.`);
+                } catch (err: any) {
+                    console.error(`❌ Error al sincronizar item #${item.id}:`, err);
+                    
+                    if (err.isValidationError) {
+                        await OfflineDB.deletePending(item.id!);
+                        console.warn(`🗑️ Item #${item.id} descartada por datos inválidos.`);
+                    }
+
                     if (!navigator.onLine) break;
                 }
             }
 
-            const remaining = await OfflineDB.getPendingSales();
+            const remaining = await OfflineDB.getPending();
             this.notify(remaining.length);
         } finally {
             this.isSyncing = false;
         }
     }
 
+    async enqueue(type: PendingSync['type'], data: any) {
+        console.log(`📝 Encolando item de tipo ${type}...`, data);
+        const id = await OfflineDB.savePending(type, data);
+        console.log(`✅ Item #${id} guardado localmente.`);
+        const pending = await OfflineDB.getPending();
+        this.notify(pending.length);
+        return id;
+    }
+
+    private successListeners: ((item: any) => void)[] = [];
+
+    onSyncSuccess(callback: (item: any) => void) {
+        this.successListeners.push(callback);
+        return () => {
+            this.successListeners = this.successListeners.filter(l => l !== callback);
+        };
+    }
+
+    private notifySuccess(item: any) {
+        this.successListeners.forEach(l => l(item));
+    }
+
     onChange(callback: SyncCallback) {
         this.listeners.push(callback);
-        // Notificar estado inicial
         OfflineDB.init()
-            .then(() => OfflineDB.getPendingSales())
+            .then(() => OfflineDB.getPending())
             .then(p => callback(p.length));
         
         return () => {
@@ -67,8 +95,12 @@ class SyncService {
         this.listeners.forEach(l => l(count));
     }
 
+    async getPendingItems() {
+        return await OfflineDB.getPending();
+    }
+
     async getPendingCount() {
-        const p = await OfflineDB.getPendingSales();
+        const p = await OfflineDB.getPending();
         return p.length;
     }
 }

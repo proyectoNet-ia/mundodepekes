@@ -164,6 +164,54 @@
   flex: 1;
 }
 
+.syncStatusCard {
+  margin-top: 1rem;
+  padding: 1.1rem;
+  background: #fff5f5;
+  border: 1px dashed #feb2b2;
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: pulseSync 2s infinite;
+}
+
+@keyframes pulseSync {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.1); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.syncStatusCard:hover {
+  background: #fff1f1;
+  border-style: solid;
+  transform: translateY(-2px);
+}
+
+.syncIcon {
+  font-size: 1.4rem;
+  color: #e53e3e;
+}
+
+.syncInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.syncInfo strong {
+  font-size: 0.85rem;
+  color: #c53030;
+  line-height: 1.2;
+}
+
+.syncInfo span {
+  font-size: 0.7rem;
+  color: #e53e3e;
+  font-weight: 600;
+}
+
 .userEmail {
   font-weight: 800;
   color: var(--text-primary);

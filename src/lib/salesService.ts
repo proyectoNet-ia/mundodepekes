@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
-import { OfflineDB } from './offlineDb';
 import { stockService } from './stockService';
 import { getActiveSession } from './treasuryService';
 import { AuditService } from './auditService';
+import { syncService } from './syncService';
 
 export interface SearchResult {
   id: string;
@@ -108,7 +108,7 @@ export const registerFullEntry = async (data: {
 
   // Check network before even trying
   if (!navigator.onLine && !isSync) {
-    const localId = await OfflineDB.saveSale(data);
+    const localId = await syncService.enqueue('sale', data);
     return formatOfflineResponse(localId);
   }
 
@@ -264,7 +264,7 @@ export const registerFullEntry = async (data: {
         throw err; // Re-lanzamos si es validación o si ya estamos sincronizando
     }
     console.warn('⚠️ Error de red. Guardando en cola offline:', err);
-    const localId = await OfflineDB.saveSale(data);
+    const localId = await syncService.enqueue('sale', data);
     return formatOfflineResponse(localId);
   }
 };
@@ -291,9 +291,14 @@ export const registerInventorySale = async (data: {
   items: { id: string; name: string; quantity: number; price: number }[];
   paymentMethod: string;
   total: number;
-}) => {
+}, isSync = false) => {
+  if (!navigator.onLine && !isSync) {
+    const localId = await syncService.enqueue('inventory_sale', data);
+    return { success: true, isOffline: true, localId };
+  }
+
   try {
-    const activeSession = await getActiveSession();
+    const activeSession = isSync ? null : await getActiveSession();
     
     let customerId = null;
     if (data.customer?.phone) {
@@ -323,7 +328,8 @@ export const registerInventorySale = async (data: {
         item.id,
         item.quantity,
         'salida',
-        `Venta Directa POS - Folio: ${transaction.id.substring(0,8)}`
+        `Venta Directa POS - Folio: ${transaction.id.substring(0,8)}`,
+        true // we pass isSync true because we take care of it here
       );
     }
 
@@ -336,7 +342,9 @@ export const registerInventorySale = async (data: {
 
     return { success: true, transaction };
   } catch (err) {
-    console.error('Inventory Sale Error:', err);
-    throw err;
+    if (isSync) throw err;
+    console.error('Inventory Sale Error. Saving offline:', err);
+    const localId = await syncService.enqueue('inventory_sale', data);
+    return { success: true, isOffline: true, localId };
   }
 };

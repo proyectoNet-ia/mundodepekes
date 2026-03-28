@@ -56,37 +56,50 @@ export const stockService = {
         return data || [];
     },
 
-    async recordMovement(itemId: string, qty: number, type: 'entrada' | 'salida' | 'ajuste', reason: string) {
-        // 1. Get current stock
-        const { data: item, error: fetchError } = await supabase
-            .from('inventario')
-            .select('cantidad')
-            .eq('id', itemId)
-            .single();
-        
-        if (fetchError) throw fetchError;
+    async recordMovement(itemId: string, qty: number, type: 'entrada' | 'salida' | 'ajuste', reason: string, isSync = false) {
+        if (!navigator.onLine && !isSync) {
+            const { syncService } = await import('./syncService');
+            await syncService.enqueue('stock_adjustment', { itemId, qty, type, reason });
+            return;
+        }
 
-        const newQty = type === 'entrada' ? item.cantidad + qty : item.cantidad - qty;
+        try {
+            // 1. Get current stock
+            const { data: item, error: fetchError } = await supabase
+                .from('inventario')
+                .select('cantidad')
+                .eq('id', itemId)
+                .single();
+            
+            if (fetchError) throw fetchError;
 
-        // 2. Update stock
-        const { error: updateError } = await supabase
-            .from('inventario')
-            .update({ cantidad: newQty })
-            .eq('id', itemId);
-        
-        if (updateError) throw updateError;
+            const newQty = type === 'entrada' ? item.cantidad + qty : item.cantidad - qty;
 
-        // 3. Log movement
-        const { error: logError } = await supabase
-            .from('movimientos_inventario')
-            .insert({
-                item_id: itemId,
-                tipo: type,
-                cantidad: qty,
-                motivo: reason
-            });
-        
-        if (logError) throw logError;
+            // 2. Update stock
+            const { error: updateError } = await supabase
+                .from('inventario')
+                .update({ cantidad: newQty })
+                .eq('id', itemId);
+            
+            if (updateError) throw updateError;
+
+            // 3. Log movement
+            const { error: logError } = await supabase
+                .from('movimientos_inventario')
+                .insert({
+                    item_id: itemId,
+                    tipo: type,
+                    cantidad: qty,
+                    motivo: reason
+                });
+            
+            if (logError) throw logError;
+        } catch (e) {
+            if (isSync) throw e;
+            console.warn('⚠️ Error al registrar movimiento. Guardando en cola offline:', e);
+            const { syncService } = await import('./syncService');
+            await syncService.enqueue('stock_adjustment', { itemId, qty, type, reason });
+        }
     },
 
     async createItem(item: Omit<StockItem, 'id'>) {

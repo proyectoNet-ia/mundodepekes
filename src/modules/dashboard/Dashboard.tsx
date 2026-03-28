@@ -23,10 +23,12 @@ import {
   faBaby, 
   faEnvelope,
   faPlus,
-  faLayerGroup
+  faLayerGroup,
+  faCloudUploadAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { syncService } from '../../lib/syncService';
 
 const AREA_MAP: Record<string, string> = {
   'Mundo de Pekes': 'Mundo de Pekes',
@@ -70,6 +72,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
   
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
 
   const refreshData = async () => {
     setIsRefreshing(true);
@@ -106,22 +109,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
 
     const pollTimer = setInterval(() => { refreshData(); }, 45000);
 
+    const handleSyncChange = async () => {
+        const pending = await syncService.getPendingItems();
+        console.log(`🧐 [Monitor] Items en cola de sincronización:`, pending.length);
+        const off: any[] = [];
+        pending.forEach(item => {
+            if (item.type === 'sale') {
+                item.data.children.forEach((c: any, idx: number) => {
+                    const startTime = new Date(item.timestamp);
+                    const endTime = new Date(startTime.getTime() + (c.duration || 60) * 60000);
+                    off.push({
+                        id: `off-${item.id}-${idx}`,
+                        childId: `off-${item.id}-${idx}`,
+                        childName: c.name,
+                        area: c.area,
+                        startTime: startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        endTime: endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        rawStartTime: startTime,
+                        rawEndTime: endTime,
+                        tutorContact: item.data.customer?.phone || '',
+                        tutorName: item.data.customer?.name || '',
+                        isOffline: true,
+                    });
+                });
+            }
+        });
+        setOfflineSessions(off);
+    };
+
+    const handleSyncSuccess = (item: any) => {
+        if (item.type === 'sale') {
+            showToast(`Registro de ${item.data.customer?.name} sincronizado con éxito.`, 'success', 'Base de Datos');
+            refreshData();
+        } else if (item.type === 'inventory_sale') {
+            showToast(`Venta de inventario sincronizada.`, 'success', 'Base de Datos');
+        }
+    };
+
+    const unsubSync = syncService.onChange(handleSyncChange);
+    const unsubSuccess = syncService.onSyncSuccess(handleSyncSuccess);
+
     return () => {
       subscription.unsubscribe();
       clearInterval(clockTimer);
       clearInterval(pollTimer);
+      unsubSync();
+      unsubSuccess();
     };
   }, []);
 
   // Motor detector de expiración (Actualiza el listado de Toasts)
   useEffect(() => {
-    const expired = sessions.filter(session => {
+    const allActive = [...sessions, ...offlineSessions];
+    const expired = allActive.filter(session => {
         const now = currentTime.getTime();
         const end = session.rawEndTime.getTime();
         return Math.max(0, Math.round((end - now) / 60000)) <= 0;
     });
     setExpiredSessions(expired);
-  }, [currentTime, sessions]);
+  }, [currentTime, sessions, offlineSessions]);
 
   const getCapacityStatus = (current: number, max: number) => {
     const ratio = current / max;
@@ -187,15 +233,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
   // Áreas reconocidas por el sistema
   const KNOWN_AREAS = Object.keys(AREA_MAP); // ['Mundo Pekes', 'Trampolin', 'Mixto']
 
+  const allSessions = [...sessions, ...offlineSessions];
+
   // Total real: solo sesiones en áreas conocidas, sin duplicados por childId
-  const visibleSessions = sessions.filter(s => KNOWN_AREAS.includes(s.area));
+  const visibleSessions = allSessions.filter(s => KNOWN_AREAS.includes(s.area));
   const uniqueChildIds = new Set(visibleSessions.map(s => s.childId));
   const totalEnRecinto = uniqueChildIds.size;
 
   // Occupancy Logic (Mixed counts for both areas)
-  const countMundo = sessions.filter(s => AREA_MAP[s.area] === 'Mundo de Pekes' || AREA_MAP[s.area] === 'Área Mixta').length;
-  const countTrampolin = sessions.filter(s => AREA_MAP[s.area] === 'Trampolín Park' || AREA_MAP[s.area] === 'Área Mixta').length;
-  const countMixta = sessions.filter(s => AREA_MAP[s.area] === 'Área Mixta').length;
+  const countMundo = allSessions.filter(s => AREA_MAP[s.area] === 'Mundo de Pekes' || AREA_MAP[s.area] === 'Área Mixta').length;
+  const countTrampolin = allSessions.filter(s => AREA_MAP[s.area] === 'Trampolín Park' || AREA_MAP[s.area] === 'Área Mixta').length;
+  const countMixta = allSessions.filter(s => AREA_MAP[s.area] === 'Área Mixta').length;
 
   const normalizeText = (text: string) => 
     text ? text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
@@ -368,7 +416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
             
             <div className={styles.sessionGrid}>
               {(() => {
-                const areaSessionsRaw = sessions.filter(s => AREA_MAP[s.area] === uiArea);
+                const areaSessionsRaw = allSessions.filter(s => AREA_MAP[s.area] === uiArea);
                 const uniqueKids = new Map();
                 areaSessionsRaw.forEach(s => {
                     // Si ya existe una sesión activa para este niño, mantenemos la que tenga el ID más reciente o mayor duración (o simplemente la primera que encontremos ya que salesService ahora limpia las viejas)
@@ -453,6 +501,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                               </div>
                             </div>
                             
+                            {(session as any).isOffline && (
+                                <div className={styles.offlineSessionOverlay}>
+                                    <FontAwesomeIcon icon={faCloudUploadAlt} spin />
+                                    <span>PENDIENTE</span>
+                                </div>
+                            )}
+
                             <div className={styles.sessionBody}>
                               <div className={styles.progressBarWrapper}>
                                 <div className={styles.progressBarBg}>

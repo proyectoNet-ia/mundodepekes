@@ -17,8 +17,12 @@ import {
   faShieldAlt,
   faUserCircle,
   faBars,
-  faTimes
+  faTimes,
+  faCloudUploadAlt,
+  faSync
 } from '@fortawesome/free-solid-svg-icons';
+import { syncService } from '../lib/syncService';
+import { useEffect } from 'react';
 
 interface NavigationProps {
   activeTab: 'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos';
@@ -42,6 +46,11 @@ const TAB_LABELS: Record<string, string> = {
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, userRole, user }) => {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [pendingSync, setPendingSync] = useState(0);
+
+    useEffect(() => {
+      return syncService.onChange(setPendingSync);
+    }, []);
 
     const handleLogout = async () => {
         await authService.signOut();
@@ -162,6 +171,17 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               <span className={styles.logoText}>PekePark <span className={styles.adminText}>Admin</span></span>
             </div>
             <div className={styles.tabs}>{navItems}</div>
+            
+            {pendingSync > 0 && (
+                <div className={styles.syncStatusCard} onClick={() => syncService.syncNow()}>
+                    <div className={styles.syncIcon}><FontAwesomeIcon icon={faCloudUploadAlt} spin /></div>
+                    <div className={styles.syncInfo}>
+                        <strong>Modo Offline</strong>
+                        <span>{pendingSync} pendientes</span>
+                    </div>
+                </div>
+            )}
+
             <div className={styles.premiumCardWrapper}>
               {user && (
                 <div className={styles.userPremiumCard}>

@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { OfflineDB } from './offlineDb';
 
 export interface ActiveSession {
   id: string;
@@ -71,38 +70,9 @@ export const getActiveSessions = async (): Promise<ActiveSession[]> => {
     }
   }
 
-  // 2. Fusionar con Ventas Pendientes Offline invisibles
-  const pendingSales = await OfflineDB.getPendingSales();
-  const offlineSessions: ActiveSession[] = [];
-  
-  for (const p of pendingSales) {
-      const ts = p.timestamp;
-      const data = p.data;
-      
-      data.children?.forEach((c: any, i: number) => {
-          const startTime = new Date(ts);
-          const endTime = new Date(ts + c.duration * 60000);
-          
-          offlineSessions.push({
-             id: `OFFLINE-SES-${p.id}-${i}`,
-             childId: `OFFLINE-NINO-${i}`,
-             childName: c.name,
-             packageName: `Paquete (${c.duration}m)`,
-             startTime: startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-             endTime: endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-             rawStartTime: startTime,
-             rawEndTime: endTime,
-             area: c.area || 'Mundo Pekes',
-             tutorContact: data.customer?.phone || 'N/A',
-             tutorName: data.customer?.name || 'Cliente Offline',
-             observaciones: '☁️ Pendiente de Subir a Nube',
-             enListaNegra: false
-          });
-      });
-  }
-
-  // Devolvermos todo: lo que esté en nube/caché + lo recién vendido en colas offline
-  return [...activeFromDb, ...offlineSessions];
+    // Devolvermos solo lo que esté en nube/caché. 
+    // Los pendientes offline se gestionan ahora directamente en el Dashboard via SyncService
+    return activeFromDb;
 };
 
 export const updateChildInfo = async (childId: string, updates: { observaciones?: string, en_lista_negra?: boolean }) => {
