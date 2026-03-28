@@ -237,7 +237,7 @@
 }
 
 /* Solo se ocultan en móvil si no es la pestaña activa */
-@media (max-width: 1024px) {
+@media (max-width: 900px) {
   .hiddenStatCard {
     display: none !important;
   }
@@ -248,7 +248,7 @@
   }
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 901px) {
   .statsTabs {
     display: none !important;
   }
