@@ -521,21 +521,67 @@
         bottom: 0;
         left: 0;
         right: 0;
-        max-height: 80vh;
-        z-index: 100;
+        height: auto;
+        max-height: 75px; /* Altura inicial cerrada */
+        z-index: 1000;
         border-radius: 2rem 2rem 0 0;
-        box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+        box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.2);
         background: white;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+    }
+
+    .cartSection.expanded {
+        max-height: 85vh; /* Se expande casi toda la pantalla */
     }
 
     .cartHeader {
-        padding: 1rem;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--brand-900);
+        color: white !important;
+        border-radius: 2rem 2rem 0 0;
         cursor: pointer;
     }
 
+    .cartHeader h3 {
+        color: white !important;
+        margin: 0;
+        font-weight: 800;
+        font-size: 1.2rem;
+    }
+
+    .cartHeader svg {
+        color: white !important;
+    }
+
+    .mobileSummary {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .mobileTotal {
+        font-weight: 900;
+        font-size: 1.1rem;
+        background: rgba(255,255,255,0.15);
+        padding: 4px 12px;
+        border-radius: 10px;
+    }
+
+    .toggleIcon {
+        font-size: 1.2rem;
+        opacity: 0.8;
+    }
+
     .cartItems {
-        max-height: 200px;
+        max-height: 35vh;
+        overflow-y: auto;
         background: #fdfdfd;
+        border-bottom: 1px solid #f1f5f9;
+        display: block; /* Siempre visible si el contenedor lo permite */
     }
 
     .cartItem {

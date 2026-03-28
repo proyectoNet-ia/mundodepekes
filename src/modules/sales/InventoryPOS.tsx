@@ -13,7 +13,9 @@ import {
     faMinus, 
     faSpinner, 
     faStore,
-    faLock
+    faLock,
+    faChevronUp,
+    faChevronDown
 } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { StatusModal } from '../../components/StatusModal';
@@ -57,6 +59,7 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
         return localStorage.getItem('pos_cash_amount') || '';
     });
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [isCartExpanded, setIsCartExpanded] = useState(false);
 
     useEffect(() => {
         const init = async () => {
@@ -131,6 +134,8 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
             ));
         } else {
             setCart([...cart, { ...product, quantity: 1 }]);
+            // Auto-expandir en móvil si es el primer producto
+            if (window.innerWidth <= 768) setIsCartExpanded(true);
         }
     };
 
@@ -311,10 +316,16 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                 </div>
             </div>
 
-            <div className={styles.cartSection}>
-                <div className={styles.cartHeader}>
-                    <FontAwesomeIcon icon={faShoppingCart} />
-                    <h3>Carrito de Compras</h3>
+            <div className={`${styles.cartSection} ${isCartExpanded ? styles.expanded : ''}`}>
+                <div className={styles.cartHeader} onClick={() => setIsCartExpanded(!isCartExpanded)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FontAwesomeIcon icon={faShoppingCart} />
+                        <h3>Carrito {cart.length > 0 && `(${cart.length})`}</h3>
+                    </div>
+                    <div className={styles.mobileSummary}>
+                        <span className={styles.mobileTotal}>Total: ${total.toFixed(0)}</span>
+                        <FontAwesomeIcon icon={isCartExpanded ? faChevronDown : faChevronUp} className={styles.toggleIcon} />
+                    </div>
                 </div>
 
                 <div className={styles.cartItems}>
