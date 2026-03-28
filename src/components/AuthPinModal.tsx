@@ -3,7 +3,7 @@ import styles from './AuthPinModal.module.css';
 import { authService, type UserProfile } from '../lib/authService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faShieldAlt, faSpinner, faTimes, faPaperPlane, faSatellite } from '@fortawesome/free-solid-svg-icons';
-import { authRequestService, type AuthRequest } from '../lib/authRequestService';
+import { authRequestService } from '../lib/authRequestService';
 
 interface AuthPinModalProps {
     isOpen: boolean;
@@ -18,7 +18,6 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
     const [isValidating, setIsValidating] = useState(false);
     const [isRemoteMode, setIsRemoteMode] = useState(false);
     const [isWaitingRemote, setIsWaitingRemote] = useState(false);
-    const [requestId, setRequestId] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
@@ -54,7 +53,6 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
                 descripcion: `Solicitud de autorización para: ${actionLabel}`
             });
             
-            setRequestId(req.id);
             
             // Suscribirse a la respuesta en tiempo real
             authRequestService.subscribeToRequest(req.id, (updatedReq) => {
@@ -79,7 +77,6 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
         setError('');
         setIsRemoteMode(false);
         setIsWaitingRemote(false);
-        setRequestId(null);
     };
 
     const addDigit = (digit: string) => {

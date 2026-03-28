@@ -18,8 +18,7 @@ import {
   faUserCircle,
   faBars,
   faTimes,
-  faCloudUploadAlt,
-  faSync
+  faCloudUploadAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { syncService } from '../lib/syncService';
 import { useEffect } from 'react';
@@ -62,7 +61,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         switch (userRole) {
             case 'cajero':
                 return ['dashboard', 'ingresos', 'pos'].includes(tab);
-            case 'gerente':
+            case 'supervisor':
                 return ['dashboard', 'ingresos', 'records', 'treasury', 'stock', 'pos'].includes(tab);
             case 'analista':
                 return ['analytics', 'audit', 'records', 'treasury'].includes(tab);
