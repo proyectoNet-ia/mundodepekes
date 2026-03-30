@@ -5,7 +5,7 @@ import { getPackages, createPackage, updatePackage, togglePackageStatus, type Pa
 import { stockService, type StockItem } from '../../lib/stockService';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye, faSignature, faUserPen, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 
@@ -82,13 +82,31 @@ export const Backoffice: React.FC = () => {
   const handleUpdateStaff = async (id: string, updates: any) => {
     setIsLoading(true);
     try {
-        const { error } = await supabase.from('perfiles').update(updates).eq('id', id);
+        // Si hay cambios de Auth (email o password), llamamos a nuestra función especial RPC
+        if (updates.email || updates.new_password) {
+            const { error: authError } = await supabase.rpc('admin_update_user_auth', {
+                target_user_id: id,
+                new_email: updates.email || editingStaff?.email,
+                new_password: updates.new_password || null
+            });
+            if (authError) throw authError;
+        }
+
+        // Luego actualizamos los datos de Perfil (nombre, rol, pin)
+        const profileUpdates = {
+            nombre_completo: updates.nombre_completo,
+            rol_slug: updates.rol_slug,
+            pin_seguridad: updates.pin_seguridad
+        };
+
+        const { error } = await supabase.from('perfiles').update(profileUpdates).eq('id', id);
         if (error) throw error;
+
         await loadData();
         setEditingStaff(null);
         showToast('El perfil de usuario ha sido actualizado correctamente.', 'success', 'Staff Actualizado');
-    } catch (error) {
-        showToast('Error al intentar modificar el perfil del staff.', 'error', 'Fallo en Seguridad');
+    } catch (error: any) {
+        showToast(error.message || 'Error al intentar modificar el perfil del staff.', 'error', 'Fallo en Seguridad');
     } finally {
         setIsLoading(false);
     }
@@ -121,20 +139,24 @@ export const Backoffice: React.FC = () => {
             throw error;
         }
         if (data.user) {
-            // Asumimos que la BD de Supabase tiene un trigger que crea el 'perfil' automáticamente al hacer signUp.
-            // Para no chocar con ese trigger (lo que lanza el error 500), esperamos un poco y hacemos un UPDATE puro.
+            // Usamos UPSERT para que funcione tanto si el trigger ya creó el perfil como si no.
+            // Esperamos un momento para que Supabase procese el registro interno.
             await new Promise(resolve => setTimeout(resolve, 1500));
             
-            const { error: updateError } = await supabase
+            const { error: upsertError } = await supabase
                 .from('perfiles')
-                .update({ 
+                .upsert({ 
+                    id: data.user.id,
+                    email: data.user.email,
+                    nombre_completo: formData.get('fullName') as string,
                     rol_slug: role, 
                     pin_seguridad: pin 
-                })
-                .eq('id', data.user.id);
+                }, { onConflict: 'id' });
             
-            if (updateError) {
-                console.warn('No se pudo aplicar el rol automáticamente (posible restricción de seguridad). Lo puedes hacer editándolo en la tabla.', updateError);
+            if (upsertError) {
+                console.warn('Error al intentar asignar el rol (UPSERT):', upsertError);
+                // Si falla por RLS, informamos pero no detenemos todo el proceso
+                showToast('Usuario creado, pero hubo un error al asignar el rol. Edítalo manualmente.', 'warning');
             }
         }
         
@@ -172,7 +194,11 @@ export const Backoffice: React.FC = () => {
                 <tbody>
                     {staff.map(member => (
                         <tr key={member.id}>
-                            <td><strong>{member.email}</strong></td>
+                            <td>
+                                <strong>{member.nombre_completo || member.email.split('@')[0]}</strong>
+                                <br />
+                                <small style={{ color: '#94a3b8' }}>{member.email}</small>
+                            </td>
                             <td><span className={`${styles.roleBadge} ${styles[member.rol_slug]}`}>{member.rol_slug.toUpperCase()}</span></td>
                             <td>{member.pin_seguridad ? <span className={styles.pinActive}><FontAwesomeIcon icon={faKey} /> SI</span> : <span className={styles.pinMissing}>NO</span>}</td>
                             <td className={styles.actionsCell}>
@@ -193,7 +219,32 @@ export const Backoffice: React.FC = () => {
                         <h3><FontAwesomeIcon icon={faUserShield} style={{ marginRight: '0.5rem', opacity: 0.8 }} /> Editar Perfil</h3>
                         <button onClick={() => setEditingStaff(null)} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
                     </div>
-                    <form onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); handleUpdateStaff(editingStaff.id, { rol_slug: f.get('rol'), pin_seguridad: f.get('pin') || editingStaff.pin_seguridad }); }} className={styles.modalForm} autoComplete="off">
+                    <form onSubmit={(e) => { 
+                        e.preventDefault(); 
+                        const f = new FormData(e.currentTarget); 
+                        handleUpdateStaff(editingStaff.id, { 
+                            nombre_completo: f.get('nombre_completo'),
+                            email: f.get('email'),
+                            new_password: f.get('password'),
+                            rol_slug: f.get('rol'), 
+                            pin_seguridad: f.get('pin') || editingStaff.pin_seguridad 
+                        }); 
+                    }} className={styles.modalForm} autoComplete="off">
+                        <div className={styles.formGroup}>
+                            <label><FontAwesomeIcon icon={faSignature} /> Nombre Completo / Alias</label>
+                            <input name="nombre_completo" type="text" className={styles.input} defaultValue={editingStaff.nombre_completo} required placeholder="Ej. Ana García" />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label><FontAwesomeIcon icon={faEnvelope} /> Correo de Acceso (Login)</label>
+                            <input name="email" type="email" className={styles.input} defaultValue={editingStaff.email} required placeholder="ej. cajero@mundodepekes.com" />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label><FontAwesomeIcon icon={faLock} /> Cambiar Contraseña (Dejar vacío para mantener)</label>
+                            <input name="password" type="password" className={styles.input} placeholder="********" autoComplete="new-password" />
+                        </div>
+                        <div style={{ padding: '0.75rem', background: '#f8fafc', color: '#64748b', fontSize: '0.75rem', borderRadius: '6px', marginBottom: '1rem', border: '1px solid #e2e8f0' }}>
+                            💡 Si cambias el correo o la clave, el cambio se aplicará de inmediato sin validaciones externas.
+                        </div>
                         <div className={styles.formGroup}>
                             <label><FontAwesomeIcon icon={faUserShield} /> Rol</label>
                             <select name="rol" className={styles.input} defaultValue={editingStaff.rol_slug} onChange={(e) => setEditingStaffRole(e.target.value)}>
@@ -231,6 +282,10 @@ export const Backoffice: React.FC = () => {
                     </div>
 
                     <form onSubmit={handleCreateUser} className={styles.modalForm} autoComplete="off">
+                        <div className={styles.formGroup}>
+                            <label><FontAwesomeIcon icon={faUserPen} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Nombre Real (Para Reportes)</label>
+                            <input name="fullName" type="text" required className={styles.input} placeholder="Ej. Juan Pérez" />
+                        </div>
                         <div className={styles.formGroup}>
                             <label><FontAwesomeIcon icon={faUser} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Nombre de Usuario</label>
                             <div style={{ display: 'flex', alignItems: 'center' }}>

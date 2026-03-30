@@ -6,6 +6,7 @@ export interface UserProfile {
     id: string;
     email: string;
     role: UserRole;
+    nombre_completo?: string;
     pin?: string;
 }
 
@@ -67,7 +68,7 @@ export const authService = {
 
                 const { data: profile, error: dbError } = await supabase
                     .from('perfiles')
-                    .select('rol_slug')
+                    .select('rol_slug, nombre_completo')
                     .eq('id', user.id)
                     .single();
 
@@ -78,7 +79,8 @@ export const authService = {
                 return {
                     id: user.id,
                     email: user.email || '',
-                    role: (profile?.rol_slug as UserRole) || 'cajero'
+                    role: (profile?.rol_slug as UserRole) || 'cajero',
+                    nombre_completo: profile?.nombre_completo || user.email?.split('@')[0] || 'Cajero'
                 };
             })();
 
@@ -109,7 +111,8 @@ export const authService = {
                 return {
                     id: session.user.id,
                     email: session.user.email || 'admin@mundodepekes.com',
-                    role: 'admin' // Acceso de emergencia
+                    role: 'admin', // Acceso de emergencia
+                    nombre_completo: 'Administrador (Emergencia)'
                 };
             }
             return null;
@@ -132,7 +135,8 @@ export const authService = {
         return {
             id: profile.id,
             email: profile.email,
-            role: profile.rol_slug as UserRole
+            role: profile.rol_slug as UserRole,
+            nombre_completo: profile.nombre_completo || profile.email.split('@')[0]
         };
     },
 
