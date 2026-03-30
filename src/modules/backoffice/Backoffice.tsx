@@ -5,7 +5,7 @@ import { getPackages, createPackage, updatePackage, togglePackageStatus, type Pa
 import { stockService, type StockItem } from '../../lib/stockService';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 
@@ -31,7 +31,9 @@ export const Backoffice: React.FC = () => {
   const [showCreateItem, setShowCreateItem] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
+  const [archivingItem, setArchivingItem] = useState<StockItem | null>(null);
   const [inventory, setInventory] = useState<StockItem[]>([]);
+  const [showInactiveStock, setShowInactiveStock] = useState(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<any | null>(null);
 
@@ -65,10 +67,10 @@ export const Backoffice: React.FC = () => {
 
   useEffect(() => { loadData(); }, []);
 
-  const handleSaveSettings = async (message: string) => {
+  const handleSaveSettings = async (message: string, settingsOverride?: SystemSettings) => {
     setIsLoading(true);
     try {
-      await updateSystemSettings(settings);
+      await updateSystemSettings(settingsOverride || settings);
       showToast(message, 'success', 'Configuración Guardada');
     } catch (error) {
       showToast('No se pudieron guardar los cambios.', 'error', 'Error de Sistema');
@@ -275,19 +277,86 @@ export const Backoffice: React.FC = () => {
                 <h3><FontAwesomeIcon icon={faBoxes} /> Catálogo de Inventarios</h3>
                 <p>Gestione productos, precios y umbrales de alerta de stock.</p>
             </div>
-            <button className="btn btn-primary" onClick={() => setShowCreateItem(true)}>
-                <FontAwesomeIcon icon={faPlus} /> Nuevo Producto
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={showInactiveStock} onChange={(e) => setShowInactiveStock(e.target.checked)} />
+                    Ver archivados
+                </label>
+                <button className="btn btn-primary" onClick={() => setShowCreateItem(true)}>
+                    <FontAwesomeIcon icon={faPlus} /> Nuevo Producto
+                </button>
+            </div>
         </div>
 
-        <div className={styles.tableWrapper}>
+                    <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <h4 style={{ marginBottom: '1rem', color: '#1e293b' }}><FontAwesomeIcon icon={faLayerGroup} /> Gestión de Categorías</h4>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                            {settings.categorias_inventario?.map(cat => (
+                                <span key={cat} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#fff', padding: '4px 12px', borderRadius: '20px', border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 500, color: '#475569' }}>
+                                    {cat}
+                                    <button 
+                                        onClick={() => {
+                                            const newCats = settings.categorias_inventario?.filter(c => c !== cat) || [];
+                                            const newSettings = { ...settings, categorias_inventario: newCats };
+                                            setSettings(newSettings);
+                                            handleSaveSettings('Categoría eliminada.', newSettings);
+                                        }}
+                                        style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', padding: '0 2px' }}
+                                    >
+                                        <FontAwesomeIcon icon={faTimes} size="xs" />
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input 
+                                type="text" 
+                                id="new-category-input"
+                                className={styles.input} 
+                                style={{ flex: 1 }} 
+                                placeholder="Nueva categoría..." 
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        const val = (e.target as HTMLInputElement).value.trim();
+                                        if (val && !settings.categorias_inventario?.includes(val)) {
+                                            const newCats = [...(settings.categorias_inventario || []), val];
+                                            const newSettings = { ...settings, categorias_inventario: newCats };
+                                            setSettings(newSettings);
+                                            (e.target as HTMLInputElement).value = '';
+                                            handleSaveSettings('Categoría añadida.', newSettings);
+                                        }
+                                    }
+                                }}
+                            />
+                            <button 
+                                className="btn btn-primary"
+                                onClick={() => {
+                                    const input = document.getElementById('new-category-input') as HTMLInputElement;
+                                    const val = input.value.trim();
+                                    if (val && !settings.categorias_inventario?.includes(val)) {
+                                        const newCats = [...(settings.categorias_inventario || []), val];
+                                        const newSettings = { ...settings, categorias_inventario: newCats };
+                                        setSettings(newSettings);
+                                        input.value = '';
+                                        handleSaveSettings('Categoría añadida.', newSettings);
+                                    }
+                                }}
+                            >
+                                Añadir
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className={styles.tableWrapper}>
             <table className={styles.table}>
                 <thead>
                     <tr><th>Producto</th><th>Categoría</th><th>Alerta Mín.</th><th>Precio Venta</th><th>Acciones</th></tr>
                 </thead>
                 <tbody>
-                    {inventory.map(item => (
-                        <tr key={item.id}>
+                    {inventory
+                        .filter(item => showInactiveStock ? true : item.activo !== false)
+                        .map(item => (
+                        <tr key={item.id} style={{ opacity: item.activo === false ? 0.5 : 1 }}>
                             <td><strong>{item.nombre}</strong></td>
                             <td>{item.categoria}</td>
                             <td>
@@ -300,7 +369,20 @@ export const Backoffice: React.FC = () => {
                                 <button className={styles.iconBtn} onClick={() => setEditingItem(item)} title="Editar">
                                     <FontAwesomeIcon icon={faEdit} />
                                 </button>
-                                <button className={`${styles.iconBtn} ${styles.iconBtnDanger}`} onClick={() => setDeletingItem(item)} title="Eliminar">
+                                {item.activo !== false ? (
+                                    <button className={styles.iconBtn} onClick={() => setArchivingItem(item)} title="Archivar">
+                                        <FontAwesomeIcon icon={faArchive} />
+                                    </button>
+                                ) : (
+                                    <button className={styles.iconBtn} onClick={async () => {
+                                        await stockService.updateItem(item.id, { activo: true });
+                                        showToast('Producto restaurado.', 'success');
+                                        loadData();
+                                    }} title="Restaurar">
+                                        <FontAwesomeIcon icon={faEye} />
+                                    </button>
+                                )}
+                                <button className={`${styles.iconBtn} ${styles.iconBtnDanger}`} onClick={() => setDeletingItem(item)} title="Eliminar Permanentemente">
                                     <FontAwesomeIcon icon={faTrash} />
                                 </button>
                             </td>
@@ -330,7 +412,7 @@ export const Backoffice: React.FC = () => {
                                 categoria: f.get('categoria') as string,
                                 minimo_alert: parseInt(f.get('minimo_alert') as string),
                                 precio_venta: parseFloat(f.get('precio_venta') as string),
-                                cantidad: editingItem ? editingItem.cantidad : 0
+                                cantidad: editingItem ? editingItem.cantidad : parseInt(f.get('cantidad_inicial') as string || '0')
                             };
 
                             setIsLoading(true);
@@ -339,8 +421,11 @@ export const Backoffice: React.FC = () => {
                                     await stockService.updateItem(editingItem.id, data);
                                     showToast('Producto actualizado.', 'success');
                                 } else {
-                                    await stockService.createItem(data);
-                                    showToast('Producto creado.', 'success');
+                                    const newItem = await stockService.createItem({ ...data, cantidad: 0 });
+                                    if (data.cantidad > 0) {
+                                        await stockService.recordMovement(newItem.id, data.cantidad, 'entrada', 'Carga inicial en catálogo');
+                                    }
+                                    showToast('Producto creado con stock inicial.', 'success');
                                 }
                                 setShowCreateItem(false);
                                 setEditingItem(null);
@@ -360,17 +445,53 @@ export const Backoffice: React.FC = () => {
                         
                         <div className={styles.formGroup}>
                             <label><FontAwesomeIcon icon={faLayerGroup} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Categoría</label>
-                            <input name="categoria" type="text" required defaultValue={editingItem?.categoria || ''} className={styles.input} placeholder="Ej. Bebidas" />
+                            <input name="categoria" list="backoffice-categories" required defaultValue={editingItem?.categoria || ''} className={styles.input} placeholder="Seleccionar o escribir..." />
+                            <datalist id="backoffice-categories">
+                                {settings.categorias_inventario?.map(cat => <option key={cat} value={cat} />)}
+                            </datalist>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <div className={styles.formGroup} style={{ flex: 1 }}>
-                                <label><FontAwesomeIcon icon={faExclamationTriangle} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Umbral Alerta</label>
-                                <input name="minimo_alert" type="number" required defaultValue={editingItem?.minimo_alert || 10} min="0" className={styles.input} />
+                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            <div className={styles.formGroup} style={{ flex: '1 1 120px' }}>
+                                <label><FontAwesomeIcon icon={faBoxes} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> {editingItem ? 'Existencia' : 'Existencia Inicial'}</label>
+                                <input 
+                                    name="cantidad_inicial" 
+                                    type="number" 
+                                    required 
+                                    defaultValue={editingItem ? editingItem.cantidad : ''} 
+                                    min="0" 
+                                    className={styles.input} 
+                                    disabled={!!editingItem} 
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="0"
+                                />
                             </div>
-                            <div className={styles.formGroup} style={{ flex: 1 }}>
+                            <div className={styles.formGroup} style={{ flex: '1 1 120px' }}>
+                                <label><FontAwesomeIcon icon={faExclamationTriangle} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Umbral Mín.</label>
+                                <input 
+                                    name="minimo_alert" 
+                                    type="number" 
+                                    required 
+                                    defaultValue={editingItem ? editingItem.minimo_alert : ''} 
+                                    min="0" 
+                                    className={styles.input} 
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="10"
+                                />
+                            </div>
+                            <div className={styles.formGroup} style={{ flex: '1 1 120px' }}>
                                 <label><FontAwesomeIcon icon={faMoneyBillWave} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Precio Venta ($)</label>
-                                <input name="precio_venta" type="number" required defaultValue={editingItem?.precio_venta || 0} min="0" step="0.01" className={styles.input} />
+                                <input 
+                                    name="precio_venta" 
+                                    type="number" 
+                                    required 
+                                    defaultValue={editingItem ? editingItem.precio_venta : ''} 
+                                    min="0" 
+                                    step="0.01" 
+                                    className={styles.input} 
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="0.00"
+                                />
                             </div>
                         </div>
 
@@ -557,11 +678,30 @@ export const Backoffice: React.FC = () => {
                       <div style={{ display: 'flex', gap: '1rem' }}>
                         <div className={styles.formGroup} style={{ flex: 1 }}>
                           <label><FontAwesomeIcon icon={faClock} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Duración (Minutos)</label>
-                          <input name="duracion" type="number" required defaultValue={editingPackage?.duracion_minutos || 60} min="1" className={styles.input} />
+                          <input 
+                            name="duracion" 
+                            type="number" 
+                            required 
+                            defaultValue={editingPackage ? editingPackage.duracion_minutos : ''} 
+                            min="1" 
+                            className={styles.input} 
+                            onFocus={(e) => e.target.select()}
+                            placeholder="60"
+                          />
                         </div>
                         <div className={styles.formGroup} style={{ flex: 1 }}>
                           <label><FontAwesomeIcon icon={faTag} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Precio ($)</label>
-                          <input name="precio" type="number" required defaultValue={editingPackage?.precio || 100} min="0" step="0.01" className={styles.input} />
+                          <input 
+                            name="precio" 
+                            type="number" 
+                            required 
+                            defaultValue={editingPackage ? editingPackage.precio : ''} 
+                            min="0" 
+                            step="0.01" 
+                            className={styles.input} 
+                            onFocus={(e) => e.target.select()}
+                            placeholder="100.00"
+                          />
                         </div>
                       </div>
 
@@ -580,7 +720,20 @@ export const Backoffice: React.FC = () => {
           {activeSection === 'INVENTORY' && renderInventorySection()}
           {activeSection === 'STAFF' && renderStaffSection()}
           {activeSection === 'SAFETY' && (
-            <section className={styles.configCard}><h3>Seguridad y Edades</h3><div className={styles.safetyGrid} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}><div className={styles.formGroup}><label>Edad Mínima</label><input type="number" className={styles.input} value={settings.edad_minima} onChange={(e) => setSettings({...settings, edad_minima: parseInt(e.target.value)})}/></div><div className={styles.formGroup}><label>Edad Máxima</label><input type="number" className={styles.input} value={settings.edad_maxima} onChange={(e) => setSettings({...settings, edad_maxima: parseInt(e.target.value)})}/></div></div><button className="btn btn-primary" onClick={() => handleSaveSettings('Rango de edades actualizado.')} disabled={isLoading}>{isLoading ? 'Guardando...' : 'Guardar Edades'}</button></section>
+            <section className={styles.configCard}>
+                <h3>Seguridad y Edades</h3>
+                <div className={styles.safetyGrid} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div className={styles.formGroup}>
+                        <label>Edad Mínima</label>
+                        <input type="number" className={styles.input} value={settings.edad_minima} onChange={(e) => setSettings({...settings, edad_minima: parseInt(e.target.value)})} onFocus={(e) => e.target.select()} />
+                    </div>
+                    <div className={styles.formGroup}>
+                        <label>Edad Máxima</label>
+                        <input type="number" className={styles.input} value={settings.edad_maxima} onChange={(e) => setSettings({...settings, edad_maxima: parseInt(e.target.value)})} onFocus={(e) => e.target.select()} />
+                    </div>
+                </div>
+                <button className="btn btn-primary" onClick={() => handleSaveSettings('Rango de edades actualizado.')} disabled={isLoading}>{isLoading ? 'Guardando...' : 'Guardar Edades'}</button>
+            </section>
           )}
 
           {activeSection === 'BRANDING' && (
@@ -628,11 +781,11 @@ export const Backoffice: React.FC = () => {
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                    <div className={styles.formGroup}>
                      <label>Visitas Meta (Ej. Cada 10)</label>
-                     <input type="number" className={styles.input} value={settings.fidelizacion_visitas} onChange={(e) => setSettings({...settings, fidelizacion_visitas: parseInt(e.target.value)})} />
+                     <input type="number" className={styles.input} value={settings.fidelizacion_visitas ?? 0} onChange={(e) => setSettings({...settings, fidelizacion_visitas: parseInt(e.target.value) || 0})} onFocus={(e) => e.target.select()} />
                    </div>
                    <div className={styles.formGroup}>
                      <label>Premio (Minutos Gratis)</label>
-                     <input type="number" className={styles.input} value={settings.fidelizacion_minutos} onChange={(e) => setSettings({...settings, fidelizacion_minutos: parseInt(e.target.value)})} />
+                     <input type="number" className={styles.input} value={settings.fidelizacion_minutos ?? 0} onChange={(e) => setSettings({...settings, fidelizacion_minutos: parseInt(e.target.value) || 0})} onFocus={(e) => e.target.select()} />
                    </div>
                 </div>
               )}
@@ -737,6 +890,29 @@ export const Backoffice: React.FC = () => {
               setDeletingItem(null);
             }
           }
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!archivingItem}
+        title="Archivar Producto"
+        message={`¿Está seguro de archivar el producto "${archivingItem?.nombre}"? Dejará de aparecer en las ventas, pero se conservará su historial de movimientos.`}
+        confirmText="SÍ, ARCHIVAR"
+        cancelText="Cancelar"
+        status="warning"
+        onCancel={() => setArchivingItem(null)}
+        onConfirm={async () => {
+            if (archivingItem) {
+                try {
+                    await stockService.updateItem(archivingItem.id, { activo: false });
+                    showToast('Producto archivado.', 'success');
+                    loadData();
+                } catch (e) {
+                    showToast('Error al archivar el producto.', 'error');
+                } finally {
+                    setArchivingItem(null);
+                }
+            }
         }}
       />
     </div>

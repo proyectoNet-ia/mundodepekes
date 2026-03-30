@@ -9,7 +9,6 @@ import { Audit } from './modules/audit/Audit';
 import { Backoffice } from './modules/backoffice/Backoffice';
 import { Records } from './modules/records/Records';
 import { SystemBar } from './components/SystemBar';
-import { PreFlightCheck } from './components/PreFlightCheck';
 import { authService, type UserProfile } from './lib/authService';
 import { Login } from './modules/auth/Login';
 import { Stock } from './modules/stock/Stock';
@@ -20,7 +19,6 @@ import { RemoteAuthBell } from './components/RemoteAuthBell';
 function App() {
   const [activeTab, setActiveTab] = React.useState<'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos'>('dashboard');
   const [reentryData, setReentryData] = React.useState<any>(null);
-  const [isReady, setIsReady] = React.useState(false);
   const [user, setUser] = React.useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -72,7 +70,7 @@ function App() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [user]);
 
   const handleExternalEntry = (data: any) => {
     setReentryData(data);
@@ -90,14 +88,6 @@ function App() {
   return (
     <ToastProvider>
         <div className="layout" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            {!isReady && (
-                <PreFlightCheck 
-                    onCompleted={(needsOpening) => {
-                        setIsReady(true);
-                        if (needsOpening) setActiveTab('treasury');
-                    }} 
-                />
-            )}
             <SystemBar />
             
             <div className="main-layout">
@@ -120,7 +110,7 @@ function App() {
                         />
                     )}
                     {activeTab === 'records' && <Records onEntry={handleExternalEntry} />}
-                    {activeTab === 'treasury' && <Treasury onCancel={() => setActiveTab('dashboard')} />}
+                    {activeTab === 'treasury' && <Treasury user={user} onCancel={() => setActiveTab('dashboard')} />}
                     {activeTab === 'analytics' && <Analytics />}
                     {activeTab === 'audit' && <Audit />}
                     {activeTab === 'stock' && <Stock />}

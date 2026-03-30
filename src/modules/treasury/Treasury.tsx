@@ -19,10 +19,11 @@ const getNumericAmount = (val: string) => {
 };
 
 interface TreasuryProps {
+    user: UserProfile | null;
     onCancel: () => void;
 }
 
-export const Treasury: React.FC<TreasuryProps> = ({ onCancel }) => {
+export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     const { showToast } = useToast();
     const [activeSession, setActiveSession] = useState<CashSession | null>(null);
     const [summary, setSummary] = useState({ efectivo: 0, tarjeta: 0, gastos: 0, total: 0 });
@@ -85,8 +86,12 @@ export const Treasury: React.FC<TreasuryProps> = ({ onCancel }) => {
     };
 
     const handleRequestCancel = (tx: any) => {
-        setAuthActionPayload({ type: 'cancel_ticket', data: tx });
-        setShowAuthModal(true);
+        if (user?.role === 'admin') {
+            executeCancelTicket(tx.id, user.email);
+        } else {
+            setAuthActionPayload({ type: 'cancel_ticket', data: tx });
+            setShowAuthModal(true);
+        }
     };
 
     const executeCancelTicket = async (txId: string, managerName: string) => {
@@ -277,9 +282,17 @@ export const Treasury: React.FC<TreasuryProps> = ({ onCancel }) => {
                         <button 
                             className={styles.expenseActionBtn} 
                             style={{ flex: 1 }}
-                            onClick={() => { setAuthActionPayload({type: 'expense'}); setShowAuthModal(true); }}
+                            onClick={() => { 
+                                if (user?.role === 'admin') {
+                                    setAuthorizer(user);
+                                    setShowExpenseModal(true);
+                                } else {
+                                    setAuthActionPayload({type: 'expense'}); 
+                                    setShowAuthModal(true); 
+                                }
+                            }}
                         >
-                            <FontAwesomeIcon icon={faShieldAlt} /> REGISTRAR GASTO
+                            <FontAwesomeIcon icon={faShieldAlt} /> {user?.role === 'admin' ? 'REGISTRAR GASTO' : 'SOLICITAR GASTO'}
                         </button>
                     </div>
 
@@ -399,6 +412,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ onCancel }) => {
                                             type="text" 
                                             value={expenseMonto}
                                             onChange={(e) => setExpenseMonto(formatMoney(e.target.value))}
+                                            onFocus={(e) => e.target.select()}
                                             placeholder="0.00"
                                         />
                                     </div>

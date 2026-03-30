@@ -45,12 +45,15 @@ export const authRequestService = {
       .subscribe();
   },
 
-  // Obtener solicitudes pendientes (Supervisor)
+  // Obtener solicitudes pendientes de las últimas 12 horas (Supervisor)
   async getPendingRequests() {
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    
     const { data, error } = await supabase
       .from('solicitudes_autorizacion')
       .select('*')
       .eq('estado', 'pendiente')
+      .gte('created_at', twelveHoursAgo)
       .order('created_at', { ascending: false });
 
     if (error) throw error;

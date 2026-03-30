@@ -8,7 +8,7 @@ import {
     faInfoCircle 
 } from '@fortawesome/free-solid-svg-icons';
 
-export type ModalStatus = 'success' | 'error' | 'warning' | 'info';
+export type ModalStatus = 'success' | 'error' | 'warning' | 'info' | 'danger';
 
 interface StatusModalProps {
     isOpen: boolean;
@@ -32,7 +32,9 @@ export const StatusModal: React.FC<StatusModalProps> = ({
             case 'success': return faCheckCircle;
             case 'error': return faTimesCircle;
             case 'warning': return faExclamationTriangle;
+            case 'danger': return faExclamationTriangle;
             case 'info': return faInfoCircle;
+            default: return faInfoCircle;
         }
     };
 

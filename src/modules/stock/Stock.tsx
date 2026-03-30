@@ -8,6 +8,7 @@ import { faBox, faArrowUp, faArrowDown, faTriangleExclamation, faSpinner, faChec
 import { AuthPinModal } from '../../components/AuthPinModal';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/Toast';
+import { getSystemSettings } from '../../lib/settingsService';
 
 export const Stock: React.FC = () => {
     const { showToast } = useToast();
@@ -29,19 +30,22 @@ export const Stock: React.FC = () => {
     const [showCreateItem, setShowCreateItem] = useState(false);
     const [editingItem, setEditingItem] = useState<StockItem | null>(null);
     const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
+    const [categories, setCategories] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
 
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const [stockTable, recentMoves, me] = await Promise.all([
+            const [stockTable, recentMoves, me, settings] = await Promise.all([
                 stockService.getInventory(),
                 stockService.getMovements(),
-                authService.getCurrentUser()
+                authService.getCurrentUser(),
+                getSystemSettings()
             ]);
             setItems(stockTable);
             setMovements(recentMoves);
             setCurrentUser(me);
+            setCategories(settings.categorias_inventario || []);
         } catch (error) {
             showToast('No se pudo cargar el inventario.', 'error', 'Error de Conectividad');
         } finally {
@@ -62,18 +66,20 @@ export const Stock: React.FC = () => {
     };
 
     const handleAuthorized = async (authorizer: UserProfile) => {
-        if (!selectedItem || !adjustReason) return;
+        if (!selectedItem) return;
+        
+        const finalReason = adjustReason.trim() || 'Ajuste manual de inventario';
         setIsAuthOpen(false);
         setIsSaving(true);
         try {
-            await stockService.recordMovement(selectedItem.id, adjustQty, adjustType, adjustReason);
+            await stockService.recordMovement(selectedItem.id, adjustQty, adjustType, finalReason);
 
             if (currentUser) {
                 await authService.logSecurityEvent({
                     autorizadorId: authorizer.id,
                     solicitanteId: currentUser.id,
                     accion: `ajuste_stock_${adjustType}`,
-                    motivo: adjustReason,
+                    motivo: finalReason,
                     folio: selectedItem.nombre
                 });
             }
@@ -321,8 +327,21 @@ export const Stock: React.FC = () => {
                         </div>
                         <div className={styles.modalFooter}>
                             <button className="btn btn-ghost" onClick={() => setIsAdjustOpen(false)}>Cancelar</button>
-                            <button className="btn btn-primary" onClick={() => setIsAuthOpen(true)} disabled={isSaving || !adjustReason}>
-                                {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <><FontAwesomeIcon icon={faCheck} /> Solicitar Autorización</>}
+                            <button 
+                                className="btn btn-primary" 
+                                onClick={() => {
+                                    if (isAdmin) {
+                                        // Si es admin, autoriza automáticamente
+                                        handleAuthorized({ id: currentUser!.id, email: currentUser!.email, role: 'admin' });
+                                    } else {
+                                        setIsAuthOpen(true);
+                                    }
+                                }} 
+                                disabled={isSaving || adjustQty <= 0}
+                            >
+                                {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : (
+                                    isAdmin ? <><FontAwesomeIcon icon={faCheck} /> Aplicar Ajuste</> : <><FontAwesomeIcon icon={faCheck} /> Solicitar Autorización</>
+                                )}
                             </button>
                         </div>
                     </div>
@@ -350,7 +369,7 @@ export const Stock: React.FC = () => {
                                     categoria: f.get('categoria') as string,
                                     minimo_alert: parseInt(f.get('minimo_alert') as string),
                                     precio_venta: parseFloat(f.get('precio_venta') as string),
-                                    cantidad: editingItem ? editingItem.cantidad : 0
+                                    cantidad: editingItem ? editingItem.cantidad : parseInt(f.get('cantidad_inicial') as string || '0')
                                 };
 
                                 setIsSaving(true);
@@ -359,8 +378,12 @@ export const Stock: React.FC = () => {
                                         await stockService.updateItem(editingItem.id, data);
                                         showToast('Producto actualizado.', 'success');
                                     } else {
-                                        await stockService.createItem(data);
-                                        showToast('Producto creado.', 'success');
+                                        const newItem = await stockService.createItem({ ...data, cantidad: 0 });
+                                        // Si se inició con stock, registrar el movimiento inicial
+                                        if (data.cantidad > 0) {
+                                            await stockService.recordMovement(newItem.id, data.cantidad, 'entrada', 'Carga inicial de inventario');
+                                        }
+                                        showToast('Producto creado con éxito.', 'success');
                                     }
                                     setShowCreateItem(false);
                                     setEditingItem(null);
@@ -380,17 +403,52 @@ export const Stock: React.FC = () => {
                             
                             <div className={styles.inputGroup}>
                                 <label>Categoría</label>
-                                <input name="categoria" type="text" required defaultValue={editingItem?.categoria || ''} placeholder="Ej. Bebidas" />
+                                <input name="categoria" list="categories-list" required defaultValue={editingItem?.categoria || ''} placeholder="Seleccionar o escribir..." />
+                                <datalist id="categories-list">
+                                    {categories.map(c => <option key={c} value={c} />)}
+                                </datalist>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <div className={styles.inputGroup} style={{ flex: 1 }}>
-                                    <label>Umbral Alerta</label>
-                                    <input name="minimo_alert" type="number" required defaultValue={editingItem?.minimo_alert || 10} min="0" />
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <div className={styles.inputGroup} style={{ flex: '1 1 120px' }}>
+                                    <label>Existencia {editingItem ? '' : 'Inicial'}</label>
+                                    <input 
+                                        name="cantidad_inicial" 
+                                        type="number" 
+                                        required 
+                                        defaultValue={editingItem ? editingItem.cantidad : ''} 
+                                        min="0" 
+                                        disabled={!!editingItem} 
+                                        title={editingItem ? "La existencia se modifica mediante Ajuste de Stock" : ""} 
+                                        onFocus={(e) => e.target.select()}
+                                        placeholder="0"
+                                    />
+                                    {editingItem && <small style={{ opacity: 0.6, fontSize: '0.7rem', display: 'block', marginTop: '4px' }}>Para cambiar use "Ajuste"</small>}
                                 </div>
-                                <div className={styles.inputGroup} style={{ flex: 1 }}>
+                                <div className={styles.inputGroup} style={{ flex: '1 1 120px' }}>
+                                    <label>Umbral Mínimo</label>
+                                    <input 
+                                        name="minimo_alert" 
+                                        type="number" 
+                                        required 
+                                        defaultValue={editingItem ? editingItem.minimo_alert : ''} 
+                                        min="0" 
+                                        onFocus={(e) => e.target.select()}
+                                        placeholder="10"
+                                    />
+                                </div>
+                                <div className={styles.inputGroup} style={{ flex: '1 1 120px' }}>
                                     <label>Precio Venta ($)</label>
-                                    <input name="precio_venta" type="number" required defaultValue={editingItem?.precio_venta || 0} min="0" step="0.01" />
+                                    <input 
+                                        name="precio_venta" 
+                                        type="number" 
+                                        required 
+                                        defaultValue={editingItem ? editingItem.precio_venta : ''} 
+                                        min="0" 
+                                        step="0.01" 
+                                        onFocus={(e) => e.target.select()}
+                                        placeholder="0.00"
+                                    />
                                 </div>
                             </div>
 
@@ -409,11 +467,11 @@ export const Stock: React.FC = () => {
 
             <ConfirmDialog
                 isOpen={!!deletingItem}
-                title="Eliminar Producto"
-                message={`¿Está seguro de eliminar el producto "${deletingItem?.nombre}"? Esta acción no se puede deshacer y afectará el historial.`}
-                confirmText="SÍ, ELIMINAR"
+                title="Archivar Producto"
+                message={`¿Está seguro de archivar el producto "${deletingItem?.nombre}"? Dejará de aparecer en las ventas y el reporte de stock, pero se conservará su historial de movimientos.`}
+                confirmText="SÍ, ARCHIVAR"
                 cancelText="Cancelar"
-                status="danger"
+                status="warning"
                 onCancel={() => setDeletingItem(null)}
                 onConfirm={async () => {
                     if (deletingItem) {

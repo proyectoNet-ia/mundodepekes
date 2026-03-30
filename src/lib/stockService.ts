@@ -8,6 +8,7 @@ export interface StockItem {
     cantidad: number;
     minimo_alert: number;
     precio_venta: number;
+    activo?: boolean;
 }
 
 export interface InventoryMovement {
@@ -32,6 +33,7 @@ export const stockService = {
             const { data, error } = await supabase
                 .from('inventario')
                 .select('*')
+                .eq('activo', true)
                 .order('nombre');
             
             if (error) throw error;
@@ -116,7 +118,7 @@ export const stockService = {
     async createItem(item: Omit<StockItem, 'id'>) {
         const { data, error } = await supabase
             .from('inventario')
-            .insert(item)
+            .insert({ ...item, activo: true })
             .select()
             .single();
         
@@ -139,7 +141,7 @@ export const stockService = {
     async deleteItem(id: string) {
         const { error } = await supabase
             .from('inventario')
-            .delete()
+            .update({ activo: false })
             .eq('id', id);
         
         if (error) throw error;

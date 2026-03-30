@@ -118,8 +118,22 @@ export const RemoteAuthBell: React.FC = () => {
     };
 
     const handleMarkRead = async (id: string) => {
-        await notificationsService.markAsRead(id);
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        try {
+            await notificationsService.markAsRead(id);
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        } catch (e) {
+            console.error('Error marking as read', e);
+        }
+    };
+
+    const handleMarkAllRead = async () => {
+        try {
+            await notificationsService.markAllAsRead();
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            showToast('Todas las alertas marcadas como leídas.', 'success');
+        } catch (e) {
+            showToast('Error al limpiar alertas.', 'error');
+        }
     };
 
     const getIcon = (type: string) => {
@@ -130,7 +144,6 @@ export const RemoteAuthBell: React.FC = () => {
             default: return faBell;
         }
     };
-
     const getIconColor = (type: string) => {
         switch(type) {
             case 'low_stock': return '#ef4444';
@@ -175,6 +188,11 @@ export const RemoteAuthBell: React.FC = () => {
                         >
                             Alertas ({notifications.filter(n => !n.read).length})
                         </button>
+                        {activeTab === 'ops' && notifications.some(n => !n.read) && (
+                            <button className={styles.clearBtn} onClick={handleMarkAllRead} title="Marcar todas como leídas">
+                                Limpiar todo
+                            </button>
+                        )}
                     </div>
 
                     <div className={styles.list}>

@@ -114,7 +114,7 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
         setIsLoading(true);
         try {
             const data = await stockService.getInventory();
-            setInventory(data.filter(item => item.cantidad > 0));
+            setInventory(data);
         } catch (error) {
             showToast('Error al cargar el inventario', 'error');
         } finally {
@@ -123,10 +123,15 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
     };
 
     const addToCart = (product: StockItem) => {
+        if (product.cantidad <= 0) {
+            showToast('No hay existencias de este producto.', 'warning', 'Sin Stock');
+            return;
+        }
+
         const existing = cart.find(item => item.id === product.id);
         if (existing) {
             if (existing.quantity >= product.cantidad) {
-                showToast('No hay suficiente stock disponible', 'warning');
+                showToast('Límite de stock alcanzado', 'warning');
                 return;
             }
             setCart(cart.map(item => 
@@ -282,7 +287,7 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
         <div className={styles.posContainer}>
             <div className={styles.productsSection}>
                 <div className={styles.posHeader}>
-                    <h2><FontAwesomeIcon icon={faStore} /> Tienda / POS</h2>
+                    <h2><FontAwesomeIcon icon={faStore} /> Tienda / POS <span style={{ fontSize: '0.5em', opacity: 0.5 }}>v2</span></h2>
                     <div className={styles.searchBar}>
                         <FontAwesomeIcon icon={faSearch} className={styles.searchIcon} />
                         <input 
@@ -298,12 +303,15 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                     {filteredProducts.map(product => (
                         <div 
                             key={product.id} 
-                            className={styles.productCard}
+                            className={`${styles.productCard} ${product.cantidad <= 0 ? styles.productCardDisabled : ''}`}
                             onClick={() => addToCart(product)}
                         >
                             <div className={styles.productInfo}>
                                 <h4>{product.nombre}</h4>
-                                <span className={styles.productStock}>{product.cantidad} en stock</span>
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.7rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase', color: '#64748b', fontWeight: 600 }}>{product.categoria}</span>
+                                    <span className={styles.productStock}>{product.cantidad} en stock</span>
+                                </div>
                             </div>
                             <div className={styles.priceTag}>
                                 <span className={styles.productPrice}>${product.precio_venta}.00</span>

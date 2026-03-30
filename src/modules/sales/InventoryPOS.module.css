@@ -94,10 +94,42 @@
     overflow: hidden;
 }
 
-.productCard:hover {
+.productCard:hover:not(.productCardDisabled) {
     border-color: var(--brand-400);
     transform: translateX(4px);
     box-shadow: 0 4px 12px rgba(0,27,72,0.05);
+}
+
+.productCardDisabled {
+    opacity: 0.6;
+    background: #f8fafc;
+    cursor: not-allowed;
+    border-style: dashed;
+}
+
+.productCardDisabled .priceTag {
+    background: #e2e8f0;
+    color: #94a3b8;
+}
+
+.productCardDisabled .productPrice {
+    color: #94a3b8;
+}
+
+.productCardDisabled::after {
+    content: 'SIN STOCK';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg);
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    padding: 0.25rem 1rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    pointer-events: none;
 }
 
 .productInfo {

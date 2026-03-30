@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { syncService } from '../lib/syncService';
+import { supabase } from '../lib/supabase';
 
 interface SystemStatus {
   isOnline: boolean;
   printerEpson: 'connected' | 'disconnected' | 'checking';
   printerZebra: 'connected' | 'disconnected' | 'checking';
+  cashStatus: 'abierta' | 'cerrada' | 'checking';
   pendingSyncCount: number;
   speedMbps: number | null;
   pingMs: number | null;
@@ -15,6 +17,7 @@ export const useResilience = () => {
     isOnline: navigator.onLine,
     printerEpson: 'checking',
     printerZebra: 'checking',
+    cashStatus: 'checking',
     pendingSyncCount: 0,
     speedMbps: null,
     pingMs: null,
@@ -77,6 +80,23 @@ export const useResilience = () => {
         setStatus(prev => prev.pendingSyncCount === count ? prev : { ...prev, pendingSyncCount: count });
     }, 2000);
 
+    // 6. Check Cash Session
+    const checkCash = async () => {
+        try {
+            const { data } = await supabase
+                .from('arqueos_caja')
+                .select('id')
+                .eq('estado', 'abierta')
+                .maybeSingle();
+            
+            setStatus(prev => ({ ...prev, cashStatus: data ? 'abierta' : 'cerrada' }));
+        } catch (e) {
+            setStatus(prev => ({ ...prev, cashStatus: 'cerrada' }));
+        }
+    };
+    checkCash();
+    const cashInterval = setInterval(checkCash, 10000); // Cada 10s
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -85,6 +105,7 @@ export const useResilience = () => {
       if (conn) conn.removeEventListener('change', updateNetworkData);
       clearInterval(speedInterval);
       clearInterval(offlinePollInterval);
+      clearInterval(cashInterval);
     };
   }, []);
 

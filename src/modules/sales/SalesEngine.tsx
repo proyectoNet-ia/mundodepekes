@@ -58,7 +58,7 @@ interface SalesEngineProps {
   onCancel?: () => void;
 }
 
-export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplete, onCancel }) => {
+export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onComplete, onCancel }) => {
   const { showToast } = useToast();
   const [currentStep, setCurrentStep] = useState<SalesStep>('BUSQUEDA');
   
@@ -211,9 +211,16 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
           return;
       }
       
-      if (activeChildren.some((c: ChildData) => c.enListaNegra) && !isAuthorizedOverride) {
+      const blacklisted = activeChildren.filter(c => c.enListaNegra);
+      const isAdmin = user?.role === 'admin';
+
+      if (blacklisted.length > 0 && !isAuthorizedOverride && !isAdmin) {
           setShowPinModal(true);
           return;
+      }
+      
+      if (isAdmin && blacklisted.length > 0) {
+          setIsAuthorizedOverride(true);
       }
 
       setCurrentStep('PAQUETE');
@@ -558,7 +565,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ reentryData, onComplet
                                     </div>
                                     <div className={styles.inputWrapper} style={{ width: '80px' }}>
                                         <label>Edad</label>
-                                        <input type="number" value={child.age || ''} onChange={(e) => { const n = [...children]; n[idx].age = Number(e.target.value); setChildren(n); }} placeholder="Años" min={1} max={15} disabled={child.included === false} required />
+                                        <input type="number" value={child.age || ''} onChange={(e) => { const n = [...children]; n[idx].age = Number(e.target.value); setChildren(n); }} onFocus={(e) => e.target.select()} placeholder="Años" min={1} max={15} disabled={child.included === false} required />
                                     </div>
                                 </div>
                             ))}

@@ -40,6 +40,12 @@ export const SystemBar: React.FC = () => {
           <span className={styles.hardware}>
             🏷️ ZEBRA: <span className={styles[status.printerZebra]}>{status.printerZebra.toUpperCase()}</span>
           </span>
+          <span className={styles.separator}>|</span>
+          <span className={styles.hardware}>
+            💰 CAJA: <span className={status.cashStatus === 'abierta' ? styles.connected : styles.disconnected}>
+              {status.cashStatus.toUpperCase()}
+            </span>
+          </span>
         </div>
         <div className={styles.syncGroup}>
             {status.pendingSyncCount > 0 && (

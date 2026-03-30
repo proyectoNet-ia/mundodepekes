@@ -176,6 +176,26 @@
     border-radius: 12px;
     margin-bottom: 1.5rem;
     gap: 0.5rem;
+    align-items: center;
+}
+
+.clearBtn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.clearBtn:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
 }
 
 .tabBtn {

@@ -13,6 +13,7 @@ export interface SystemSettings {
   texto_ticket: string;
   edad_minima: number;
   edad_maxima: number;
+  categorias_inventario?: string[];
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -33,7 +34,8 @@ const DEFAULT_SETTINGS: SystemSettings = {
   nombre_negocio: 'Mundo de Pekes',
   texto_ticket: '¡Gracias por visitarnos! No olvides tus calcetines para la próxima.',
   edad_minima: 1,
-  edad_maxima: 12
+  edad_maxima: 12,
+  categorias_inventario: ['Bebidas', 'Alimentos', 'Juguetes', 'Higiene', 'Ropa', 'Accesorios', 'Otros']
 };
 
 export const getSystemSettings = async (): Promise<SystemSettings> => {
