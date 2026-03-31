@@ -654,49 +654,97 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
 
                 {currentStep === 'ACCESORIOS' && (
                     <div className={styles.fadeSlide}>
-                        <h3>Accesorios Adicionales</h3>
-                        <div className={styles.accessoryGrid}>
-                            {availableAccessories.map(acc => {
-                                const existing = selectedAccessories.find(a => a.id === acc.id);
-                                const qty = existing?.qty || 0;
-                                return (
-                                <div 
-                                    key={acc.id} 
-                                    className={`${styles.accessoryCard} ${qty > 0 ? styles.accessorySelected : ''}`} 
-                                    onClick={(e) => qty === 0 && handleAccChange(e, acc, 1)}
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            if (qty === 0) handleAccChange(e as any, acc, 1);
-                                            else handleAccChange(e as any, acc, -1);
-                                        }
-                                    }}
-                                >
-                                    <div className={styles.pkgHeader} style={{ marginBottom: 0 }}>
-                                        <span>📦 {acc.nombre}</span>
-                                        <strong>${acc.precio_venta}.00</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <small style={{ color: '#64748b' }}>{acc.cantidad} en stock</small>
-                                        <div className={styles.qtyControlWidget}>
-                                            <button 
-                                                className={styles.qtyBtn} 
-                                                onClick={(e) => handleAccChange(e, acc, -1)}
-                                                disabled={qty === 0}
-                                                tabIndex={-1} // Los botones secundarios no estorban el TAB general
-                                            >-</button>
-                                            <span className={styles.qtyValue}>{qty}</span>
-                                            <button 
-                                                className={styles.qtyBtn} 
-                                                onClick={(e) => handleAccChange(e, acc, 1)}
-                                                disabled={qty >= acc.cantidad}
-                                                tabIndex={-1}
-                                            >+</button>
+                        <div className={styles.accStepHeader}>
+                            <div>
+                                <h3 style={{ margin: 0 }}>Accesorios Adicionales</h3>
+                                <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontSize: '0.9rem' }}>
+                                    Seleccione productos adicionales agrupados por categoría
+                                </p>
+                            </div>
+                            {selectedAccessories.length > 0 && (
+                                <div className={styles.accSelectionSummary}>
+                                    <span className={styles.accBadge}>{selectedAccessories.reduce((s, a) => s + a.qty, 0)} items</span>
+                                    <strong style={{ color: 'var(--brand-600)', fontSize: '1.1rem' }}>
+                                        +${totalAccessories.toFixed(2)}
+                                    </strong>
+                                </div>
+                            )}
+                        </div>
+
+                        {availableAccessories.length === 0 ? (
+                            <div className={styles.accEmptyState}>
+                                📦 No hay productos en inventario disponibles
+                            </div>
+                        ) : (
+                            (() => {
+                                // Agrupar por categoría
+                                const byCategory = availableAccessories.reduce((groups, acc) => {
+                                    const cat = acc.categoria || 'Sin categoría';
+                                    if (!groups[cat]) groups[cat] = [];
+                                    groups[cat].push(acc);
+                                    return groups;
+                                }, {} as Record<string, typeof availableAccessories>);
+
+                                return Object.entries(byCategory).map(([category, items]) => (
+                                    <div key={category} className={styles.accCategorySection}>
+                                        <div className={styles.accCategoryHeader}>
+                                            <span className={styles.accCategoryDot} />
+                                            <span>{category}</span>
+                                            <span className={styles.accCategoryCount}>{items.length} productos</span>
+                                        </div>
+                                        <div className={styles.accessoryGrid}>
+                                            {items.map(acc => {
+                                                const existing = selectedAccessories.find(a => a.id === acc.id);
+                                                const qty = existing?.qty || 0;
+                                                return (
+                                                    <div
+                                                        key={acc.id}
+                                                        className={`${styles.accessoryCard} ${qty > 0 ? styles.accessorySelected : ''}`}
+                                                        onClick={(e) => qty === 0 && handleAccChange(e, acc, 1)}
+                                                        tabIndex={0}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                if (qty === 0) handleAccChange(e as any, acc, 1);
+                                                                else handleAccChange(e as any, acc, -1);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {qty > 0 && (
+                                                            <div className={styles.accSelectedBadge}>✓ {qty}</div>
+                                                        )}
+                                                        <div className={styles.accCardBody}>
+                                                            <span className={styles.accName}>{acc.nombre}</span>
+                                                            <strong className={styles.accPrice}>${acc.precio_venta.toFixed(2)}</strong>
+                                                        </div>
+                                                        <div className={styles.accCardFooter}>
+                                                            <small className={acc.cantidad <= 5 ? styles.accStockLow : styles.accStock}>
+                                                                {acc.cantidad <= 5 ? `⚠️ ${acc.cantidad} restantes` : `${acc.cantidad} en stock`}
+                                                            </small>
+                                                            <div className={styles.qtyControlWidget} onClick={e => e.stopPropagation()}>
+                                                                <button
+                                                                    className={styles.qtyBtn}
+                                                                    onClick={(e) => handleAccChange(e, acc, -1)}
+                                                                    disabled={qty === 0}
+                                                                    tabIndex={-1}
+                                                                >−</button>
+                                                                <span className={styles.qtyValue}>{qty}</span>
+                                                                <button
+                                                                    className={styles.qtyBtn}
+                                                                    onClick={(e) => handleAccChange(e, acc, 1)}
+                                                                    disabled={qty >= acc.cantidad}
+                                                                    tabIndex={-1}
+                                                                >+</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
-                                </div>
-                            )})}
-                        </div>
+                                ));
+                            })()
+                        )}
+
                         <div className={styles.navigationButtons}>
                             <button className={styles.btnCancel} onClick={() => setCurrentStep('BUSQUEDA')}>Cancelar</button>
                             <button className="btn btn-ghost" onClick={() => setCurrentStep('PAQUETE')}>Atrás</button>

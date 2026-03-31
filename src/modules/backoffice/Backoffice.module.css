@@ -462,8 +462,13 @@
 }
 
 .actionsCell {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-    align-items: center;
+    text-align: right;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.actionsCell > * {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 0.5rem;
 }

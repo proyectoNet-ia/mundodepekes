@@ -186,7 +186,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
                 <div className={styles.userPremiumCard}>
                   <div className={styles.userAvatar}><FontAwesomeIcon icon={faUserCircle} /></div>
                   <div className={styles.userInfo}>
-                    <span className={styles.userEmail}>{user.email.split('@')[0].toUpperCase()}</span>
+                    <span className={styles.userEmail}>{(user.nombre_completo || user.email.split('@')[0]).toUpperCase()}</span>
                     <span className={styles.userRoleBadge}>{userRole?.toUpperCase()}</span>
                   </div>
                 </div>
@@ -228,7 +228,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               <div className={styles.userPremiumCard}>
                 <div className={styles.userAvatar}><FontAwesomeIcon icon={faUserCircle} /></div>
                 <div className={styles.userInfo}>
-                  <span className={styles.userEmail}>{user.email.split('@')[0].toUpperCase()}</span>
+                  <span className={styles.userEmail}>{(user.nombre_completo || user.email.split('@')[0]).toUpperCase()}</span>
                   <span className={styles.userRoleBadge}>{userRole?.toUpperCase()}</span>
                 </div>
               </div>
