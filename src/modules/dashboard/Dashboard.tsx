@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Dashboard.module.css';
+import { PrinterService } from '../../lib/printerService';
 import { getActiveSessions, finishSession, subscribeToSessions, updateChildInfo, type ActiveSession } from '../../lib/sessionService';
 import { getSystemSettings } from '../../lib/settingsService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -16,7 +17,6 @@ import {
   faChevronRight, 
   faSearch, 
   faTimes, 
-  faClipboardList, 
   faUserSlash, 
   faUser, 
   faStar, 
@@ -24,7 +24,10 @@ import {
   faEnvelope,
   faPlus,
   faLayerGroup,
-  faCloudUploadAlt
+  faCloudUploadAlt,
+  faLock,
+  faReceipt,
+  faEllipsisV
 } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -62,6 +65,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
   const [selectedChild, setSelectedChild] = useState<ActiveSession | null>(null);
   const [contactChild, setContactChild] = useState<ActiveSession | null>(null);
   const [checkoutChild, setCheckoutChild] = useState<ActiveSession | null>(null);
+  const [viewPurchase, setViewPurchase] = useState<ActiveSession | null>(null);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [obsText, setObsText] = useState('');
   const [isBlacklisted, setIsBlacklisted] = useState(false);
   const ITEMS_PER_PAGE = 8;
@@ -463,42 +468,61 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                             role="region"
                             aria-label={`Sesión de ${session.childName}`}
                           >
-                            <div className={styles.sessionHeader}>
-                              <span className={`${styles.kidName} ${session.enListaNegra ? styles.blacklistedName : ''}`}>
-                                  {session.enListaNegra && <FontAwesomeIcon icon={faUserSlash} className={styles.blacklistIcon} title="Lista Negra" />}
-                                  {session.childName}
-                                  {session.area === 'Mixto' && <span className={styles.mixedBadge}>MIX</span>}
-                              </span>
-                              <div className={styles.actions}>
+                            <div className={styles.sessionHeader} style={{ position: 'relative' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <span className={`${styles.kidName} ${session.enListaNegra ? styles.blacklistedName : ''}`}>
+                                    {session.enListaNegra && <FontAwesomeIcon icon={faUserSlash} className={styles.blacklistIcon} title="Lista Negra" />}
+                                    {session.childName}
+                                    {session.area === 'Mixto' && <span className={styles.mixedBadge}>MIX</span>}
+                                </span>
+                                
                                 <button 
-                                    className={styles.iconButton}
-                                    title={`Observaciones / Incidentes`}
-                                    onClick={() => openObsModal(session)}
+                                    className={`${styles.iconButton} ${expandedSessionId === session.id ? styles.expanded : ''}`}
+                                    onClick={() => setExpandedSessionId(expandedSessionId === session.id ? null : session.id)}
                                 >
-                                    <FontAwesomeIcon icon={faClipboardList} color={session.observaciones ? 'var(--warning)' : 'inherit'} />
-                                </button>
-                                <button 
-                                    className={styles.iconButton}
-                                    title={`Contactar Tutor: ${session.tutorContact}`}
-                                    onClick={() => setContactChild(session)}
-                                >
-                                    <FontAwesomeIcon icon={faPhone} />
-                                </button>
-                                <button 
-                                    className={styles.iconButton}
-                                    title="Nueva Venta (Reingreso/Extensión)"
-                                    onClick={() => handleReentryClick(session)}
-                                >
-                                    <FontAwesomeIcon icon={faRotateLeft} />
-                                </button>
-                                <button 
-                                    className={`${styles.iconButton} ${styles.exitButton}`}
-                                    title="Marcar Salida (Fin de Sesión)"
-                                    onClick={() => setCheckoutChild(session)}
-                                >
-                                    <FontAwesomeIcon icon={faArrowRightFromBracket} />
+                                    <FontAwesomeIcon icon={faEllipsisV} style={{ color: 'var(--text-secondary)' }} size="lg" />
                                 </button>
                               </div>
+
+                              {expandedSessionId === session.id && (
+                                <div className={styles.floatingActions}>
+                                    <button 
+                                        className={styles.iconButton}
+                                        title={`Observaciones / Incidentes`}
+                                        onClick={() => { openObsModal(session); setExpandedSessionId(null); }}
+                                    >
+                                        <FontAwesomeIcon icon={faLock} color={session.observaciones ? 'var(--warning)' : 'inherit'} />
+                                    </button>
+                                    <button 
+                                        className={styles.iconButton}
+                                        title={`Última Compra`}
+                                        onClick={() => { setViewPurchase(session); setExpandedSessionId(null); }}
+                                    >
+                                        <FontAwesomeIcon icon={faReceipt} />
+                                    </button>
+                                    <button 
+                                        className={styles.iconButton}
+                                        title={`Contactar Tutor`}
+                                        onClick={() => { setContactChild(session); setExpandedSessionId(null); }}
+                                    >
+                                        <FontAwesomeIcon icon={faPhone} />
+                                    </button>
+                                    <button 
+                                        className={styles.iconButton}
+                                        title="Nueva Venta"
+                                        onClick={() => { handleReentryClick(session); setExpandedSessionId(null); }}
+                                    >
+                                        <FontAwesomeIcon icon={faRotateLeft} />
+                                    </button>
+                                    <button 
+                                        className={`${styles.iconButton} ${styles.exitButton}`}
+                                        title="Salida"
+                                        onClick={() => { setCheckoutChild(session); setExpandedSessionId(null); }}
+                                    >
+                                        <FontAwesomeIcon icon={faArrowRightFromBracket} />
+                                    </button>
+                                </div>
+                              )}
                             </div>
                             
                             {(session as any).isOffline && (
@@ -515,13 +539,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
                                     className={styles.progressBarFill} 
                                     style={{ 
                                       width: `${progress}%`, 
-                                      backgroundColor: remainingMinutes <= 5 ? '#ef4444' : // ROJO (Casi fin)
-                                                     remainingMinutes <= 25 ? '#f97316' : // NARANJA (Mitad/Progreso)
-                                                     '#3b82f6' // AZUL (Recién ingreso)
+                                      backgroundColor: remainingMinutes <= 5 ? '#ef4444' :
+                                                     remainingMinutes <= 25 ? '#f97316' :
+                                                     '#3b82f6'
                                     }}
                                   />
                                 </div>
-                                <span className={styles.timeRemainingText}>{remainingMinutes}m rest. | Inicio: {session.startTime}</span>
+                                <span className={styles.timeRemainingText}>
+                                    {remainingMinutes <= 0 ? '0m' : (remainingMinutes >= 60 ? `${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}m` : `${remainingMinutes}m`)} rest. | Inicio: {session.startTime} | Fin: {session.endTime}
+                                </span>
                               </div>
                             </div>
 
@@ -625,115 +651,281 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
       />
 
       {/* Contact Modal */}
-      {contactChild && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <h3>Información de Contacto</h3>
-              <button onClick={() => setContactChild(null)} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
-            </div>
-            <div className={styles.modalBody} style={{padding: '2rem 3rem'}}>
-              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <div style={{ 
-                    width: '80px', 
-                    height: '80px', 
-                    background: 'var(--brand-50)', 
-                    color: 'var(--brand-500)', 
-                    borderRadius: '50%', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    fontSize: '2.5rem',
-                    margin: '0 auto 1.5rem'
-                }}>
-                  <FontAwesomeIcon icon={faUser} />
-                </div>
-                <h2 style={{ fontSize: '1.8rem', color: '#0f172a', margin: '0 0 0.5rem 0' }}>{contactChild.tutorName}</h2>
-                <div style={{ 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '0.5rem', 
-                    background: '#fef3c7', 
-                    color: '#92400e', 
-                    padding: '0.4rem 1rem', 
-                    borderRadius: '50px', 
-                    fontSize: '0.85rem', 
-                    fontWeight: '800' 
-                }}>
-                   <FontAwesomeIcon icon={faStar} /> {contactChild.tutorVisits} Visitas Acumuladas
-                </div>
-              </div>
+      {contactChild && (() => {
+          const phones = (contactChild.tutorContact || '').split(',').map(p => p.trim());
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          
+          const formatPhone = (p: string) => {
+              const clean = p.replace(/\D/g, '');
+              if (clean.length === 10) return `(${clean.slice(0,3)}) ${clean.slice(3,6)}-${clean.slice(6)}`;
+              return p; // original if not 10 digits
+          };
 
-              <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '1.2rem', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <FontAwesomeIcon icon={faBaby} />
-                          <div>
-                              <small style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '800' }}>A Cargo de</small>
-                              <strong style={{ color: '#0f172a' }}>{contactChild.childName}</strong>
-                          </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <FontAwesomeIcon icon={faPhone} />
-                          <div>
-                              <small style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '800' }}>Teléfono</small>
-                              <strong style={{ color: '#0f172a' }}>{contactChild.tutorContact.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}</strong>
-                          </div>
-                      </div>
-                      {contactChild.tutorEmail && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <FontAwesomeIcon icon={faEnvelope} />
-                            <div>
-                                <small style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '800' }}>Email</small>
-                                <strong style={{ color: '#0f172a' }}>{contactChild.tutorEmail}</strong>
-                            </div>
-                        </div>
-                      )}
-                  </div>
-              </div>
-
-              <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                Acciones rápidas de localización:
-              </p>
-              
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                  <button 
-                    onClick={() => {
-                        const cleanPhone = contactChild.tutorContact.replace(/\D/g, '');
-                        const message = encodeURIComponent(`Hola ${contactChild.tutorName}, le escribimos de Mundo de Pekes. Nos comunicamos por su peke ${contactChild.childName}. Por favor acuda al área de ingreso.`);
-                        window.open(`https://wa.me/52${cleanPhone}?text=${message}`, '_blank');
-                        setContactChild(null);
-                    }} 
-                    style={{ 
-                        background: '#25D366', 
-                        color: 'white', 
-                        flex: 1,
-                        padding: '1rem', 
-                        borderRadius: '12px', 
-                        border: 'none', 
-                        cursor: 'pointer', 
-                        fontWeight: '800', 
+          return (
+            <div className={styles.modalOverlay}>
+              <div className={styles.modal}>
+                <div className={styles.modalHeader}>
+                  <h3>Información de Contacto</h3>
+                  <button onClick={() => setContactChild(null)} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
+                </div>
+                <div className={styles.modalBody} style={{padding: '2rem 3rem'}}>
+                  <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                    <div style={{ 
+                        width: '80px', 
+                        height: '80px', 
+                        background: 'var(--brand-50)', 
+                        color: 'var(--brand-500)', 
+                        borderRadius: '50%', 
                         display: 'flex', 
                         alignItems: 'center', 
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)'
-                    }}
-                  >
-                    WhatsApp
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const cleanPhone = contactChild.tutorContact.replace(/\D/g, '');
-                      window.open(`tel:${cleanPhone}`);
-                      setContactChild(null);
-                    }} 
-                    className="btn btn-primary"
-                    style={{ flex: 1, padding: '1rem', borderRadius: '12px', fontWeight: '800' }}
-                  >
-                    <FontAwesomeIcon icon={faPhone} /> Llamar
-                  </button>
+                        justifyContent: 'center', 
+                        fontSize: '2.5rem',
+                        margin: '0 auto 1.5rem'
+                    }}>
+                      <FontAwesomeIcon icon={faUser} />
+                    </div>
+                    <h2 style={{ fontSize: '1.8rem', color: '#0f172a', margin: '0 0 0.5rem 0' }}>{contactChild.tutorName}</h2>
+                    <div style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '0.5rem', 
+                        background: '#fef3c7', 
+                        color: '#92400e', 
+                        padding: '0.4rem 1rem', 
+                        borderRadius: '50px', 
+                        fontSize: '0.85rem', 
+                        fontWeight: '800' 
+                    }}>
+                       <FontAwesomeIcon icon={faStar} /> {contactChild.tutorVisits} Visitas Acumuladas
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '1.2rem', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <FontAwesomeIcon icon={faBaby} style={{ color: 'var(--brand-500)' }} />
+                              <div>
+                                  <small style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '800' }}>A Cargo de</small>
+                                  <strong style={{ color: '#0f172a' }}>{contactChild.childName}</strong>
+                              </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                              <FontAwesomeIcon icon={faPhone} style={{ color: 'var(--brand-500)', marginTop: '4px' }} />
+                              <div style={{ width: '100%' }}>
+                                  <small style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '800', marginBottom: '4px' }}>Teléfonos de Contacto</small>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {phones.map((p, idx) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ color: '#0f172a' }}>{formatPhone(p)}</strong>
+                                            {idx === 0 && <span style={{ fontSize: '0.65rem', background: 'var(--brand-100)', color: 'var(--brand-600)', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>PRINCIPAL</span>}
+                                        </div>
+                                    ))}
+                                  </div>
+                              </div>
+                          </div>
+                          {contactChild.tutorEmail && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <FontAwesomeIcon icon={faEnvelope} style={{ color: 'var(--brand-500)' }} />
+                                <div>
+                                    <small style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '800' }}>Email</small>
+                                    <strong style={{ color: '#0f172a' }}>{contactChild.tutorEmail}</strong>
+                                </div>
+                            </div>
+                          )}
+                      </div>
+                  </div>
+
+                  <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                    Acciones rápidas de localización:
+                  </p>
+                  
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                      <button 
+                        onClick={() => {
+                            const cleanPhone = phones[0].replace(/\D/g, ''); // Usa el principal
+                            const message = encodeURIComponent(`Hola ${contactChild.tutorName}, le escribimos de Mundo de Pekes. Nos comunicamos por su peke ${contactChild.childName}. Por favor acuda al área de ingreso.`);
+                            
+                            if (isMobile) {
+                                window.open(`https://wa.me/52${cleanPhone}?text=${message}`, '_blank');
+                            } else {
+                                // En escritorio, intentar abrir directamente WhatsApp Web para ser más fluido
+                                window.open(`https://web.whatsapp.com/send?phone=52${cleanPhone}&text=${message}`, '_blank');
+                            }
+                            setContactChild(null);
+                        }} 
+                        style={{ 
+                            background: '#25D366', 
+                            color: 'white', 
+                            flex: 1,
+                            padding: '1rem', 
+                            borderRadius: '12px', 
+                            border: 'none', 
+                            cursor: 'pointer', 
+                            fontWeight: '800', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)'
+                        }}
+                      >
+                        WhatsApp
+                      </button>
+                      {isMobile && (
+                        <button 
+                            onClick={() => {
+                                const cleanPhone = phones[0].replace(/\D/g, '');
+                                window.open(`tel:${cleanPhone}`);
+                                setContactChild(null);
+                            }} 
+                            className="btn btn-primary"
+                            style={{ flex: 1, padding: '1rem', borderRadius: '12px', fontWeight: '800' }}
+                        >
+                            <FontAwesomeIcon icon={faPhone} /> Llamar
+                        </button>
+                      )}
+                  </div>
+                </div>
               </div>
+            </div>
+          );
+      })()}
+
+      {/* Vista de Venta Modal */}
+      {viewPurchase && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal} style={{ maxWidth: '400px' }}>
+            <div className={styles.modalHeader}>
+              <h3>Detalle de Venta</h3>
+              <button onClick={() => setViewPurchase(null)} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
+            </div>
+            <div className={styles.modalBody} style={{ padding: '1.5rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: '2.5rem', color: 'var(--brand-500)', marginBottom: '1rem' }} />
+                <h2 style={{ fontSize: '1.4rem', margin: 0 }}>{viewPurchase.packageName}</h2>
+                <div style={{ 
+                  display: 'inline-block', 
+                  marginTop: '0.5rem',
+                  padding: '0.25rem 0.75rem', 
+                  background: 'var(--bg-tertiary)', 
+                  borderRadius: '100px',
+                  fontSize: '0.9rem', 
+                  fontWeight: '800',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)'
+                }}>
+                  FOLIO: #{viewPurchase.transaccionFolio}
+                </div>
+              </div>
+              
+              <div style={{ background: 'var(--bg-tertiary)', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>Monto Pagado:</span>
+                  <strong style={{ fontSize: '1.1rem', color: 'var(--brand-600)' }}>${viewPurchase.transaccionTotal?.toFixed(2)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>Método de Pago:</span>
+                  <strong>{viewPurchase.metodoPago}</strong>
+                </div>
+                
+                <div style={{ borderTop: '1px dashed var(--border-color)', margin: '0.5rem 0' }}></div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>Zona:</span>
+                  <strong>{viewPurchase.area}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>Paquete:</span>
+                  <strong>{viewPurchase.packageName}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>Duración:</span>
+                  <span style={{ fontWeight: '800' }}>
+                    {(viewPurchase as any).duracion_minutos ? (Math.floor((viewPurchase as any).duracion_minutos / 60) > 0 ? `${Math.floor((viewPurchase as any).duracion_minutos / 60)}h ${(viewPurchase as any).duracion_minutos % 60}m` : `${(viewPurchase as any).duracion_minutos}m`) : '--'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>Entrada:</span>
+                  <strong>{viewPurchase.startTime}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', fontWeight: '800' }}>
+                  <span>Salida Limite:</span>
+                  <strong>{viewPurchase.endTime}</strong>
+                </div>
+
+                <div style={{ borderTop: '1px dashed var(--border-color)', margin: '0.5rem 0' }}></div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>Peke:</span>
+                  <strong>{viewPurchase.childName}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>Tutor:</span>
+                  <strong>{viewPurchase.tutorName}</strong>
+                </div>
+              </div>
+              
+              <footer style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                Venta realizada el {viewPurchase.startTime}
+              </footer>
+            </div>
+            <div className={styles.modalFooter} style={{ flexDirection: 'column', gap: '0.8rem' }}>
+              <div style={{ display: 'flex', gap: '0.8rem', width: '100%' }}>
+                <button 
+                  onClick={() => {
+                    if (!viewPurchase) return;
+                    const ticketData = {
+                      folio: viewPurchase.transaccionFolio || 'REIMPRESION',
+                      cliente: viewPurchase.tutorName,
+                      telefono: viewPurchase.tutorContact,
+                      items: [{
+                        nino: viewPurchase.childName,
+                        nombre: viewPurchase.packageName,
+                        precio: viewPurchase.transaccionTotal || 0,
+                        duracion: (viewPurchase as any).duracion_minutos || 0,
+                        hora_entrada: viewPurchase.startTime,
+                        hora_salida: viewPurchase.endTime
+                      }],
+                      total: viewPurchase.transaccionTotal || 0,
+                      subtotal: (viewPurchase.transaccionTotal || 0) / 1.16,
+                      iva: (viewPurchase.transaccionTotal || 0) - ((viewPurchase.transaccionTotal || 0) / 1.16),
+                      mensaje: "*** REIMPRESION DE TICKET ***"
+                    };
+                    const content = PrinterService.formatEpsonTicket(ticketData as any);
+                    PrinterService.printRaw(content, 'EPSON');
+                    showToast('Ticket enviado a cola de impresión.', 'success');
+                  }}
+                  className="btn btn-ghost" 
+                  style={{ flex: 1, borderColor: 'var(--border-color)' }}
+                >
+                  <FontAwesomeIcon icon={faReceipt} style={{ marginRight: '8px' }} />
+                  Ticket
+                </button>
+                <button 
+                  onClick={() => {
+                    if (!viewPurchase) return;
+                    const wristbandData = {
+                      nino: viewPurchase.childName,
+                      folio: viewPurchase.transaccionFolio || '',
+                      area: viewPurchase.area,
+                      duracion: (viewPurchase as any).duracion_minutos || 0,
+                      horaEntrada: viewPurchase.startTime,
+                      horaSalida: viewPurchase.endTime,
+                      paquete: viewPurchase.packageName,
+                      idPeke: viewPurchase.childId || '',
+                    };
+                    const content = PrinterService.formatZebraWristband(wristbandData);
+                    PrinterService.printRaw(content, 'ZEBRA');
+                    showToast('Pulsera enviada a impresora Zebra.', 'success');
+                  }}
+                  className="btn btn-ghost"
+                  style={{ flex: 1, borderColor: 'var(--border-color)' }}
+                >
+                  <FontAwesomeIcon icon={faRotateLeft} style={{ marginRight: '8px' }} />
+                  Pulsera
+                </button>
+              </div>
+              <button onClick={() => setViewPurchase(null)} className="btn btn-primary" style={{ width: '100%' }}>Cerrar</button>
             </div>
           </div>
         </div>

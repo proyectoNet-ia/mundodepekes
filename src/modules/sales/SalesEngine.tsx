@@ -4,7 +4,7 @@ import { omniSearch, registerFullEntry, type SearchResult } from '../../lib/sale
 import { getPackages, type Package } from '../../lib/packageService';
 import { stockService, type StockItem } from '../../lib/stockService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUserPlus, faChild, faCreditCard, faMoneyBillWave, faLock, faCheckCircle, faSpinner, faPhone, faExclamationTriangle, faTicketAlt } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUserPlus, faChild, faCreditCard, faMoneyBillWave, faLock, faCheckCircle, faSpinner, faPhone, faExclamationTriangle, faTicketAlt, faClock } from '@fortawesome/free-solid-svg-icons';
 import { getActiveSession, openCash } from '../../lib/treasuryService';
 import { PrinterService } from '../../lib/printerService';
 import { type UserProfile } from '../../lib/authService';
@@ -12,6 +12,7 @@ import { useToast } from '../../components/Toast';
 import { StatusModal } from '../../components/StatusModal';
 import { getActiveSessions, type ActiveSession } from '../../lib/sessionService';
 import { PINModal } from '../../components/PINModal';
+import { supabase } from '../../lib/supabase';
 
 // Types
 type SalesStep = 'BUSQUEDA' | 'CLIENTE' | 'NINO' | 'PAQUETE' | 'ACCESORIOS' | 'PAGO';
@@ -26,12 +27,33 @@ const getNumericAmount = (val: string) => {
     return Number(val.replace(/,/g, '')) || 0;
 };
 
+// Capitaliza nombres propios respetando preposiciones en español
+// Ej: "fernando de la cruz" → "Fernando de la Cruz"
+const LOWERCASE_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e', 'o', 'a', 'en']);
+
+const toTitleCase = (str: string): string => {
+    return str
+        .toLowerCase()
+        .split(' ')
+        .map((word, index) => {
+            if (!word) return word;
+            // Primera palabra siempre en mayúscula; preposiciones en el resto en minúscula
+            if (index !== 0 && LOWERCASE_WORDS.has(word)) return word;
+            // Soportar guión: "Luis-Angel" → cada parte capitalizada
+            return word.split('-').map(part =>
+                part.charAt(0).toUpperCase() + part.slice(1)
+            ).join('-');
+        })
+        .join(' ');
+};
+
 interface CustomerData {
+  id?: string;  // ID del cliente en BD (si fue encontrado por búsqueda)
   phone: string;
   name: string;
   email: string;
   visitsCount: number;
-  children?: { id: string; name: string; age: number; observations: string; isAlreadyInside?: boolean }[]; // Added children
+  children?: { id: string; name: string; age: number; observations: string; isAlreadyInside?: boolean }[];
 }
 
 interface ChildData {
@@ -80,6 +102,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
   const [selectedAreas, setSelectedAreas] = useState<Record<number, string>>({});
   const [showPinModal, setShowPinModal] = useState(false);
   const [isAuthorizedOverride, setIsAuthorizedOverride] = useState(false);
+  const [secondaryPhones, setSecondaryPhones] = useState<string[]>([]); // Teléfonos adicionales del tutor
 
   const handleOpenCash = async () => {
     const monto = getNumericAmount(openingAmount);
@@ -115,15 +138,28 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
 
         if (reentryData) {
           setCustomer({
+            id: reentryData.tutorId || reentryData.clientes?.id,
             phone: reentryData.tutorContact || reentryData.clientes?.telefono || reentryData.phone || '',
             name: reentryData.tutorName || reentryData.clientes?.nombre || reentryData.name || '',
             email: reentryData.clientes?.email || '',
             visitsCount: reentryData.visitsCount || reentryData.clientes?.visitas_acumuladas || 0
           });
+
+          // Obtener la edad real del niño desde la BD si tenemos su ID
+          let childAge = reentryData.edad || 0;
+          if (reentryData.childId && !childAge) {
+            const { data: childRecord } = await supabase
+              .from('ninos')
+              .select('edad')
+              .eq('id', reentryData.childId)
+              .single();
+            childAge = childRecord?.edad || 0;
+          }
+
           setChildren([{ 
             id: reentryData.childId,
             name: reentryData.childName || reentryData.nombre || '', 
-            age: reentryData.edad || 0,
+            age: childAge,
             included: true
           }]);
           setCurrentStep('PAQUETE');
@@ -161,6 +197,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
 
   const handleSelectCustomer = async (res: SearchResult) => {
     setCustomer({
+        id: res.id,          // Guardar ID para evitar duplicados al volver atrás
         phone: res.phone || '',
         name: res.name || '',
         email: '', 
@@ -195,6 +232,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
     }
 
     setSearchResults(null);
+    setSecondaryPhones([]); // Limpiar teléfonos secundarios al seleccionar cliente
     setCurrentStep('NINO');
   };
   
@@ -266,13 +304,16 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
     try {
         const registration = await registerFullEntry({
             customer: {
+                id: customer.id,           // ID para UPDATE si ya existe
                 name: customer.name,
-                phone: customer.phone,
+                // Concatenar teléfono principal + secundarios
+                phone: [customer.phone, ...secondaryPhones.filter(p => p.trim())].join(', '),
                 email: customer.email
             },
             children: activeChildren.map((c, i) => {
                 const selPkg = availablePackages.find(p => p.id === childPackages[i]);
                 return {
+                    id: c.id,              // ID para evitar duplicar niños existentes
                     name: c.name,
                     age: c.age,
                     packageId: childPackages[i],
@@ -298,13 +339,17 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 cliente: registration.transaction.customer,
                 telefono: registration.transaction.phone,
                 staffEmail: registration.transaction.usuario_email || 'admin@mundodepekes.com',
-                items: registration.transaction.children.map((c: any) => ({
-                    nino: c.name,
-                    nombre: availablePackages.find((p: any) => p.id === c.package)?.nombre || 'Paquete',
-                    precio: availablePackages.find((p: any) => p.id === c.package)?.precio || 0,
-                    hora_entrada: new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    hora_salida: new Date(c.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                })),
+                items: registration.transaction.children.map((c: any) => {
+                    const pkg = availablePackages.find((p: any) => p.id === c.package);
+                    return {
+                        nino: c.name,
+                        nombre: pkg?.nombre || 'Paquete',
+                        precio: pkg?.precio || 0,
+                        duracion: pkg?.duracion_minutos || 0,
+                        hora_entrada: new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        hora_salida: new Date(c.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    };
+                }),
                 accesorios: selectedAccessories.map(a => ({
                     cantidad: a.qty,
                     concepto: a.name,
@@ -326,6 +371,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                     idPeke: c.name.substring(0,3).toUpperCase() + registration.transaction.id.substring(0,4).toUpperCase(),
                     paquete: availablePackages.find((p: any) => p.id === c.package)?.nombre || 'Paquete',
                     area: c.area,
+                    duracion: availablePackages.find((p: any) => p.id === c.package)?.duracion_minutos || 0,
                     horaEntrada: new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     horaSalida: new Date(c.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     folio: registration.transaction.id.substring(0,8).toUpperCase()
@@ -474,10 +520,16 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                             <div className={styles.formGrid}>
                                 <div className={styles.inputWrapper}>
                                     <label>Nombre Completo</label>
-                                    <input type="text" value={customer.name} onChange={(e) => setCustomer({...customer, name: e.target.value})} placeholder="Ej. Ana García" autoFocus />
+                                    <input
+                                        type="text"
+                                        value={customer.name}
+                                        onChange={(e) => setCustomer({...customer, name: toTitleCase(e.target.value)})}
+                                        placeholder="Ej. Ana García"
+                                        autoFocus
+                                    />
                                 </div>
                                 <div className={styles.inputWrapper}>
-                                    <label>WhatsApp / Teléfono</label>
+                                    <label>WhatsApp / Teléfono Principal</label>
                                     <input 
                                         type="tel" 
                                         value={
@@ -493,6 +545,59 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                         }} 
                                         placeholder="(000) 000-0000" 
                                     />
+                                </div>
+
+                                {/* Teléfonos secundarios */}
+                                <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed #e2e8f0', paddingTop: '1.25rem', marginTop: '0.25rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <label style={{ margin: 0, fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            Teléfonos Adicionales
+                                            <span style={{ fontWeight: 500, textTransform: 'none', color: '#94a3b8', marginLeft: '0.4rem' }}>(opcional)</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSecondaryPhones(prev => [...prev, ''])}
+                                            className="btn btn-ghost"
+                                            style={{ fontSize: '0.8rem', padding: '0.4rem 0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            <FontAwesomeIcon icon={faPhone} /> + Añadir
+                                        </button>
+                                    </div>
+                                    {secondaryPhones.length === 0 && (
+                                        <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
+                                            Sin teléfonos adicionales. Pulsa "+ Añadir" para agregar.
+                                        </p>
+                                    )}
+                                    {secondaryPhones.map((ph, idx) => (
+                                        <div key={idx} className={styles.inputWrapper} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '0.75rem' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label>Teléfono adicional {idx + 1}</label>
+                                                <input
+                                                    type="tel"
+                                                    value={
+                                                        ph.length <= 3 ? ph
+                                                        : ph.length <= 6 ? `(${ph.substring(0,3)}) ${ph.substring(3)}`
+                                                        : `(${ph.substring(0,3)}) ${ph.substring(3,6)}-${ph.substring(6,10)}`
+                                                    }
+                                                    onChange={(e) => {
+                                                        const raw = e.target.value.replace(/\D/g, '').substring(0, 10);
+                                                        const updated = [...secondaryPhones];
+                                                        updated[idx] = raw;
+                                                        setSecondaryPhones(updated);
+                                                    }}
+                                                    placeholder="(000) 000-0000"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSecondaryPhones(prev => prev.filter((_, i) => i !== idx))}
+                                                style={{ background: '#fee2e2', color: '#ef4444', border: '2px solid #fecdd3', borderRadius: 'var(--radius-xl)', padding: '1.1rem 1rem', cursor: 'pointer', flexShrink: 0, fontWeight: 700, fontSize: '1rem', lineHeight: 1 }}
+                                                title="Eliminar teléfono"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
@@ -555,7 +660,15 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                                 </div>
                                             )}
                                         </div>
-                                        <input type="text" value={child.name} onChange={(e) => { const n = [...children]; n[idx].name = e.target.value; setChildren(n); }} placeholder="Ej. Luisito" disabled={child.included === false} autoFocus={idx === 0} required />
+                                        <input
+                                            type="text"
+                                            value={child.name}
+                                            onChange={(e) => { const n = [...children]; n[idx].name = toTitleCase(e.target.value); setChildren(n); }}
+                                            placeholder="Ej. Luisito"
+                                            disabled={child.included === false}
+                                            autoFocus={idx === 0}
+                                            required
+                                        />
                                         
                                         {child.enListaNegra && child.observations && (
                                             <div className={styles.blacklistReason}>
@@ -630,8 +743,11 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                                 onKeyDown={(e) => e.key === 'Enter' && setChildPackages({...childPackages, [idx]: pkg.id})}
                                             >
                                                 <div className={styles.pkgHeader}><FontAwesomeIcon icon={faChild} /><span className={styles.pkgPrice}>${pkg.precio}.00</span></div>
-                                                <span style={{fontWeight: '800', color: '#0f172a', display: 'block', marginBottom: '0.25rem'}}>{pkg.nombre}</span>
-                                                <span style={{fontSize:'0.85rem', color:'#64748b'}}>{pkg.duracion_minutos} min</span>
+                                                <span className={styles.pkgName} style={{fontWeight: '800', color: '#0f172a', display: 'block', marginBottom: '0.25rem'}}>{pkg.nombre}</span>
+                                                <span style={{fontSize:'1rem', color:'#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem'}}>
+                                                    <FontAwesomeIcon icon={faClock} style={{opacity: 0.7, fontSize: '0.9rem'}} />
+                                                    {Math.floor(pkg.duracion_minutos / 60) > 0 ? `${Math.floor(pkg.duracion_minutos / 60)}h ${pkg.duracion_minutos % 60 > 0 ? `${pkg.duracion_minutos % 60}m` : ''}` : `${pkg.duracion_minutos}m`}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>

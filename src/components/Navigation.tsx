@@ -60,7 +60,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         if (userRole === 'admin') return true;
         switch (userRole) {
             case 'cajero':
-                return ['dashboard', 'ingresos', 'pos'].includes(tab);
+                return ['dashboard', 'ingresos', 'pos', 'treasury'].includes(tab);
             case 'supervisor':
                 return ['dashboard', 'ingresos', 'records', 'treasury', 'stock', 'pos'].includes(tab);
             case 'analista':

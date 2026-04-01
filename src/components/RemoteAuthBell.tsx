@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './RemoteAuthBell.module.css';
 import { authRequestService, type AuthRequest } from '../lib/authRequestService';
 import { authService, type UserProfile } from '../lib/authService';
@@ -16,8 +16,44 @@ export const RemoteAuthBell: React.FC = () => {
     const [showPanel, setShowPanel] = useState(false);
     const [activeTab, setActiveTab] = useState<'auth' | 'ops'>('auth');
 
+    // Ref para rastrear si el panel está abierto en callbacks asíncronos (evita closure stale)
+    const panelOpenRef = useRef(false);
+    const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Tipos de notificaciones permitidas según rol
+    const getAllowedTypes = (role?: string): string[] => {
+        if (role === 'cajero') return ['cash_open', 'cash_close', 'expense'];
+        return ['cash_open', 'cash_close', 'low_stock', 'expense', 'auth_request'];
+    };
+
+    // ¿El rol puede ver la tab de firmas (solicitudes de autorización)?
+    const canSeeAuthRequests = (role?: string) =>
+        role === 'admin' || role === 'supervisor';
+
+    // Marca todas las no-leídas como leídas en BD y en estado local
+    const autoMarkAllRead = useCallback(async () => {
+        await notificationsService.markAllAsRead();
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }, []);
+
+    // Abre/cierra el panel y dispara el auto-read al abrir
+    const handleTogglePanel = useCallback((forceOpen?: boolean) => {
+        const nextOpen = forceOpen !== undefined ? forceOpen : !panelOpenRef.current;
+        panelOpenRef.current = nextOpen;
+        setShowPanel(nextOpen);
+
+        if (nextOpen) {
+            // 1.5s de delay para que el usuario vea el resaltado antes de que desaparezca
+            if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
+            markReadTimerRef.current = setTimeout(() => {
+                autoMarkAllRead();
+            }, 1500);
+        } else {
+            if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
+        }
+    }, [autoMarkAllRead]);
+
     const init = async () => {
-        // Pedir permiso para notificaciones nativas (Celular/Desktop)
         if (Notification.permission === 'default') {
             await Notification.requestPermission();
         }
@@ -26,71 +62,88 @@ export const RemoteAuthBell: React.FC = () => {
         setUser(currUser);
 
         if (currUser) {
-            // Cargar solicitudes de PIN
-            const initialAuth = await authRequestService.getPendingRequests();
-            setPendingRequests(initialAuth);
+            const allowedTypes = getAllowedTypes(currUser.role);
 
-            // Cargar notificaciones operativas
+            if (canSeeAuthRequests(currUser.role)) {
+                const initialAuth = await authRequestService.getPendingRequests();
+                setPendingRequests(initialAuth);
+            } else {
+                setActiveTab('ops');
+            }
+
             const initialOps = await notificationsService.getRecent(15);
-            setNotifications(initialOps);
+            const filtered = initialOps.filter(n => allowedTypes.includes(n.type));
+            setNotifications(filtered);
 
-            // Suscribirse a Autorizaciones (PINS)
-            const authChannel = authRequestService.subscribeToNewRequests((newReq) => {
-                setPendingRequests(prev => [newReq, ...prev]);
-                showToast(`Firma Requerida: ${newReq.solicitante_nombre}`, 'info');
-                setActiveTab('auth');
-            });
+            let authChannel: any = null;
+            if (canSeeAuthRequests(currUser.role)) {
+                authChannel = authRequestService.subscribeToNewRequests((newReq) => {
+                    setPendingRequests(prev => [newReq, ...prev]);
+                    showToast(`Firma Requerida: ${newReq.solicitante_nombre}`, 'info');
+                    setActiveTab('auth');
+                });
+            }
 
-            // Suscribirse a Operaciones (Caja, Stock)
-            const opsChannel = notificationsService.subscribe((notification) => {
-                setNotifications(prev => [notification, ...prev]);
-                showToast(notification.title, 'warning');
-                if (!showPanel) setActiveTab('ops');
+            const opsChannel = notificationsService.subscribe(async (notification) => {
+                if (!allowedTypes.includes(notification.type)) return;
 
-                // 📱 Lanzar Notificación Nativa (Push-style)
+                if (notification.type === 'auth_request' && canSeeAuthRequests(currUser.role)) {
+                    const freshRequests = await authRequestService.getPendingRequests();
+                    setPendingRequests(freshRequests);
+                    showToast(notification.title, 'info');
+                    setActiveTab('auth');
+                    handleTogglePanel(true);
+                } else {
+                    // Si el panel ya está abierto, marcar como leída de inmediato
+                    if (panelOpenRef.current) {
+                        setNotifications(prev => [{ ...notification, read: true }, ...prev]);
+                        await notificationsService.markAsRead(notification.id);
+                    } else {
+                        setNotifications(prev => [notification, ...prev]);
+                    }
+                    showToast(notification.title, 'warning');
+                    if (!panelOpenRef.current) setActiveTab('ops');
+                }
+
                 if (Notification.permission === 'granted') {
                     new Notification(notification.title, {
                         body: notification.message,
                         icon: '/favicon.ico'
                     });
                 }
-                
-                // 📳 Vibración táctil
+
                 if (navigator.vibrate) {
                     navigator.vibrate([100, 50, 100]);
                 }
             });
 
-            // 📦 Realizar Auditoría de Stock de Inicio (Ahora que estamos suscritos)
-            const auditStock = async () => {
-                try {
-                    const items: StockItem[] = await stockService.getInventory();
-                    const lowItems = items.filter((i: StockItem) => i.cantidad <= (i.minimo_alert || 5));
-                    
-                    if (lowItems.length > 0) {
-                        // Solo notificar si no hay una notificación reciente similar (Deduplicación)
-                        const hasRecent = initialOps.some(n => 
-                            n.type === 'low_stock' && 
-                            n.message.includes(`${lowItems.length} productos`) &&
-                            !n.read
-                        );
-
-                        if (!hasRecent) {
-                            await notificationsService.notify(
-                                'low_stock',
-                                '📦 Alerta de Inventario',
-                                `Se han detectado ${lowItems.length} productos con stock crítico. Revise existencias.`,
-                                { items: lowItems.map(i => i.nombre) }
+            if (currUser.role !== 'cajero') {
+                const auditStock = async () => {
+                    try {
+                        const items: StockItem[] = await stockService.getInventory();
+                        const lowItems = items.filter((i: StockItem) => i.cantidad <= (i.minimo_alert || 5));
+                        if (lowItems.length > 0) {
+                            const hasRecent = initialOps.some(n =>
+                                n.type === 'low_stock' &&
+                                n.message.includes(`${lowItems.length} productos`) &&
+                                !n.read
                             );
+                            if (!hasRecent) {
+                                await notificationsService.notify(
+                                    'low_stock',
+                                    '📦 Alerta de Inventario',
+                                    `Se han detectado ${lowItems.length} productos con stock crítico. Revise existencias.`,
+                                    { items: lowItems.map(i => i.nombre) }
+                                );
+                            }
                         }
-                    }
-                } catch (e) { console.warn('Error en auditoría de inicio:', e); }
-            };
-
-            auditStock();
+                    } catch (e) { console.warn('Error en auditoría de inicio:', e); }
+                };
+                auditStock();
+            }
 
             return () => {
-                authChannel.unsubscribe();
+                if (authChannel) authChannel.unsubscribe();
                 opsChannel.unsubscribe();
             };
         }
@@ -102,7 +155,10 @@ export const RemoteAuthBell: React.FC = () => {
         });
 
         init();
-        return () => subscription.unsubscribe();
+        return () => {
+            subscription.unsubscribe();
+            if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
+        };
     }, []);
 
     if (!user) return null;
@@ -117,35 +173,17 @@ export const RemoteAuthBell: React.FC = () => {
         }
     };
 
-    const handleMarkRead = async (id: string) => {
-        try {
-            await notificationsService.markAsRead(id);
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-        } catch (e) {
-            console.error('Error marking as read', e);
-        }
-    };
-
-    const handleMarkAllRead = async () => {
-        try {
-            await notificationsService.markAllAsRead();
-            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-            showToast('Todas las alertas marcadas como leídas.', 'success');
-        } catch (e) {
-            showToast('Error al limpiar alertas.', 'error');
-        }
-    };
-
     const getIcon = (type: string) => {
-        switch(type) {
+        switch (type) {
             case 'cash_open': return faUnlockAlt;
             case 'cash_close': return faInfoCircle;
             case 'low_stock': return faBoxOpen;
             default: return faBell;
         }
     };
+
     const getIconColor = (type: string) => {
-        switch(type) {
+        switch (type) {
             case 'low_stock': return '#ef4444';
             case 'cash_open': return '#f59e0b';
             case 'cash_close': return '#0284c7';
@@ -153,13 +191,15 @@ export const RemoteAuthBell: React.FC = () => {
         }
     };
 
-    const unreadCount = pendingRequests.length + notifications.filter(n => !n.read).length;
+    const showAuthTab = canSeeAuthRequests(user.role);
+    const unreadOps = notifications.filter(n => !n.read).length;
+    const unreadCount = (showAuthTab ? pendingRequests.length : 0) + unreadOps;
 
     return (
         <div className={styles.container}>
-            <button 
+            <button
                 className={`${styles.bellBtn} ${unreadCount > 0 ? styles.pulse : ''}`}
-                onClick={() => setShowPanel(!showPanel)}
+                onClick={() => handleTogglePanel()}
                 title="Centro de Operaciones"
             >
                 <FontAwesomeIcon icon={faBell} />
@@ -170,33 +210,30 @@ export const RemoteAuthBell: React.FC = () => {
                 <div className={styles.panel}>
                     <div className={styles.header}>
                         <h3>Centro Operativo</h3>
-                        <button onClick={() => setShowPanel(false)} className={styles.closeBtn}>
+                        <button onClick={() => handleTogglePanel(false)} className={styles.closeBtn}>
                             <FontAwesomeIcon icon={faTimes} />
                         </button>
                     </div>
 
                     <div className={styles.tabs}>
-                        <button 
-                            className={`${styles.tabBtn} ${activeTab === 'auth' ? styles.tabActive : ''}`}
-                            onClick={() => setActiveTab('auth')}
-                        >
-                            Firmas ({pendingRequests.length})
-                        </button>
-                        <button 
+                        {showAuthTab && (
+                            <button
+                                className={`${styles.tabBtn} ${activeTab === 'auth' ? styles.tabActive : ''}`}
+                                onClick={() => setActiveTab('auth')}
+                            >
+                                Firmas ({pendingRequests.length})
+                            </button>
+                        )}
+                        <button
                             className={`${styles.tabBtn} ${activeTab === 'ops' ? styles.tabActive : ''}`}
                             onClick={() => setActiveTab('ops')}
                         >
-                            Alertas ({notifications.filter(n => !n.read).length})
+                            Alertas {unreadOps > 0 ? `(${unreadOps} nuevas)` : ''}
                         </button>
-                        {activeTab === 'ops' && notifications.some(n => !n.read) && (
-                            <button className={styles.clearBtn} onClick={handleMarkAllRead} title="Marcar todas como leídas">
-                                Limpiar todo
-                            </button>
-                        )}
                     </div>
 
                     <div className={styles.list}>
-                        {activeTab === 'auth' ? (
+                        {activeTab === 'auth' && showAuthTab ? (
                             pendingRequests.length === 0 ? (
                                 <div className={styles.empty}>No hay firmas requeridas.</div>
                             ) : (
@@ -226,10 +263,9 @@ export const RemoteAuthBell: React.FC = () => {
                                 <div className={styles.empty}>Historial de alertas vacío.</div>
                             ) : (
                                 notifications.map(notif => (
-                                    <div 
-                                        key={notif.id} 
-                                        className={`${styles.card} ${!notif.read ? styles.unread : ''}`} 
-                                        onClick={() => !notif.read && handleMarkRead(notif.id)}
+                                    <div
+                                        key={notif.id}
+                                        className={`${styles.card} ${!notif.read ? styles.unread : ''}`}
                                     >
                                         <div className={styles.cardInfo}>
                                             <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>

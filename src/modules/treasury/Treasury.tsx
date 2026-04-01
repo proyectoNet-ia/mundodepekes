@@ -41,6 +41,12 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     const [authActionPayload, setAuthActionPayload] = useState<{type: 'expense' | 'cancel_ticket', data?: any} | null>(null);
     const [authorizer, setAuthorizer] = useState<UserProfile | null>(null);
     const [isSavingExpense, setIsSavingExpense] = useState(false);
+    const [showCashierCloseAuthModal, setShowCashierCloseAuthModal] = useState(false);
+
+    // Modal de motivo de cancelación de ticket
+    const [showCancelReasonModal, setShowCancelReasonModal] = useState(false);
+    const [cancelReasonText, setCancelReasonText] = useState('');
+    const [cancelPayload, setCancelPayload] = useState<{ txId: string; managerName: string } | null>(null);
 
     // Tickets Modal
     const [showTicketsModal, setShowTicketsModal] = useState(false);
@@ -87,7 +93,10 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
 
     const handleRequestCancel = (tx: any) => {
         if (user?.role === 'admin') {
-            executeCancelTicket(tx.id, user.email);
+            // Abrir modal de motivo directamente para admin
+            setCancelPayload({ txId: tx.id, managerName: user.email });
+            setCancelReasonText('');
+            setShowCancelReasonModal(true);
         } else {
             setAuthActionPayload({ type: 'cancel_ticket', data: tx });
             setShowAuthModal(true);
@@ -95,11 +104,18 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     };
 
     const executeCancelTicket = async (txId: string, managerName: string) => {
-        const reason = prompt('Motivo de la cancelación del ticket:');
-        if (!reason) return;
+        // Abrir el modal de motivo (se llama desde onAuthorized también)
+        setCancelPayload({ txId, managerName });
+        setCancelReasonText('');
+        setShowCancelReasonModal(true);
+    };
+
+    const confirmCancelTicket = async () => {
+        if (!cancelReasonText.trim() || !cancelPayload) return;
+        setShowCancelReasonModal(false);
         setIsLoading(true);
         try {
-            await cancelTransaction(txId, managerName, reason);
+            await cancelTransaction(cancelPayload.txId, cancelPayload.managerName, cancelReasonText);
             showToast('Ticket y sesiones anuladas correctamente', 'success');
             if (activeSession) await loadShiftTransactions(activeSession.id);
             await loadData();
@@ -107,6 +123,8 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
             showToast('No se pudo anular la transacción', 'error');
         } finally {
             setIsLoading(false);
+            setCancelPayload(null);
+            setCancelReasonText('');
         }
     };
 
@@ -192,31 +210,38 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                         <FontAwesomeIcon icon={faLock} />
                     </div>
                     <h2>Caja Cerrada</h2>
-                    <p>Para procesar ventas, primero debe iniciar un turno de caja.</p>
-                    
-                    <div className={styles.quickOpenForm}>
-                        <label>FONDO INICIAL EN CAJA</label>
-                        <div className={styles.openInputGroup}>
-                            <span>$</span>
-                            <input 
-                                type="text" 
-                                value={montoApertura} 
-                                onChange={(e) => setMontoApertura(formatMoney(e.target.value))}
-                                onFocus={(e) => e.target.select()}
-                                placeholder="0.00"
-                            />
+                    {user?.role === 'cajero' ? (
+                        <>
+                            <p>No hay un turno activo. Comuníquese con el administrador para abrir la caja antes de iniciar operaciones.</p>
+                            <button className={styles.secondaryNavBtn} onClick={onCancel} style={{ marginTop: '0.5rem' }}>
+                                Volver al Dashboard
+                            </button>
+                        </>
+                    ) : (
+                        <div className={styles.quickOpenForm}>
+                            <label>FONDO INICIAL EN CAJA</label>
+                            <div className={styles.openInputGroup}>
+                                <span>$</span>
+                                <input 
+                                    type="text" 
+                                    value={montoApertura} 
+                                    onChange={(e) => setMontoApertura(formatMoney(e.target.value))}
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            <button 
+                                className={styles.openCashBtn} 
+                                onClick={handleOpen}
+                                disabled={isLoading}
+                            >
+                                {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Abrir Turno Ahora'}
+                            </button>
+                            <button className={styles.secondaryNavBtn} onClick={onCancel}>
+                                Volver al Dashboard
+                            </button>
                         </div>
-                        <button 
-                            className={styles.openCashBtn} 
-                            onClick={handleOpen}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Abrir Turno Ahora'}
-                        </button>
-                        <button className={styles.secondaryNavBtn} onClick={onCancel}>
-                            Volver al Dashboard
-                        </button>
-                    </div>
+                    )}
                 </div>
             </div>
         );
@@ -320,13 +345,26 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                         />
                     </div>
 
-                    <button 
-                        className={styles.closeBtn} 
-                        onClick={() => setShowCloseModal(true)} 
-                        disabled={isLoading}
-                    >
-                        <FontAwesomeIcon icon={faCheckCircle} /> Finalizar Turno y Cerrar Caja
-                    </button>
+                    {user?.role === 'cajero' ? (
+                        <button 
+                            className={styles.closeBtn}
+                            onClick={() => {
+                                setAuthActionPayload({ type: 'expense' }); // reuse auth flow
+                                setShowCashierCloseAuthModal(true);
+                            }}
+                            disabled={isLoading}
+                        >
+                            <FontAwesomeIcon icon={faLock} /> Solicitar Cierre de Caja
+                        </button>
+                    ) : (
+                        <button 
+                            className={styles.closeBtn} 
+                            onClick={() => setShowCloseModal(true)} 
+                            disabled={isLoading}
+                        >
+                            <FontAwesomeIcon icon={faCheckCircle} /> Finalizar Turno y Cerrar Caja
+                        </button>
+                    )}
 
                     {showCloseModal && activeSession && (
                         <div className={styles.modalOverlay} onClick={() => setShowCloseModal(false)}>
@@ -538,6 +576,57 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                         }
                     }}
                 />
+
+                {/* Modal de autorización para cierre de caja por cajero */}
+                <AuthPinModal
+                    isOpen={showCashierCloseAuthModal}
+                    onClose={() => setShowCashierCloseAuthModal(false)}
+                    actionLabel="Autorizar cierre de turno y arqueo de caja"
+                    onAuthorized={(_authorizer) => {
+                        setShowCashierCloseAuthModal(false);
+                        setShowCloseModal(true);
+                    }}
+                />
+
+                {/* Modal de motivo de cancelación de ticket */}
+                {showCancelReasonModal && (
+                    <div className={styles.modalOverlay} onClick={() => setShowCancelReasonModal(false)}>
+                        <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                            <div className={styles.modalHeader}>
+                                <h3><FontAwesomeIcon icon={faBan} style={{ color: '#ef4444', marginRight: '0.75rem' }} />Anular Ticket</h3>
+                                <p>Esta acción es irreversible. Ingrese el motivo de la cancelación para continuar.</p>
+                            </div>
+
+                            <div className={styles.inputGroup}>
+                                <label>Motivo de la cancelación</label>
+                                <div className={styles.inputWithIcon}>
+                                    <input
+                                        type="text"
+                                        autoFocus
+                                        placeholder="Ej: Error en cobro, cliente solicitó reembolso..."
+                                        value={cancelReasonText}
+                                        onChange={e => setCancelReasonText(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') confirmCancelTicket(); }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className={styles.modalActions}>
+                                <button className="btn btn-secondary" onClick={() => setShowCancelReasonModal(false)}>
+                                    Cancelar
+                                </button>
+                                <button
+                                    className="btn btn-danger"
+                                    onClick={confirmCancelTicket}
+                                    disabled={!cancelReasonText.trim() || isLoading}
+                                    style={{ background: '#ef4444', color: 'white', opacity: !cancelReasonText.trim() ? 0.5 : 1 }}
+                                >
+                                    {isLoading ? 'Anulando...' : 'Confirmar Anulación'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

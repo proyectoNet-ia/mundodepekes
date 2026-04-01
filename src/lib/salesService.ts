@@ -78,8 +78,8 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
 };
 
 export const registerFullEntry = async (data: {
-  customer: { name: string; phone: string; email?: string };
-  children: { name: string; age: number; packageId: string; area: string; duration: number }[];
+  customer: { id?: string; name: string; phone: string; email?: string };
+  children: { id?: string; name: string; age: number; packageId: string; area: string; duration: number }[];
   accessories: { id: string; name: string; quantity: number }[];
   paymentMethod: string;
   total: number;
@@ -114,40 +114,65 @@ export const registerFullEntry = async (data: {
 
   try {
     // 1. Get or Create Customer
-    const phone = data.customer?.phone || (data as any).clientId;
-    if (!phone) {
+    const allPhones = data.customer?.phone || (data as any).clientId;
+    if (!allPhones) {
         const error = new Error('Se requiere teléfono del cliente');
         (error as any).isValidationError = true;
         throw error;
     }
 
+    // Separar teléfono principal (para búsqueda) del string completo (para almacenar)
+    const primaryPhone = allPhones.split(',')[0].trim();
+
     let { data: customer, error: cError } = await supabase
       .from('clientes')
       .select('id, visitas_acumuladas')
-      .eq('telefono', phone)
+      .eq('telefono', primaryPhone)
       .single();
 
     if (cError && cError.code !== 'PGRST116') throw cError;
 
-    if (!customer) {
-      if (!data.customer?.name) {
-          const error = new Error('Datos de cliente incompletos para registro nuevo');
-          (error as any).isValidationError = true;
-          throw error;
-      }
-      const { data: newCustomer, error: createError } = await supabase
-        .from('clientes')
-        .insert({
-          nombre: data.customer.name,
-          telefono: phone,
-          email: data.customer.email
-        })
-        .select().single();
-      if (createError || !newCustomer) throw createError || new Error('Error al crear el cliente');
-      customer = newCustomer;
-    }
+    let customerId: string;
 
-    const customerId = (customer as any).id;
+    if (data.customer?.id) {
+      // Cliente conocido: actualizar datos si cambiaron (sin crear duplicado)
+      customerId = data.customer.id;
+      await supabase.from('clientes').update({
+        nombre: data.customer.name,
+        telefono: allPhones
+      }).eq('id', customerId);
+    } else {
+      // Cliente nuevo o búsqueda por teléfono
+      let { data: customer, error: cError } = await supabase
+        .from('clientes')
+        .select('id, visitas_acumuladas')
+        .eq('telefono', primaryPhone)
+        .single();
+
+      if (cError && cError.code !== 'PGRST116') throw cError;
+
+      if (!customer) {
+        if (!data.customer?.name) {
+            const error = new Error('Datos de cliente incompletos para registro nuevo');
+            (error as any).isValidationError = true;
+            throw error;
+        }
+        const { data: newCustomer, error: createError } = await supabase
+          .from('clientes')
+          .insert({
+            nombre: data.customer.name,
+            telefono: allPhones,
+            email: data.customer.email
+          })
+          .select().single();
+        if (createError || !newCustomer) throw createError || new Error('Error al crear el cliente');
+        customer = newCustomer;
+      } else if (allPhones !== primaryPhone) {
+        // Cliente existente: actualizar teléfonos si se agregaron secundarios
+        await supabase.from('clientes').update({ telefono: allPhones }).eq('id', (customer as any).id);
+      }
+      customerId = (customer as any).id;
+    }
 
     // 2. Create Transaction vinculada al Arqueo Activo
     const activeSession = await getActiveSession();
@@ -179,29 +204,40 @@ export const registerFullEntry = async (data: {
 
     // 3. Process Children and Sessions
     for (const childInfo of data.children) {
-      let { data: child, error: childFetchError } = await supabase
-        .from('ninos')
-        .select('id')
-        .eq('nombre', childInfo.name)
-        .eq('cliente_id', customerId)
-        .single();
+      let childId: string;
 
-      if (childFetchError && childFetchError.code !== 'PGRST116') throw childFetchError;
-
-      if (!child) {
-        const { data: newChild, error: childCreateError } = await supabase
+      if (childInfo.id) {
+        // Niño conocido: actualizar nombre/edad si cambiaron (sin crear duplicado)
+        childId = childInfo.id;
+        await supabase.from('ninos').update({
+          nombre: childInfo.name,
+          edad: childInfo.age
+        }).eq('id', childId);
+      } else {
+        // Niño nuevo: buscar por nombre dentro del cliente o crear
+        let { data: child, error: childFetchError } = await supabase
           .from('ninos')
-          .insert({
-            nombre: childInfo.name,
-            edad: childInfo.age,
-            cliente_id: customerId
-          })
-          .select().single();
-        if (childCreateError || !newChild) throw childCreateError || new Error('Error al crear el niño');
-        child = newChild;
-      }
+          .select('id')
+          .eq('nombre', childInfo.name)
+          .eq('cliente_id', customerId)
+          .single();
 
-      const childId = (child as any).id;
+        if (childFetchError && childFetchError.code !== 'PGRST116') throw childFetchError;
+
+        if (!child) {
+          const { data: newChild, error: childCreateError } = await supabase
+            .from('ninos')
+            .insert({
+              nombre: childInfo.name,
+              edad: childInfo.age,
+              cliente_id: customerId
+            })
+            .select().single();
+          if (childCreateError || !newChild) throw childCreateError || new Error('Error al crear el niño');
+          child = newChild;
+        }
+        childId = (child as any).id;
+      }
       const startTime = originalTimestamp ? new Date(originalTimestamp) : new Date();
       const endTime = new Date(startTime.getTime() + childInfo.duration * 60000);
 
@@ -254,7 +290,7 @@ export const registerFullEntry = async (data: {
       transaction: {
         ...transaction,
         customer: data.customer?.name || 'Cliente',
-        phone: data.customer?.phone || phone,
+        phone: data.customer?.phone || primaryPhone,
         children: data.children.map(c => ({
             name: c.name,
             package: c.packageId,

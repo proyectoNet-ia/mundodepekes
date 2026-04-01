@@ -3,8 +3,26 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faPen, faPhone, faChevronLeft, faChevronRight, faAddressBook, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faPen, faPhone, faChevronLeft, faChevronRight, faAddressBook, faLock, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { PINModal } from '../../components/PINModal';
+
+// Capitaliza nombres propios respetando preposiciones en español
+// Ej: "fernando de la cruz" → "Fernando de la Cruz"
+const LOWERCASE_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e', 'o', 'a', 'en']);
+
+const toTitleCase = (str: string): string => {
+    return str
+        .toLowerCase()
+        .split(' ')
+        .map((word, index) => {
+            if (!word) return word;
+            if (index !== 0 && LOWERCASE_WORDS.has(word)) return word;
+            return word.split('-').map(part =>
+                part.charAt(0).toUpperCase() + part.slice(1)
+            ).join('-');
+        })
+        .join(' ');
+};
 
 interface RecordData {
     id: string;
@@ -36,7 +54,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [menuPos, setMenuPos]       = useState<{ top: number; right: number }>({ top: 0, right: 0 });
     const [editItem, setEditItem]   = useState<RecordData | null>(null);
     const [editName, setEditName]   = useState('');
-    const [editPhone, setEditPhone] = useState('');
+    const [editPhones, setEditPhones] = useState<string[]>(['']); // Múltiples teléfonos
     const [isSaving, setIsSaving]   = useState(false);
     const [showPinModal, setShowPinModal] = useState(false);
     const [pendingChild, setPendingChild] = useState<RecordData | null>(null);
@@ -162,7 +180,9 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const openEditModal = (item: RecordData) => {
         setEditItem(item);
         setEditName(item.name);
-        setEditPhone(item.tutorPhone || '');
+        // Separar teléfonos por coma (soporte de múltiples)
+        const phones = (item.tutorPhone || '').split(',').map(p => p.trim()).filter(Boolean);
+        setEditPhones(phones.length > 0 ? phones : ['']);
         setMenuOpenId(null);
     };
 
@@ -177,10 +197,11 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
         if (!editItem) return;
         setIsSaving(true);
         try {
+            const phoneStr = editPhones.filter(p => p.trim()).join(', ');
             if (editItem.type === 'child') {
                 await supabase.from('ninos').update({ nombre: editName }).eq('id', editItem.id);
             } else {
-                await supabase.from('clientes').update({ nombre: editName, telefono: editPhone }).eq('id', editItem.id);
+                await supabase.from('clientes').update({ nombre: editName, telefono: phoneStr }).eq('id', editItem.id);
             }
             setEditItem(null);
             fetchData();
@@ -370,12 +391,50 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                         </div>
                         <div className={styles.editModalBody}>
                             <label>Nombre</label>
-                            <input className={styles.editInput} value={editName} onChange={e => setEditName(e.target.value)} />
+                            <input
+                                className={styles.editInput}
+                                value={editName}
+                                onChange={e => setEditName(toTitleCase(e.target.value))}
+                                autoFocus
+                            />
                             {editItem.type === 'tutor' && (
-                                <>
-                                    <label style={{ marginTop: '1rem' }}>Teléfono</label>
-                                    <input className={styles.editInput} value={editPhone} onChange={e => setEditPhone(e.target.value)} />
-                                </>
+                                <div style={{ marginTop: '1.25rem' }}>
+                                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                        <span>Teléfonos de Contacto</span>
+                                        <button
+                                            onClick={() => setEditPhones(prev => [...prev, ''])}
+                                            style={{ background: 'var(--brand-50)', color: 'var(--brand-600)', border: '1px solid var(--brand-200)', borderRadius: '8px', padding: '0.25rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            <FontAwesomeIcon icon={faPlus} /> Añadir
+                                        </button>
+                                    </label>
+                                    {editPhones.map((phone, idx) => (
+                                        <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                                            <FontAwesomeIcon icon={faPhone} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
+                                            <input
+                                                className={styles.editInput}
+                                                style={{ flex: 1, margin: 0 }}
+                                                type="tel"
+                                                value={phone}
+                                                placeholder={idx === 0 ? 'Teléfono principal' : 'Teléfono adicional'}
+                                                onChange={e => {
+                                                    const updated = [...editPhones];
+                                                    updated[idx] = e.target.value;
+                                                    setEditPhones(updated);
+                                                }}
+                                            />
+                                            {editPhones.length > 1 && (
+                                                <button
+                                                    onClick={() => setEditPhones(prev => prev.filter((_, i) => i !== idx))}
+                                                    style={{ background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', padding: '0.4rem 0.6rem', cursor: 'pointer' }}
+                                                    title="Eliminar teléfono"
+                                                >
+                                                    <FontAwesomeIcon icon={faTrash} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                         <div className={styles.editModalFooter}>

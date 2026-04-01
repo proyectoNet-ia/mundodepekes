@@ -10,12 +10,16 @@ export interface ActiveSession {
   rawStartTime: Date;
   rawEndTime: Date;
   area: string;
+  tutorId?: string; // ID del cliente
   tutorContact: string;
   tutorName: string;
   tutorEmail?: string;
   tutorVisits?: number;
   observaciones?: string;
   enListaNegra?: boolean;
+  transaccionFolio?: string;
+  transaccionTotal?: number;
+  metodoPago?: string;
 }
 
 export const getActiveSessions = async (): Promise<ActiveSession[]> => {
@@ -30,8 +34,9 @@ export const getActiveSessions = async (): Promise<ActiveSession[]> => {
         hora_inicio,
         hora_fin,
         area_actual,
-        ninos ( id, nombre, observaciones, en_lista_negra, clientes (telefono, nombre, email, visitas_acumuladas) ),
-        paquetes (nombre)
+        ninos ( id, nombre, observaciones, en_lista_negra, clientes (id, telefono, nombre, email, visitas_acumuladas) ),
+        paquetes (nombre),
+        transacciones ( id, total, metodo_pago )
       `)
       .eq('estado', 'activo');
 
@@ -47,12 +52,16 @@ export const getActiveSessions = async (): Promise<ActiveSession[]> => {
       rawStartTime: new Date(s.hora_inicio),
       rawEndTime: new Date(s.hora_fin),
       area: s.area_actual,
+      tutorId: s.ninos?.clientes?.id,
       tutorContact: s.ninos?.clientes?.telefono || 'N/A',
       tutorName: s.ninos?.clientes?.nombre || 'Tutor',
       tutorEmail: s.ninos?.clientes?.email,
       tutorVisits: s.ninos?.clientes?.visitas_acumuladas || 0,
       observaciones: s.ninos?.observaciones,
-      enListaNegra: s.ninos?.en_lista_negra
+      enListaNegra: s.ninos?.en_lista_negra,
+      transaccionFolio: (s.transacciones?.id || '').substring(0, 8).toUpperCase(),
+      transaccionTotal: s.transacciones?.total || 0,
+      metodoPago: s.transacciones?.metodo_pago || 'N/A'
     }));
 
     if (navigator.onLine) {

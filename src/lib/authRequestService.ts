@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { notificationsService } from './notificationsService';
 
 export interface AuthRequest {
   id: string;
@@ -30,6 +31,16 @@ export const authRequestService = {
       .single();
 
     if (error) throw error;
+
+    // ✅ Emitir también en la tabla de notificaciones para garantizar entrega al admin
+    // (doble canal: solicitudes_autorizacion + notificaciones)
+    await notificationsService.notify(
+      'auth_request',
+      `🔐 Firma Requerida: ${user.email?.split('@')[0] || 'Cajero'}`,
+      `Solicitud de autorización para: ${req.accion_tipo}`,
+      { solicitud_id: data.id, solicitante: user.email }
+    );
+
     return data;
   },
 
@@ -61,13 +72,20 @@ export const authRequestService = {
   },
 
   // Escuchar nuevas solicitudes entrantes (Supervisor escucha)
+  // NOTA: No usar filter en INSERT — Supabase Realtime no lo soporta sin replica identity configurada
   subscribeToNewRequests(onNew: (req: AuthRequest) => void) {
     return supabase
       .channel('new-auth-requests')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'solicitudes_autorizacion', filter: 'estado=eq.pendiente' },
-        (payload) => onNew(payload.new as AuthRequest)
+        { event: 'INSERT', schema: 'public', table: 'solicitudes_autorizacion' },
+        (payload) => {
+          const req = payload.new as AuthRequest;
+          // Filtrar en cliente: solo procesar las que llegan en estado pendiente
+          if (req.estado === 'pendiente') {
+            onNew(req);
+          }
+        }
       )
       .subscribe();
   },

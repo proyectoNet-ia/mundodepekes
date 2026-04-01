@@ -5,7 +5,7 @@ import { getPackages, createPackage, updatePackage, togglePackageStatus, type Pa
 import { stockService, type StockItem } from '../../lib/stockService';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye, faSignature, faUserPen, faEnvelope } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye, faSignature, faUserPen, faEnvelope, faChild } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 
@@ -613,24 +613,36 @@ export const Backoffice: React.FC = () => {
                 <table className={styles.table}>
                   <thead>
                     <tr>
-                      <th>Paquete</th>
-                      <th>Área</th>
-                      <th>Minutos</th>
-                      <th>Precio</th>
+                      <th><FontAwesomeIcon icon={faBoxOpen} /> Paquete</th>
+                      <th><FontAwesomeIcon icon={faLayerGroup} /> Zona / Área</th>
+                      <th><FontAwesomeIcon icon={faClock} /> Tiempo</th>
+                      <th><FontAwesomeIcon icon={faTag} /> Precio</th>
                       <th>Estado</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {packages.filter(p => showInactive ? true : p.activo).map(p => (
-                        <tr key={p.id} style={{ opacity: p.activo ? 1 : 0.5, background: p.activo ? 'transparent' : '#f8fafc' }}>
-                        <td><strong>{p.nombre}</strong></td>
-                        <td>{p.area}</td>
-                        <td>{p.duracion_minutos} min</td>
-                        <td>${p.precio}.00</td>
+                        <tr key={p.id} style={{ opacity: p.activo ? 1 : 0.5 }}>
+                        <td><strong style={{fontSize: '1rem', color: 'var(--brand-700)'}}>{p.nombre}</strong></td>
                         <td>
-                           <span className={`${styles.statusBadge} ${p.activo ? styles.active : styles.inactive}`}>
-                              {p.activo ? 'Activo' : 'Pausado'}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FontAwesomeIcon 
+                              icon={p.area === 'Mundo Pekes' ? faChild : p.area === 'Trampolin' ? faBoxes : faLayerGroup} 
+                              style={{ color: p.area === 'Mundo Pekes' ? '#22c55e' : p.area === 'Trampolin' ? '#3b82f6' : '#a855f7', fontSize: '0.8rem' }} 
+                            />
+                            {p.area}
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 700, padding: '2px 8px', background: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0', color: '#475569' }}>
+                            {Math.floor(p.duracion_minutos / 60) > 0 ? `${Math.floor(p.duracion_minutos / 60)}h ${p.duracion_minutos % 60}m` : `${p.duracion_minutos}m`}
+                          </span>
+                        </td>
+                        <td><strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>${p.precio}.00</strong></td>
+                        <td>
+                           <span className={`${styles.statusBadge} ${p.activo ? styles.active : styles.inactive}`} style={{ padding: '0.2rem 0.6rem', fontSize: '0.7rem' }}>
+                               {p.activo ? 'ACTIVO' : 'PAUSADO'}
                            </span>
                         </td>
                         <td className={styles.actionsCell}>
@@ -653,13 +665,13 @@ export const Backoffice: React.FC = () => {
                           >
                             <FontAwesomeIcon icon={p.activo ? faLock : faKey} />
                           </button>
-
+ 
                           <button 
                             className={`${styles.iconBtn} ${styles.iconBtnDanger}`} 
                             onClick={() => setDeletingPackage(p)}
-                            title="Eliminar"
+                            title="Archivar"
                           >
-                            <FontAwesomeIcon icon={faTrash} />
+                            <FontAwesomeIcon icon={faArchive} />
                           </button>
                         </td>
                       </tr>
@@ -686,16 +698,26 @@ export const Backoffice: React.FC = () => {
                       onSubmit={async (e) => {
                         e.preventDefault();
                         const f = new FormData(e.currentTarget);
-                        const data = {
-                          nombre: f.get('nombre') as string,
-                          area: f.get('area') as string,
-                          duracion_minutos: parseInt(f.get('duracion') as string),
-                          precio: parseFloat(f.get('precio') as string),
-                          activo: true
-                        };
-
                         setIsLoading(true);
                         try {
+                          const horas = parseInt(f.get('horas') as string || '0');
+                          const mins = parseInt(f.get('minutos') as string || '0');
+                          const totalMinutes = (horas * 60) + mins;
+                          
+                          if (totalMinutes <= 0) {
+                            showToast('La duración total debe ser mayor a 0.', 'error');
+                            setIsLoading(false);
+                            return;
+                          }
+
+                          const data = {
+                            nombre: f.get('nombre') as string,
+                            area: f.get('area') as string,
+                            duracion_minutos: totalMinutes,
+                            precio: parseFloat(f.get('precio') as string),
+                            activo: true
+                          };
+
                           if (editingPackage) {
                             await updatePackage(editingPackage.id, data);
                             showToast('Paquete actualizado.', 'success');
@@ -730,21 +752,33 @@ export const Backoffice: React.FC = () => {
                         </select>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '1rem' }}>
-                        <div className={styles.formGroup} style={{ flex: 1 }}>
-                          <label><FontAwesomeIcon icon={faClock} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Duración (Minutos)</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '0.75rem' }}>
+                        <div className={styles.formGroup}>
+                          <label><FontAwesomeIcon icon={faClock} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Horas</label>
                           <input 
-                            name="duracion" 
+                            name="horas" 
                             type="number" 
-                            required 
-                            defaultValue={editingPackage ? editingPackage.duracion_minutos : ''} 
-                            min="1" 
+                            defaultValue={editingPackage ? Math.floor(editingPackage.duracion_minutos / 60) : '1'} 
+                            min="0" 
                             className={styles.input} 
                             onFocus={(e) => e.target.select()}
-                            placeholder="60"
+                            placeholder="0"
                           />
                         </div>
-                        <div className={styles.formGroup} style={{ flex: 1 }}>
+                        <div className={styles.formGroup}>
+                          <label>Minutos</label>
+                          <select 
+                            name="minutos" 
+                            className={styles.input} 
+                            defaultValue={editingPackage ? (editingPackage.duracion_minutos % 60).toString() : '0'}
+                          >
+                            <option value="0">00</option>
+                            <option value="15">15</option>
+                            <option value="30">30</option>
+                            <option value="45">45</option>
+                          </select>
+                        </div>
+                        <div className={styles.formGroup}>
                           <label><FontAwesomeIcon icon={faTag} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Precio ($)</label>
                           <input 
                             name="precio" 

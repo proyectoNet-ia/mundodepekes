@@ -11,6 +11,7 @@ export interface EpsonTicketData {
         nino: string; 
         nombre: string; 
         precio: number;
+        duracion?: number; // Minutes
         hora_entrada?: string;
         hora_salida?: string;
     }[];
@@ -41,6 +42,7 @@ export interface ZebraWristbandData {
     idPeke: string;
     paquete: string;
     area: string;
+    duracion: number; // Minutes
     horaEntrada: string;
     horaSalida: string;
     folio: string;
@@ -65,7 +67,8 @@ export class PrinterService {
 
         data.items.forEach((item, index) => {
             lines.push(`Peke ${index + 1}: ${item.nino}`);
-            lines.push(`Paquete: ${item.nombre}`);
+            const durationStr = item.duracion ? ` (${PrinterService.formatDuration(item.duracion)})` : '';
+            lines.push(`Paquete: ${item.nombre}${durationStr}`);
             lines.push(`Precio: $ ${item.precio.toFixed(2)}`);
             if (item.hora_entrada && item.hora_salida) {
                 lines.push(`Horario: ${item.hora_entrada} a ${item.hora_salida}`);
@@ -74,7 +77,9 @@ export class PrinterService {
         });
 
         lines.push(`Tutor: ${data.cliente}`);
-        lines.push(`Telefono: ${data.telefono}`);
+        // Solo imprimir el número principal si hay múltiples separados por coma
+        const primaryPhone = data.telefono?.split(',')[0]?.trim() || '';
+        lines.push(`Telefono: ${primaryPhone}`);
         lines.push(`ID Transaccion: ${data.folio}`);
         lines.push("");
 
@@ -148,6 +153,7 @@ export class PrinterService {
      * Basado en la imagen: Vertical, Nombre grande, ID, Zona y Horas.
      */
     static formatZebraWristband(data: ZebraWristbandData): string {
+        const formattedDur = this.formatDuration(data.duracion);
         return `
 ^XA
 ^PW400
@@ -159,8 +165,22 @@ export class PrinterService {
 ^FO50,210^A0N,25,25^FDHora Entrada: ${data.horaEntrada}^FS
 ^FO50,250^A0N,25,25^FDHora Salida: ${data.horaSalida}^FS
 ^FO50,290^A0N,30,30^FDPaquete: ${data.paquete}^FS
+^FO50,330^A0N,25,25^FDDuracion: ${formattedDur}^FS
 ^XZ
         `.trim();
+    }
+
+    /**
+     * Helper para formatear minutos en formato humano (Xh Ym)
+     */
+    static formatDuration(minutes: number): string {
+        if (!minutes || minutes <= 0) return '0m';
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours > 0) {
+            return `${hours}h ${mins > 0 ? `${mins}m` : ''}`.trim();
+        }
+        return `${mins}m`;
     }
 
     /**
