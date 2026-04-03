@@ -4,9 +4,10 @@ import { getActiveSession, openCash, closeCash, getTransactionsSummary, recordEx
 import { ReportService } from '../../lib/reportService';
 import { useToast } from '../../components/Toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCashRegister, faLock, faLockOpen, faCheckCircle, faExclamationTriangle, faMoneyBillWave, faCreditCard, faMinusCircle, faCartArrowDown, faReceipt, faShieldAlt, faTicketAlt, faBan, faTimes, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faCashRegister, faLock, faLockOpen, faCheckCircle, faExclamationTriangle, faMoneyBillWave, faCreditCard, faMinusCircle, faCartArrowDown, faReceipt, faShieldAlt, faTicketAlt, faBan, faTimes, faSpinner, faEye } from '@fortawesome/free-solid-svg-icons';
 import { AuthPinModal } from '../../components/AuthPinModal';
 import type { UserProfile } from '../../lib/authService';
+import { PrinterService } from '../../lib/printerService';
 
 const formatMoney = (val: string) => {
     const clean = val.replace(/\D/g, '');
@@ -41,7 +42,6 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     const [authActionPayload, setAuthActionPayload] = useState<{type: 'expense' | 'cancel_ticket', data?: any} | null>(null);
     const [authorizer, setAuthorizer] = useState<UserProfile | null>(null);
     const [isSavingExpense, setIsSavingExpense] = useState(false);
-    const [showCashierCloseAuthModal, setShowCashierCloseAuthModal] = useState(false);
 
     // Modal de motivo de cancelación de ticket
     const [showCancelReasonModal, setShowCancelReasonModal] = useState(false);
@@ -51,6 +51,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     // Tickets Modal
     const [showTicketsModal, setShowTicketsModal] = useState(false);
     const [shiftTransactions, setShiftTransactions] = useState<any[]>([]);
+    const [activeTab, setActiveTab] = useState<'todos' | 'accesos' | 'pos' | 'cancelados'>('todos');
 
     const loadData = async () => {
         setIsLoading(true);
@@ -108,6 +109,36 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
         setCancelPayload({ txId, managerName });
         setCancelReasonText('');
         setShowCancelReasonModal(true);
+    };
+
+    const handleViewTicket = (tx: any) => {
+        let items = [];
+        if (tx.sesiones && tx.sesiones.length > 0) {
+            items = tx.sesiones.map((s: any) => ({
+                nombre: s.ninos?.nombre || 'Acceso',
+                precio: tx.total / tx.sesiones.length,
+                cantidad: 1,
+                importe: tx.total / tx.sesiones.length
+            }));
+        } else {
+            items = [{
+                nombre: 'Venta POS / General',
+                precio: tx.total,
+                cantidad: 1,
+                importe: tx.total
+            }];
+        }
+        
+        const payload = {
+            folio: tx.id.substring(0,8).toUpperCase(),
+            items: items,
+            subtotal: tx.total,
+            iva: 0,
+            total: tx.total,
+            paymentMethod: tx.metodo_pago,
+            staffEmail: user?.email || 'admin@mundodepekes.com'
+        };
+        PrinterService.printRaw(PrinterService.formatGenericPOSTicket(payload), 'EPSON');
     };
 
     const confirmCancelTicket = async () => {
@@ -273,7 +304,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                             </div>
                             <div className={styles.metricInfo}>
                                 <span>Ventas Efectivo</span>
-                                <strong>${summary.efectivo.toFixed(2)}</strong>
+                                <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${summary.efectivo.toFixed(2)}</strong>
                             </div>
                         </div>
                         <div className={styles.metricItem}>
@@ -282,7 +313,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                             </div>
                             <div className={styles.metricInfo}>
                                 <span>Ventas Tarjeta</span>
-                                <strong>${summary.tarjeta.toFixed(2)}</strong>
+                                <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${summary.tarjeta.toFixed(2)}</strong>
                             </div>
                         </div>
                         <div className={styles.metricItem}>
@@ -324,7 +355,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     <div className={styles.totalSection}>
                         <div className={styles.totalRow}>
                             <span>Ingresos Totales (Ventas):</span>
-                            <span>${(summary.efectivo + summary.tarjeta).toFixed(2)}</span>
+                            <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(summary.efectivo + summary.tarjeta).toFixed(2)}</span>
                         </div>
                         <div className={styles.totalRow} style={{ color: '#dc2626' }}>
                             <span>Egresos Totales (Gastos):</span>
@@ -332,7 +363,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                         </div>
                         <div className={styles.totalRow + ' ' + styles.finalTotal}>
                             <span>Saldo Neto en Caja:</span>
-                            <strong>${(activeSession ? activeSession.monto_inicial + summary.efectivo + summary.tarjeta - summary.gastos : 0).toFixed(2)}</strong>
+                            <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(activeSession ? activeSession.monto_inicial + summary.efectivo + summary.tarjeta - summary.gastos : 0).toFixed(2)}</strong>
                         </div>
                     </div>
 
@@ -345,26 +376,13 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                         />
                     </div>
 
-                    {user?.role === 'cajero' ? (
-                        <button 
-                            className={styles.closeBtn}
-                            onClick={() => {
-                                setAuthActionPayload({ type: 'expense' }); // reuse auth flow
-                                setShowCashierCloseAuthModal(true);
-                            }}
-                            disabled={isLoading}
-                        >
-                            <FontAwesomeIcon icon={faLock} /> Solicitar Cierre de Caja
-                        </button>
-                    ) : (
-                        <button 
-                            className={styles.closeBtn} 
-                            onClick={() => setShowCloseModal(true)} 
-                            disabled={isLoading}
-                        >
-                            <FontAwesomeIcon icon={faCheckCircle} /> Finalizar Turno y Cerrar Caja
-                        </button>
-                    )}
+                    <button 
+                        className={styles.closeBtn} 
+                        onClick={() => setShowCloseModal(true)} 
+                        disabled={isLoading}
+                    >
+                        <FontAwesomeIcon icon={faCheckCircle} /> Finalizar Turno y Cerrar Caja
+                    </button>
 
                     {showCloseModal && activeSession && (
                         <div className={styles.modalOverlay} onClick={() => setShowCloseModal(false)}>
@@ -377,11 +395,15 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                 <div className={styles.balanceInfo}>
                                     <div className={styles.balanceRow}>
                                         <span><FontAwesomeIcon icon={faCashRegister} style={{marginRight: '8px'}} /> Fondo Inicial:</span>
-                                        <span>${activeSession.monto_inicial.toFixed(2)}</span>
+                                        <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${activeSession.monto_inicial.toFixed(2)}</span>
                                     </div>
                                     <div className={styles.balanceRow}>
                                         <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Ventas Efectivo:</span>
-                                        <span>+${summary.efectivo.toFixed(2)}</span>
+                                        <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${summary.efectivo.toFixed(2)}</span>
+                                    </div>
+                                    <div className={styles.balanceRow}>
+                                        <span><FontAwesomeIcon icon={faCreditCard} style={{marginRight: '8px'}} /> Ventas Tarjeta:</span>
+                                        <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${summary.tarjeta.toFixed(2)}</span>
                                     </div>
                                     <div className={styles.balanceRow}>
                                         <span><FontAwesomeIcon icon={faMinusCircle} style={{marginRight: '8px'}} /> Gastos Registrados:</span>
@@ -390,7 +412,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                     <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid var(--border-color)' }} />
                                     <div className={styles.balanceRow}>
                                         <span style={{ fontWeight: 800 }}>Esperado en Efectivo:</span>
-                                        <strong style={{ fontSize: '1.8rem', color: 'var(--brand-600)' }}>
+                                        <strong style={{ fontSize: '1.8rem', color: 'var(--brand-600)' }} className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>
                                             ${(activeSession.monto_inicial + summary.efectivo - summary.gastos).toFixed(2)}
                                         </strong>
                                     </div>
@@ -506,50 +528,119 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     {showTicketsModal && (
                         <div className={styles.modalOverlay} onClick={() => setShowTicketsModal(false)}>
                             <div className={styles.modalContent} style={{ maxWidth: '800px', width: '90%' }} onClick={e => e.stopPropagation()}>
-                                <div className={styles.modalHeader}>
-                                    <div>
-                                        <h3><FontAwesomeIcon icon={faTicketAlt} /> Tickets del Turno</h3>
-                                        <p>Historial de ventas y operaciones de la jornada actual.</p>
+                                <div className={styles.modalHeader} style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <h3 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.5rem', color: '#0f172a' }}>
+                                            <FontAwesomeIcon icon={faTicketAlt} style={{ color: '#3b82f6' }} /> Tickets del Turno
+                                        </h3>
+                                        <p style={{ margin: 0, color: '#64748b', fontSize: '0.95rem' }}>Historial de ventas y operaciones de la jornada actual.</p>
                                     </div>
-                                    <button onClick={() => setShowTicketsModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#94a3b8' }}>
+                                    <button onClick={() => setShowTicketsModal(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#64748b', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }} aria-label="Cerrar">
                                         <FontAwesomeIcon icon={faTimes} />
                                     </button>
                                 </div>
                                 <div style={{ maxHeight: '60vh', overflowY: 'auto', padding: '1rem 0' }}>
-                                    <table className={styles.table} style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                    
+                                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.25rem' }}>
+                                        {[
+                                            { id: 'todos', label: 'Todos los Tickets' },
+                                            { id: 'accesos', label: 'Accesos (Pekes)' },
+                                            { id: 'pos', label: 'Tienda POS' },
+                                            { id: 'cancelados', label: 'Cancelados / Nulos' }
+                                        ].map(tab => (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => setActiveTab(tab.id as any)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    padding: '0.5rem 1rem',
+                                                    cursor: 'pointer',
+                                                    fontWeight: activeTab === tab.id ? 800 : 600,
+                                                    color: activeTab === tab.id ? '#0f172a' : '#64748b',
+                                                    borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
+                                                    transition: 'all 0.2s',
+                                                    fontSize: '0.9rem'
+                                                }}
+                                            >
+                                                {tab.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <table className={styles.ticketsTable}>
                                         <thead>
-                                            <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                                                <th style={{ padding: '0.75rem' }}>Folio</th>
-                                                <th style={{ padding: '0.75rem' }}>Hora</th>
-                                                <th style={{ padding: '0.75rem' }}>Cliente</th>
-                                                <th style={{ padding: '0.75rem' }}>Total</th>
-                                                <th style={{ padding: '0.75rem' }}>Estado</th>
-                                                <th style={{ padding: '0.75rem', textAlign: 'right' }}>Acción</th>
+                                            <tr>
+                                                <th>Folio</th>
+                                                <th>Hora</th>
+                                                <th>Cliente</th>
+                                                <th>Total</th>
+                                                <th>Estado</th>
+                                                <th style={{ textAlign: 'right' }}>Acción</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {shiftTransactions.length === 0 ? (
-                                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No hay ventas en este turno.</td></tr>
-                                            ) : shiftTransactions.map(tx => (
-                                                <tr key={tx.id} style={{ borderBottom: '1px solid #f1f5f9', opacity: tx.estado === 'cancelado' ? 0.6 : 1 }}>
-                                                    <td style={{ padding: '0.75rem', fontFamily: 'monospace' }}>{tx.id.substring(0,8).toUpperCase()}</td>
-                                                    <td style={{ padding: '0.75rem' }}>{new Date(tx.fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                                                    <td style={{ padding: '0.75rem' }}>{tx.clientes?.nombre || 'General'}</td>
-                                                    <td style={{ padding: '0.75rem', fontWeight: 600 }}>${tx.total} <br/><small style={{ color: '#64748b', fontWeight: 'normal' }}>{tx.metodo_pago}</small></td>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        <span className={tx.estado === 'pagado' ? styles.badgeOpen : ''} style={{ background: tx.estado === 'cancelado' ? '#fef2f2' : undefined, color: tx.estado === 'cancelado' ? '#ef4444' : undefined, padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 700 }}>
+                                            {shiftTransactions.filter(tx => {
+                                                if (activeTab === 'todos') return true;
+                                                if (activeTab === 'cancelados') return tx.estado === 'cancelado';
+                                                
+                                                const hasSesiones = tx.sesiones && tx.sesiones.length > 0;
+                                                const isCancelado = tx.estado === 'cancelado';
+                                                
+                                                if (activeTab === 'accesos') return hasSesiones && !isCancelado;
+                                                if (activeTab === 'pos') return !hasSesiones && !isCancelado;
+                                                return true;
+                                            }).length === 0 ? (
+                                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#64748b', fontStyle: 'italic' }}>No hay ventas registradas en esta categoría para el turno.</td></tr>
+                                            ) : shiftTransactions.filter(tx => {
+                                                if (activeTab === 'todos') return true;
+                                                if (activeTab === 'cancelados') return tx.estado === 'cancelado';
+                                                const hasSesiones = tx.sesiones && tx.sesiones.length > 0;
+                                                const isCancelado = tx.estado === 'cancelado';
+                                                if (activeTab === 'accesos') return hasSesiones && !isCancelado;
+                                                if (activeTab === 'pos') return !hasSesiones && !isCancelado;
+                                                return true;
+                                            }).map(tx => (
+                                                <tr key={tx.id} style={{ opacity: tx.estado === 'cancelado' ? 0.6 : 1 }}>
+                                                    <td>
+                                                        <span className={styles.folioCell}>{tx.id.substring(0,8).toUpperCase()}</span>
+                                                    </td>
+                                                    <td>{new Date(tx.fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                                                    <td>
+                                                        {tx.clientes?.nombre ? (
+                                                            tx.clientes.nombre
+                                                        ) : (
+                                                            <span className={styles.badgePOS}>Venta POS</span>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <span className={styles.totalCell}>${tx.total}</span>
+                                                        <span className={styles.methodSub}>{tx.metodo_pago}</span>
+                                                    </td>
+                                                    <td>
+                                                        <span className={tx.estado === 'pagado' ? styles.badgeOpen : ''} style={{ background: tx.estado === 'cancelado' ? '#fef2f2' : undefined, color: tx.estado === 'cancelado' ? '#ef4444' : undefined, padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, marginTop: 0 }}>
                                                             {tx.estado.toUpperCase()}
                                                         </span>
                                                     </td>
-                                                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                                                        {tx.estado !== 'cancelado' && (
+                                                    <td>
+                                                        <div className={styles.actionCell}>
                                                             <button 
-                                                                onClick={() => handleRequestCancel(tx)}
-                                                                style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                                                                onClick={() => handleViewTicket(tx)}
+                                                                className={styles.btnAction}
+                                                                title="Reimprimir o Ver Ticket"
                                                             >
-                                                                <FontAwesomeIcon icon={faBan} /> Anular
+                                                                <FontAwesomeIcon icon={faEye} />
                                                             </button>
-                                                        )}
+                                                            {tx.estado !== 'cancelado' && (
+                                                                <button 
+                                                                    onClick={() => handleRequestCancel(tx)}
+                                                                    className={`${styles.btnAction} ${styles.btnActionDanger}`}
+                                                                    title="Anular Transacción o Ventas"
+                                                                >
+                                                                    <FontAwesomeIcon icon={faBan} />
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -574,17 +665,6 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                         } else if (authActionPayload?.type === 'cancel_ticket') {
                              executeCancelTicket(authActionPayload.data.id, user.email);
                         }
-                    }}
-                />
-
-                {/* Modal de autorización para cierre de caja por cajero */}
-                <AuthPinModal
-                    isOpen={showCashierCloseAuthModal}
-                    onClose={() => setShowCashierCloseAuthModal(false)}
-                    actionLabel="Autorizar cierre de turno y arqueo de caja"
-                    onAuthorized={(_authorizer) => {
-                        setShowCashierCloseAuthModal(false);
-                        setShowCloseModal(true);
                     }}
                 />
 

@@ -352,6 +352,46 @@
     background: white !important;
 }
 
+.folioInputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.folioInputWrapper svg {
+    position: absolute;
+    left: 1.2rem;
+    font-size: 1.25rem;
+    color: #94a3b8;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.folioInput {
+    width: 100%;
+    padding: 1rem 1.25rem 1rem 3.25rem !important;
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    text-align: left !important;
+    border-radius: 16px !important;
+    border: 2px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.folioInput::placeholder {
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.folioInput:focus {
+    outline: none !important;
+    border-color: var(--brand-500) !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 4px rgba(0, 27, 72, 0.05) !important;
+}
+
 .changeInfo {
     margin-top: 1rem;
     padding: 1.25rem;

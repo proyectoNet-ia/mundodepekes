@@ -19,6 +19,7 @@ export interface EpsonTicketData {
     subtotal: number;
     iva: number;
     total: number;
+    paymentMethod?: string;
     mensaje?: string;
 }
 
@@ -81,6 +82,9 @@ export class PrinterService {
         const primaryPhone = data.telefono?.split(',')[0]?.trim() || '';
         lines.push(`Telefono: ${primaryPhone}`);
         lines.push(`ID Transaccion: ${data.folio}`);
+        if (data.paymentMethod) {
+            lines.push(`Metodo de Pago: ${data.paymentMethod.toUpperCase()}`);
+        }
         lines.push("");
 
         lines.push("Accesorios Adicionales");

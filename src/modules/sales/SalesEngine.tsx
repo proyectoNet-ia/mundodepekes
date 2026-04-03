@@ -5,6 +5,7 @@ import { getPackages, type Package } from '../../lib/packageService';
 import { stockService, type StockItem } from '../../lib/stockService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faUserPlus, faChild, faCreditCard, faMoneyBillWave, faLock, faCheckCircle, faSpinner, faPhone, faExclamationTriangle, faTicketAlt, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { getActiveSession, openCash } from '../../lib/treasuryService';
 import { PrinterService } from '../../lib/printerService';
 import { type UserProfile } from '../../lib/authService';
@@ -97,12 +98,14 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
   const [selectedAccessories, setSelectedAccessories] = useState<SelectedAcc[]>([]);
   const [isCashOpen, setIsCashOpen] = useState<boolean | null>(null);
   const [cashAmount, setCashAmount] = useState<string>('');
+  const [voucherFolio, setVoucherFolio] = useState('');
   const [openingAmount, setOpeningAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta'>('efectivo');
   const [selectedAreas, setSelectedAreas] = useState<Record<number, string>>({});
   const [showPinModal, setShowPinModal] = useState(false);
   const [isAuthorizedOverride, setIsAuthorizedOverride] = useState(false);
   const [secondaryPhones, setSecondaryPhones] = useState<string[]>([]); // Teléfonos adicionales del tutor
+  const [isNewRegistration, setIsNewRegistration] = useState(false);
 
   const handleOpenCash = async () => {
     const monto = getNumericAmount(openingAmount);
@@ -235,7 +238,45 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
     setSecondaryPhones([]); // Limpiar teléfonos secundarios al seleccionar cliente
     setCurrentStep('NINO');
   };
-  
+  const handleCustomerContinue = async () => {
+      // Validar si el teléfono principal y adicionales están duplicados
+      setIsLoading(true);
+      try {
+          const cleanPhone = customer.phone.replace(/\D/g, '');
+          const cleanSecondary = secondaryPhones.map(p => p.replace(/\D/g, '')).filter(p => p.length >= 10);
+          
+          let orQuery = `telefono.ilike.%${cleanPhone}%`;
+          cleanSecondary.forEach(sp => {
+              orQuery += `,telefono.ilike.%${sp}%`;
+          });
+
+          const { data, error } = await supabase
+              .from('clientes')
+              .select('id, nombre, telefono')
+              .or(orQuery);
+              
+          if (!error && data && data.length > 0) {
+              // Buscar si algún cliente diferente ya lo tiene
+              const duplicate = data.find(c => c.id !== customer.id);
+              if (duplicate) {
+                  showToast(
+                      `Uno de los celulares ingresados ya pertenece a "${duplicate.nombre}". Regrese a Búsqueda o quite el número para evitar múltiples perfiles con los mismos datos.`, 
+                      'warning', 
+                      'Número Duplicado'
+                  );
+                  setIsLoading(false);
+                  return;
+              }
+          }
+          
+          setCurrentStep('NINO');
+      } catch (e) {
+          showToast('Error al validar el teléfono.', 'error');
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
   const activeChildren = children.filter((c: ChildData) => c.included !== false);
 
 
@@ -300,6 +341,11 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
         return;
     }
 
+    if (method === 'tarjeta' && voucherFolio.trim().length === 0) {
+        showToast('Debe ingresar el número de folio o autorización del voucher para continuar.', 'warning');
+        return;
+    }
+
     setIsLoading(true);
     try {
         const registration = await registerFullEntry({
@@ -327,6 +373,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 quantity: a.qty
             })),
             paymentMethod: method,
+            voucherFolio: method === 'tarjeta' ? voucherFolio : undefined,
             total,
             isReentry: !!reentryData,
         } as any);
@@ -358,7 +405,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 })),
                 subtotal: total / 1.16,
                 iva: total - (total / 1.16),
-                total: total
+                total: total,
+                paymentMethod: registration.transaction.metodo_pago
             };
 
             const ticketStr = PrinterService.formatEpsonTicket(ticketData);
@@ -380,8 +428,21 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
             });
         }
 
+        const isNew = !customer.id;
+        setIsNewRegistration(isNew);
+        
         setShowSuccessModal(true);
         showToast('¡Venta registrada y tickets en camino!', 'success', 'Venta Exitosa');
+
+        // WhatsApp Onboarding Automático para clientes nuevos
+        if (isNew && customer.phone) {
+            const cleanPhone = customer.phone.replace(/\D/g, '');
+            if (cleanPhone.length >= 10) {
+                const text = encodeURIComponent(`\xA1Hola ${customer.name}! \uD83D\uDC4B Bienvenido a Mundo de Pekes. \uD83D\uDE80\n\nNos da mucho gusto recibirte. Para garantizar un entorno seguro y divertido para todos, te recordamos que al ingresar con nosotros aceptas el aviso de privacidad y nuestro reglamento de convivencia y seguridad.\n\n\uD83D\uDCD6 Por favor, t\xF3mate un momento para leerlo aqu\xED:\nhttps://mundodepekes.com/reglamento\n\n\xA1Gracias por tu visita y que los pekes se diviertan al m\xE1ximo! \uD83C\uDF89`);
+                // Pequeño timeout para permitir que React renderice el SuccessModal primero
+                setTimeout(() => window.open(`https://wa.me/52${cleanPhone}?text=${text}`, '_blank'), 500);
+            }
+        }
     } catch (e) {
         showToast('Error fatal al registrar la venta.', 'error');
     } finally {
@@ -603,7 +664,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
 
                             <div className={styles.navigationButtons}>
                                 <button className="btn btn-ghost" onClick={() => setCurrentStep('BUSQUEDA')}>Cancelar</button>
-                                <button className="btn btn-primary" onClick={() => setCurrentStep('NINO')} disabled={!customer.name || customer.phone.length < 10}>Continuar</button>
+                                <button className="btn btn-primary" onClick={handleCustomerContinue} disabled={!customer.name || customer.phone.length < 10 || isLoading}>{isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Continuar'}</button>
                             </div>
                         </div>
                     </div>
@@ -942,10 +1003,27 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                 </div>
                             )}
 
+                            {paymentMethod === 'tarjeta' && (
+                                <div className={styles.paymentInputBg}>
+                                    <label>Folio del Voucher (Obligatorio)</label>
+                                    <input 
+                                        type="text" 
+                                        value={voucherFolio} 
+                                        onChange={(e) => setVoucherFolio(e.target.value.toUpperCase())}
+                                        placeholder="Ingrese Folio o No. Autorización" 
+                                        autoFocus 
+                                    />
+                                </div>
+                            )}
+
                             <div className={styles.navigationButtons}>
                                 <button className={styles.btnCancel} onClick={() => setCurrentStep('BUSQUEDA')} disabled={isLoading}>Cancelar</button>
                                 <button className="btn btn-ghost" onClick={() => setCurrentStep('ACCESORIOS')} disabled={isLoading}>Atrás</button>
-                                <button className="btn btn-primary" onClick={() => handleConfirmPayment(paymentMethod)} disabled={isLoading}>
+                                <button 
+                                    className="btn btn-primary" 
+                                    onClick={() => handleConfirmPayment(paymentMethod)} 
+                                    disabled={isLoading}
+                                >
                                     {isLoading ? <><FontAwesomeIcon icon={faSpinner} spin /> Procesando...</> : 'Autorizar Pago'}
                                 </button>
                             </div>
@@ -970,6 +1048,19 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                         : lastTransaction?.transaction?.id?.substring(0, 8))?.toUpperCase() || 'ERROR'
                 }
             </div>
+            {isNewRegistration && (
+                <button 
+                  className="btn btn-secondary" 
+                  style={{marginTop: '1.5rem', width: '100%', background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0'}}
+                  onClick={() => {
+                      const cleanPhone = customer.phone.replace(/\D/g, '');
+                      const text = encodeURIComponent(`\xA1Hola ${customer.name}! \uD83D\uDC4B Bienvenido a Mundo de Pekes. \uD83D\uDE80\n\nNos da mucho gusto recibirte. Para garantizar un entorno seguro y divertido para todos, te recordamos que al ingresar con nosotros aceptas el aviso de privacidad y nuestro reglamento de convivencia y seguridad.\n\n\uD83D\uDCD6 Por favor, t\xF3mate un momento para leerlo aqu\xED:\nhttps://mundodepekes.com/reglamento\n\n\xA1Gracias por tu visita y que los pekes se diviertan al m\xE1ximo! \uD83C\uDF89`);
+                      window.open(`https://wa.me/52${cleanPhone}?text=${text}`, '_blank');
+                  }}
+                >
+                    <FontAwesomeIcon icon={faWhatsapp} /> Enviar Reglamento Vía WhatsApp
+                </button>
+            )}
         </StatusModal>
         <PINModal 
             isOpen={showPinModal}

@@ -4,6 +4,7 @@ import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faPen, faPhone, faChevronLeft, faChevronRight, faAddressBook, faLock, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { PINModal } from '../../components/PINModal';
 
 // Capitaliza nombres propios respetando preposiciones en español
@@ -51,7 +52,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [page, setPage]       = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-    const [menuPos, setMenuPos]       = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+    const [menuPos, setMenuPos]       = useState<{ top: number; right: number; left?: number }>({ top: 0, right: 0 });
     const [editItem, setEditItem]   = useState<RecordData | null>(null);
     const [editName, setEditName]   = useState('');
     const [editPhones, setEditPhones] = useState<string[]>(['']); // Múltiples teléfonos
@@ -341,11 +342,19 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                                     <button className={styles.menuItem} onClick={() => openEditModal(item)}>
                                                         <FontAwesomeIcon icon={faPen} /> Editar datos
                                                     </button>
-                                                    {item.tutorPhone && (
-                                                        <button className={styles.menuItem} onClick={() => { window.open(`tel:${item.tutorPhone}`); setMenuOpenId(null); }}>
-                                                            <FontAwesomeIcon icon={faPhone} /> Llamar al tutor
-                                                        </button>
-                                                    )}
+                                                    {item.tutorPhone && (() => {
+                                                        const cleanPhone = item.tutorPhone.split(',')[0].replace(/\D/g, '');
+                                                        return (
+                                                            <>
+                                                                <button className={`${styles.menuItem} ${styles.mobileOnly}`} onClick={() => { window.open(`tel:${cleanPhone}`); setMenuOpenId(null); }}>
+                                                                    <FontAwesomeIcon icon={faPhone} /> Llamar al tutor
+                                                                </button>
+                                                                <button className={`${styles.menuItem} ${styles.whatsappItem}`} onClick={() => { window.open(`https://wa.me/52${cleanPhone}`, '_blank'); setMenuOpenId(null); }}>
+                                                                    <FontAwesomeIcon icon={faWhatsapp} style={{ color: '#25D366' }} /> Enviar WhatsApp
+                                                                </button>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             )}
                                         </div>

@@ -58,6 +58,7 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
     const [cashAmount, setCashAmount] = useState(() => {
         return localStorage.getItem('pos_cash_amount') || '';
     });
+    const [voucherFolio, setVoucherFolio] = useState('');
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [isCartExpanded, setIsCartExpanded] = useState(false);
 
@@ -175,7 +176,12 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
     const handlePayment = async () => {
         if (cart.length === 0) return;
         if (paymentMethod === 'efectivo' && getNumericAmount(cashAmount) < total) {
-            showToast('Monto insuficiente', 'error');
+            showToast('Monto en efectivo insuficiente para cubrir la venta', 'error');
+            return;
+        }
+
+        if (paymentMethod === 'tarjeta' && voucherFolio.trim().length === 0) {
+            showToast('Por favor, ingrese el No. de Autorización del voucher para la auditoría.', 'warning');
             return;
         }
 
@@ -189,6 +195,7 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                     price: item.precio_venta
                 })),
                 paymentMethod,
+                voucherFolio: paymentMethod === 'tarjeta' ? voucherFolio : undefined,
                 total
             });
 
@@ -207,7 +214,7 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                         total,
                         subtotal: total / 1.16,
                         iva: total - (total / 1.16),
-                        paymentMethod: paymentMethod
+                        paymentMethod: result.transaction.metodo_pago
                     };
                     const ticketStr = PrinterService.formatGenericPOSTicket(ticketData);
                     // Imprimimos dos tickets: Original y Copia
@@ -408,9 +415,25 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                         </div>
                     )}
 
+                    {paymentMethod === 'tarjeta' && total > 0 && (
+                        <div className={styles.cashInputWrapper} style={{ marginTop: '1rem' }}>
+                            <label style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.5rem', textAlign: 'left' }}>Folio del Voucher (Obligatorio)</label>
+                            <div className={styles.folioInputWrapper}>
+                                <FontAwesomeIcon icon={faCreditCard} />
+                                <input 
+                                    className={styles.folioInput}
+                                    type="text"
+                                    value={voucherFolio}
+                                    onChange={(e) => setVoucherFolio(e.target.value.toUpperCase())}
+                                    placeholder="No. Autorización"
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     <button 
                         className={styles.payBtn}
-                        disabled={cart.length === 0 || isLoading || (paymentMethod === 'efectivo' && getNumericAmount(cashAmount) < total)}
+                        disabled={cart.length === 0 || isLoading}
                         onClick={handlePayment}
                     >
                         {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'CONFIRMAR VENTA'}

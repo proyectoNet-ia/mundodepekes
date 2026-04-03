@@ -82,6 +82,7 @@ export const registerFullEntry = async (data: {
   children: { id?: string; name: string; age: number; packageId: string; area: string; duration: number }[];
   accessories: { id: string; name: string; quantity: number }[];
   paymentMethod: string;
+  voucherFolio?: string;
   total: number;
   staffEmail?: string;
   isReentry?: boolean;
@@ -188,7 +189,7 @@ export const registerFullEntry = async (data: {
       .insert({
         cliente_id: customerId,
         total: data.total || 0,
-        metodo_pago: data.paymentMethod,
+        metodo_pago: data.voucherFolio ? `${data.paymentMethod} (Folio: ${data.voucherFolio})` : data.paymentMethod,
         arqueo_id: activeSession?.id || (isSync ? null : undefined) // Evitar nulls accidentales
       })
       .select().single();
@@ -332,6 +333,7 @@ export const registerInventorySale = async (data: {
   customer?: { name: string; phone: string };
   items: { id: string; name: string; quantity: number; price: number }[];
   paymentMethod: string;
+  voucherFolio?: string;
   total: number;
 }, isSync = false) => {
   if (!navigator.onLine && !isSync) {
@@ -362,7 +364,7 @@ export const registerInventorySale = async (data: {
       .insert({
         cliente_id: customerId,
         total: data.total,
-        metodo_pago: data.paymentMethod,
+        metodo_pago: data.voucherFolio ? `${data.paymentMethod} (Folio: ${data.voucherFolio})` : data.paymentMethod,
         arqueo_id: activeSession?.id || (isSync ? null : undefined)
       })
       .select().single();

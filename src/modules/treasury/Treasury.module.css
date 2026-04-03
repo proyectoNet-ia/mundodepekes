@@ -172,6 +172,12 @@
     color: var(--text-primary);
 }
 
+.blurredAmount {
+    filter: blur(8px);
+    user-select: none;
+    transition: filter 0.3s ease;
+}
+
 .totalSection {
     background: #f1f5f9;
     padding: 1.5rem;
@@ -866,3 +872,121 @@
     transform: none;
 }
 
+
+/* Modern Table Styles */
+.ticketsTable {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: left;
+    margin-top: 0.5rem;
+}
+
+.ticketsTable th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 1rem 1.25rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.ticketsTable th:first-child {
+    border-top-left-radius: 12px;
+}
+.ticketsTable th:last-child {
+    border-top-right-radius: 12px;
+}
+
+.ticketsTable tbody tr {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #ffffff;
+}
+
+.ticketsTable tbody tr:hover {
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.ticketsTable td {
+    padding: 1.25rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #0f172a;
+    font-size: 0.95rem;
+    vertical-align: middle;
+}
+
+.ticketsTable tr:last-child td {
+    border-bottom: none;
+}
+
+.folioCell {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.05em;
+    font-size: 0.85rem;
+    background: #f1f5f9;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.totalCell {
+    font-weight: 800;
+    font-size: 1.05rem;
+}
+
+.methodSub {
+    display: block;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 600;
+    margin-top: 0.25rem;
+    text-transform: capitalize;
+}
+
+.btnAction {
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+    padding: 0.5rem 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.btnAction:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.btnActionDanger {
+    background: #fff5f5;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+}
+
+.btnActionDanger:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #b91c1c;
+}
+
+.actionCell {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: center;
+}

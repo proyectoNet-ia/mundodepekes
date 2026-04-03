@@ -82,21 +82,27 @@ export const Backoffice: React.FC = () => {
   const handleUpdateStaff = async (id: string, updates: any) => {
     setIsLoading(true);
     try {
-        // Si hay cambios de Auth (email o password), llamamos a nuestra función especial RPC
-        if (updates.email || updates.new_password) {
+        // Solo llamamos a Auth si la clave solicitó cambio o si el correo realmente cambió
+        const emailChanged = updates.email && updates.email !== editingStaff?.email;
+        if (emailChanged || updates.new_password) {
             const { error: authError } = await supabase.rpc('admin_update_user_auth', {
                 target_user_id: id,
-                new_email: updates.email || editingStaff?.email,
+                new_email: emailChanged ? updates.email : undefined,
                 new_password: updates.new_password || null
             });
             if (authError) throw authError;
         }
 
+        // Determine correct PIN behavior based on Role
+        const isPinRole = !['cajero', 'analista'].includes(updates.rol_slug);
+        const resolvedPin = isPinRole ? (updates.pin_seguridad || editingStaff?.pin_seguridad) : null;
+
         // Luego actualizamos los datos de Perfil (nombre, rol, pin)
         const profileUpdates = {
             nombre_completo: updates.nombre_completo,
             rol_slug: updates.rol_slug,
-            pin_seguridad: updates.pin_seguridad
+            pin_seguridad: resolvedPin,
+            ...(emailChanged ? { email: updates.email } : {}) 
         };
 
         const { error } = await supabase.from('perfiles').update(profileUpdates).eq('id', id);
@@ -106,6 +112,7 @@ export const Backoffice: React.FC = () => {
         setEditingStaff(null);
         showToast('El perfil de usuario ha sido actualizado correctamente.', 'success', 'Staff Actualizado');
     } catch (error: any) {
+        console.error('Update Staff Error:', error);
         showToast(error.message || 'Error al intentar modificar el perfil del staff.', 'error', 'Fallo en Seguridad');
     } finally {
         setIsLoading(false);
@@ -120,6 +127,7 @@ export const Backoffice: React.FC = () => {
     const password = formData.get('password') as string;
     const role = formData.get('role') as string;
     const pin = formData.get('pin') as string;
+    const fullName = formData.get('fullName') as string;
 
     if (!username || !password || password.length < 6) {
         showToast('El nombre de usuario y una contraseña (mínimo 6 caracteres) son obligatorios.', 'error');
@@ -128,47 +136,51 @@ export const Backoffice: React.FC = () => {
 
     setIsLoading(true);
     try {
-        const { data, error } = await supabase.auth.signUp({
+        // --- 🔒 ESTRATEGIA STEALTH (SIN CIERRE DE SESIÓN) ---
+        // Creamos un cliente temporal que NO usa LocalStorage para no pisar la sesión del Admin
+        const { createClient } = await import('@supabase/supabase-js');
+        const stealthSupabase = createClient(
+            import.meta.env.VITE_SUPABASE_URL,
+            import.meta.env.VITE_SUPABASE_ANON_KEY,
+            { 
+                auth: { 
+                    persistSession: false,
+                    autoRefreshToken: false,
+                    storageKey: 'stealth-auth-token'
+                } 
+            }
+        );
+
+        // Creamos el usuario usando la API oficial (Seguro y compatible)
+        const { data, error } = await stealthSupabase.auth.signUp({
             email,
-            password
+            password,
+            options: {
+                data: {
+                    full_name: fullName,
+                    role: role
+                }
+            }
         });
-        if (error) {
-            if (error.message.toLowerCase().includes('rate limit')) {
-                throw new Error('Por protección Anti-Spam gratuita, Supabase solo permite crear 3 usuarios nuevos por hora. El administrador técnico puede desactivar este límite en el portal de Supabase (Settings > Auth > Rate Limits), o puedes esperar una hora.');
-            }
-            throw error;
-        }
-        if (data.user) {
-            // Usamos UPSERT para que funcione tanto si el trigger ya creó el perfil como si no.
-            // Esperamos un momento para que Supabase procese el registro interno.
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            const { error: upsertError } = await supabase
-                .from('perfiles')
-                .upsert({ 
-                    id: data.user.id,
-                    email: data.user.email,
-                    nombre_completo: formData.get('fullName') as string,
-                    rol_slug: role, 
-                    pin_seguridad: pin 
-                }, { onConflict: 'id' });
-            
-            if (upsertError) {
-                console.warn('Error al intentar asignar el rol (UPSERT):', upsertError);
-                // Si falla por RLS, informamos pero no detenemos todo el proceso
-                showToast('Usuario creado, pero hubo un error al asignar el rol. Edítalo manualmente.', 'warning');
-            }
+
+        if (error) throw error;
+        
+        // Si hay PIN, lo actualizamos (el trigger ya creó el perfil)
+        if (pin && data.user) {
+            await supabase.from('perfiles').update({ pin_seguridad: pin }).eq('id', data.user.id);
         }
         
-        showToast('Credenciales creadas. Validando...', 'success');
+        showToast(`Usuario ${fullName} creado correctamente.`, 'success', 'Operación Exitosa');
         setShowCreateUser(false);
-        setTimeout(async () => {
-            await supabase.auth.signOut();
-            window.location.reload();
-        }, 3000);
+        setTimeout(() => loadData(), 500);
         
     } catch (error: any) {
-        showToast(error.message || 'Error al intentar crear el usuario.', 'error', 'Fallo de Plataforma');
+        console.error('Error al crear usuario:', error);
+        let msg = error.message;
+        if (msg.includes('already registered')) {
+            msg = 'Ya existe un usuario con este nombre. Por favor usa otro o edítalo desde la lista.';
+        }
+        showToast(msg || 'Error al intentar crear el usuario.', 'error', 'Fallo de Plataforma');
     } finally {
         setIsLoading(false);
     }
@@ -227,7 +239,7 @@ export const Backoffice: React.FC = () => {
                             email: f.get('email'),
                             new_password: f.get('password'),
                             rol_slug: f.get('rol'), 
-                            pin_seguridad: f.get('pin') || editingStaff.pin_seguridad 
+                            pin_seguridad: f.get('pin')
                         }); 
                     }} className={styles.modalForm} autoComplete="off">
                         <div className={styles.formGroup}>
@@ -250,7 +262,7 @@ export const Backoffice: React.FC = () => {
                             <select name="rol" className={styles.input} defaultValue={editingStaff.rol_slug} onChange={(e) => setEditingStaffRole(e.target.value)}>
                                 <option value="admin">Administrador</option>
                                 <option value="analista">Analista</option>
-                                <option value="supervisor">Supervisor</option>
+                                <option value="gerente">Supervisor / Gerencia</option>
                                 <option value="cajero">Cajero</option>
                             </select>
                         </div>
@@ -277,9 +289,7 @@ export const Backoffice: React.FC = () => {
                         <button onClick={() => setShowCreateUser(false)} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
                     </div>
                     
-                    <div style={{ padding: '1rem', background: '#fffbeb', color: '#92400e', marginBottom: '1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-                        <strong>⚠️ Aviso Importante:</strong> Al crear el usuario, por reglas de seguridad y encriptación, <strong>el sistema cerrará tu sesión actual automáticamente</strong> para validar las nuevas credenciales. Tendrás que volver a ingresar con tu correo.
-                    </div>
+
 
                     <form onSubmit={handleCreateUser} className={styles.modalForm} autoComplete="off">
                         <div className={styles.formGroup}>
@@ -302,7 +312,7 @@ export const Backoffice: React.FC = () => {
                             <select name="role" className={styles.input} defaultValue="admin" onChange={(e) => setNewUserRole(e.target.value)}>
                                 <option value="admin">Administrador (Total)</option>
                                 <option value="analista">Analista (Auditoría/Reportes)</option>
-                                <option value="supervisor">Supervisor (Autorizaciones)</option>
+                                <option value="gerente">Supervisor / Gerente (Autorizaciones)</option>
                                 <option value="cajero">Cajero (Operación Básica)</option>
                             </select>
                         </div>
@@ -315,7 +325,7 @@ export const Backoffice: React.FC = () => {
                         <div className={styles.modalFooter}>
                             <button type="button" onClick={() => setShowCreateUser(false)} className="btn btn-ghost">Cancelar</button>
                             <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                                {isLoading ? 'Creando y Cerrando Sesión...' : 'Crear Usuario'}
+                                {isLoading ? 'Creando Usuario...' : 'Crear Usuario'}
                             </button>
                         </div>
                     </form>

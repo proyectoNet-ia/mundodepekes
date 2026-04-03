@@ -100,25 +100,23 @@ export class ReportService {
         const start = session.fecha_apertura;
         const end = session.fecha_cierre || new Date().toISOString();
 
-        // 1. Obtener Transacciones Detalladas
+        // 1. Obtener Transacciones Detalladas y Mix de Paquetes vinculadas al Arqueo
         const { data: trans } = await supabase
             .from('transacciones')
-            .select('*')
-            .gte('fecha', start)
-            .lte('fecha', end)
+            .select(`
+                *,
+                clientes(nombre),
+                sesiones(paquetes(nombre))
+            `)
+            .eq('arqueo_id', session.id)
             .order('fecha', { ascending: true });
 
-        // 2. Obtener Mix de Paquetes
-        const { data: detailSessions } = await supabase
-            .from('sesiones')
-            .select('paquetes(nombre)')
-            .gte('hora_inicio', start)
-            .lte('hora_inicio', end);
-
         const packageMix: Record<string, number> = {};
-        detailSessions?.forEach((s: any) => {
-            const name = s.paquetes?.nombre || 'Único';
-            packageMix[name] = (packageMix[name] || 0) + 1;
+        trans?.filter(t => t.estado === 'pagado').forEach(t => {
+            t.sesiones?.forEach((s: any) => {
+                const name = s.paquetes?.nombre || 'Boleto POS / Otros';
+                packageMix[name] = (packageMix[name] || 0) + 1;
+            });
         });
 
         // 3. Obtener Gastos del Turno
@@ -200,13 +198,13 @@ export class ReportService {
             doc.text('LISTADO DETALLADO DE TRANSACCIONES', 14, 20);
             autoTable(doc, {
                 startY: 25,
-                head: [['Hora', 'ID Folio', 'Cliente', 'Método', 'Total']],
+                head: [['Hora', 'ID Folio', 'Cliente', 'Método / Estado', 'Total']],
                 body: (trans || []).map(t => [
                     new Date(t.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     t.id.substring(0, 8).toUpperCase(),
-                    t.cliente_id?.substring(0, 8) || 'Venta Rápida',
-                    t.metodo_pago.toUpperCase(),
-                    `$ ${t.total.toFixed(2)}`
+                    t.clientes?.nombre || 'Venta POS',
+                    t.estado === 'cancelado' ? 'CANCELADO' : t.metodo_pago.toUpperCase(),
+                    t.estado === 'cancelado' ? `(Anulado) $ ${t.total.toFixed(2)}` : `$ ${t.total.toFixed(2)}`
                 ]),
                 theme: 'striped',
                 headStyles: { fillColor: [249, 115, 22] },
@@ -244,14 +242,16 @@ export class ReportService {
             wsTrans.columns = [
                 {header: 'Fecha/Hora', key: 'f', width: 25},
                 {header: 'Folio', key: 'id', width: 15},
-                {header: 'Método', key: 'm', width: 15},
-                {header: 'Total', key: 't', width: 15}
+                {header: 'Cliente', key: 'c', width: 25},
+                {header: 'Método/Estado', key: 'm', width: 15},
+                {header: 'Total Cobrado', key: 't', width: 15}
             ];
             wsTrans.addRows((trans || []).map(t => ({
                 f: new Date(t.fecha).toLocaleString(),
                 id: t.id.substring(0, 8).toUpperCase(),
-                m: t.metodo_pago,
-                t: t.total
+                c: t.clientes?.nombre || 'Venta POS',
+                m: t.estado === 'cancelado' ? 'CANCELADO' : t.metodo_pago,
+                t: t.estado === 'cancelado' ? 0 : t.total
             })));
 
             const buffer = await workbook.xlsx.writeBuffer();

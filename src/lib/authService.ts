@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export type UserRole = 'admin' | 'analista' | 'supervisor' | 'cajero';
+export type UserRole = 'admin' | 'analista' | 'supervisor' | 'cajero' | 'gerente';
 
 export interface UserProfile {
     id: string;
@@ -80,7 +80,7 @@ export const authService = {
                     id: user.id,
                     email: user.email || '',
                     role: (profile?.rol_slug as UserRole) || 'cajero',
-                    nombre_completo: profile?.nombre_completo || user.email?.split('@')[0] || 'Cajero'
+                    nombre_completo: profile?.nombre_completo || 'Usuario'
                 };
             })();
 
@@ -127,7 +127,7 @@ export const authService = {
             .from('perfiles')
             .select('*')
             .eq('pin_seguridad', pin)
-            .in('rol_slug', ['admin', 'supervisor'])
+            .in('rol_slug', ['admin', 'supervisor', 'gerente'])
             .single();
 
         if (error || !profile) return null;

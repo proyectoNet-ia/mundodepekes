@@ -60,11 +60,11 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         if (userRole === 'admin') return true;
         switch (userRole) {
             case 'cajero':
-                return ['dashboard', 'ingresos', 'pos', 'treasury'].includes(tab);
+                return ['dashboard', 'ingresos', 'pos', 'treasury', 'records'].includes(tab);
             case 'supervisor':
                 return ['dashboard', 'ingresos', 'records', 'treasury', 'stock', 'pos'].includes(tab);
             case 'analista':
-                return ['analytics', 'audit', 'records', 'treasury'].includes(tab);
+                return ['analytics', 'audit'].includes(tab);
             default:
                 return ['dashboard'].includes(tab);
         }
@@ -186,7 +186,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
                 <div className={styles.userPremiumCard}>
                   <div className={styles.userAvatar}><FontAwesomeIcon icon={faUserCircle} /></div>
                   <div className={styles.userInfo}>
-                    <span className={styles.userEmail}>{(user.nombre_completo || user.email.split('@')[0]).toUpperCase()}</span>
+                    <span className={styles.userEmail}>{(user.nombre_completo || 'USUARIO').toUpperCase()}</span>
                     <span className={styles.userRoleBadge}>{userRole?.toUpperCase()}</span>
                   </div>
                 </div>
@@ -228,7 +228,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               <div className={styles.userPremiumCard}>
                 <div className={styles.userAvatar}><FontAwesomeIcon icon={faUserCircle} /></div>
                 <div className={styles.userInfo}>
-                  <span className={styles.userEmail}>{(user.nombre_completo || user.email.split('@')[0]).toUpperCase()}</span>
+                  <span className={styles.userEmail}>{(user.nombre_completo || 'USUARIO').toUpperCase()}</span>
                   <span className={styles.userRoleBadge}>{userRole?.toUpperCase()}</span>
                 </div>
               </div>

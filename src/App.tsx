@@ -30,6 +30,7 @@ function App() {
         const currUser = await authService.getCurrentUser();
         if (isMounted && currUser) {
           setUser(currUser);
+          if (currUser.role === 'analista' && activeTab === 'dashboard') setActiveTab('analytics');
         }
       } catch (err) {
         console.warn('Network issue during auth check. Retrying…');
@@ -57,10 +58,14 @@ function App() {
           if (!verifyAgain && isMounted && navigator.onLine) {
             console.warn('🚪 Sesión invalidada tras re-verificación. Redirigiendo a Login.');
             setUser(null);
+            setActiveTab('dashboard'); // Reset tab state on logout
             setIsLoading(false);
           }
         }, 3000); // Aumentado a 3s para estabilidad total
       } else if (newUser) {
+        if (!user || user.id !== newUser.id) {
+          setActiveTab(newUser.role === 'analista' ? 'analytics' : 'dashboard');
+        }
         setUser(newUser);
         setIsLoading(false);
       }
