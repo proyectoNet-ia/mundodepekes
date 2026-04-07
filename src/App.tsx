@@ -15,12 +15,17 @@ import { Stock } from './modules/stock/Stock';
 import { InventoryPOS } from './modules/sales/InventoryPOS';
 import { ToastProvider } from './components/Toast';
 import { RemoteAuthBell } from './components/RemoteAuthBell';
+import { PortalPage } from './modules/portal/PortalPage';
 
 function App() {
   const [activeTab, setActiveTab] = React.useState<'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos'>('dashboard');
   const [reentryData, setReentryData] = React.useState<any>(null);
+  const [presaleData, setPresaleData] = React.useState<any>(null);
   const [user, setUser] = React.useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  // Detectar si la URL es /portal (vista pública sin auth)
+  const isPortalRoute = window.location.pathname === '/portal';
 
   React.useEffect(() => {
     let isMounted = true;
@@ -82,6 +87,27 @@ function App() {
     setActiveTab('ingresos');
   };
 
+  const handlePresaleEntry = (data: any) => {
+    // Mapeo de datos de preventa al formato que entiende el SalesEngine
+    setPresaleData({
+      tutorName: data.tutorNombre,
+      phone: data.tutorTelefono,
+      email: data.tutorEmail,
+      presaleChildren: data.ninos,   // Array de niños con paquete pre-seleccionado
+      presaleId: data.presaleId,
+    });
+    setReentryData(null);
+    setActiveTab('ingresos');
+  };
+
+  if (isPortalRoute) {
+    return (
+      <div className="portal-fullscreen">
+        <PortalPage />
+      </div>
+    );
+  }
+
   if (!user && !isLoading) {
     return <Login onLoginSuccess={() => {}} />;
   }
@@ -99,17 +125,19 @@ function App() {
                 {user && <Navigation activeTab={activeTab} setActiveTab={setActiveTab} userRole={user.role} user={user} />}
                 
                 <main className="container main-content">
-                    {activeTab === 'dashboard' && <Dashboard onReentry={handleExternalEntry} />}
+                    {activeTab === 'dashboard' && <Dashboard onReentry={handleExternalEntry} onPresale={handlePresaleEntry} />}
                     {activeTab === 'ingresos' && (
                         <SalesEngine 
                             user={user}
-                            reentryData={reentryData} 
+                            reentryData={reentryData || presaleData} 
                             onComplete={() => {
                                 setReentryData(null);
+                                setPresaleData(null);
                                 setActiveTab('dashboard');
                             }}
                             onCancel={() => {
                                 setReentryData(null);
+                                setPresaleData(null);
                                 setActiveTab('dashboard');
                             }}
                         />

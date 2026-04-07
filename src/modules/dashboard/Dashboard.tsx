@@ -32,6 +32,8 @@ import {
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { syncService } from '../../lib/syncService';
+import { PresaleQueue } from './PresaleQueue';
+import { confirmPresale } from '../../lib/presaleService';
 
 const AREA_MAP: Record<string, string> = {
   'Mundo de Pekes': 'Mundo de Pekes',
@@ -49,9 +51,10 @@ const UI_ZONES = ['Mundo de Pekes', 'Trampolín Park', 'Área Mixta'];
 
 interface DashboardProps {
   onReentry?: (child: ActiveSession | null) => void;
+  onPresale?: (data: any) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) => {
   const { showToast } = useToast();
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [limits, setLimits] = useState({ mundo_pekes: 30, trampolin: 35 });
@@ -408,6 +411,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry }) => {
             </div>
         </div>
       </header>
+
+      {/* Cola de Preventas del Portal Público */}
+      <PresaleQueue
+        onExecute={async (presaleData) => {
+          // Marcar preventa como confirmada en BD
+          try { await confirmPresale(presaleData.presaleId); } catch {}
+          // Pre-cargar el SalesEngine con los datos del cliente
+          if (onPresale) {
+            onPresale({
+              tutorNombre: presaleData.tutorNombre,
+              tutorTelefono: presaleData.tutorTelefono,
+              tutorEmail: presaleData.tutorEmail,
+              ninos: presaleData.ninos,
+              presaleId: presaleData.presaleId,
+              total: presaleData.total,
+            });
+          }
+        }}
+      />
 
       <section className={styles.zonesGrid}>
         {UI_ZONES.map(uiArea => (
