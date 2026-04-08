@@ -3,10 +3,11 @@ import { supabase } from './supabase';
 export interface Package {
   id: string;
   nombre: string;
-  area: string;
+  area: 'Mundo de Pekes' | 'Trampolín Park' | 'Área Mixta' | string;
   duracion_minutos: number;
   precio: number;
   activo: boolean;
+  es_privado: boolean;  // false = público (portal + caja) | true = privado (solo caja / eventos)
 }
 
 export const getPackages = async (onlyActive = true): Promise<Package[]> => {
@@ -32,7 +33,8 @@ export const getPackages = async (onlyActive = true): Promise<Package[]> => {
       area: p.area,
       duracion_minutos: p.duracion_minutos,
       precio: Number(p.precio),
-      activo: p.activo
+      activo: p.activo,
+      es_privado: p.es_privado ?? false,
     }));
 
     // Guardar en caché para supervivencia offline

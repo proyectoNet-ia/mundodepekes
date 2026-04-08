@@ -60,10 +60,11 @@ export const PortalPage: React.FC = () => {
   // Datos del tutor
   const [tutorNombre, setTutorNombre] = useState('');
   const [tutorTelefono, setTutorTelefono] = useState('');
-  const [tutorEmail, setTutorEmail] = useState('');
 
   // Niños
   const [ninos, setNinos] = useState<PortalChild[]>([{ nombre: '', edad: 0, paquete_id: '' }]);
+  // Tab de área activa por cada niño (idx -> area string)
+  const [activeAreaPerNino, setActiveAreaPerNino] = useState<Record<number, string>>({});
 
   // Resultado
   const [confirmCode, setConfirmCode] = useState('');
@@ -133,7 +134,6 @@ export const PortalPage: React.FC = () => {
       const presale = await createPresale({
         tutor_nombre: tutorNombre,
         tutor_telefono: tutorTelefono.replace(/\D/g, ''),
-        tutor_email: tutorEmail || undefined,
         ninos: ninosData,
         total_estimado: total,
       });
@@ -209,16 +209,6 @@ export const PortalPage: React.FC = () => {
                   inputMode="numeric"
                 />
                 <span className="portal-field-hint">Lo usamos para contactarte si es necesario</span>
-              </div>
-              <div className="portal-field">
-                <label>Email <span className="portal-optional">(opcional)</span></label>
-                <input
-                  id="portal-tutor-email"
-                  type="email"
-                  placeholder="tucorreo@ejemplo.com"
-                  value={tutorEmail}
-                  onChange={e => setTutorEmail(e.target.value)}
-                />
               </div>
             </div>
 
@@ -300,33 +290,64 @@ export const PortalPage: React.FC = () => {
                       {/* Selector de paquetes por área */}
                       <div className="portal-pkg-section">
                         <label>Elige el paquete</label>
-                        {areas.map(area => {
-                          const areaPkgs = packages.filter(p => p.area === area);
+
+                        {/* ── Area Tabs ── */}
+                        {(() => {
+                          const activeArea = activeAreaPerNino[idx] || areas[0] || '';
+                          const areaPkgs   = packages.filter(p => p.area === activeArea);
+                          const fmtDur = (m: number) =>
+                            m >= 60
+                              ? `${Math.floor(m / 60)}h${m % 60 ? `${m % 60}m` : ''}`
+                              : `${m}m`;
                           return (
-                            <div key={area} className="portal-area-group">
-                              <div className="portal-area-label">{area}</div>
-                              <div className="portal-pkg-grid">
-                                {areaPkgs.map(pkg => (
+                            <>
+                              <div className="portal-area-tabs">
+                                {areas.map(area => (
                                   <button
-                                    key={pkg.id}
-                                    id={`portal-pkg-${idx}-${pkg.id}`}
-                                    className={`portal-pkg-card ${nino.paquete_id === pkg.id ? 'selected' : ''}`}
-                                    onClick={() => updateNino(idx, 'paquete_id', pkg.id)}
+                                    key={area}
+                                    className={`portal-area-tab ${activeArea === area ? 'active' : ''}`}
+                                    onClick={() => setActiveAreaPerNino(prev => ({ ...prev, [idx]: area }))}
+                                    type="button"
                                   >
-                                    <span className="pkg-name">{pkg.nombre}</span>
-                                    <span className="pkg-duration">
-                                      <Icon type="clock" />
-                                      {pkg.duracion_minutos >= 60
-                                        ? `${Math.floor(pkg.duracion_minutos / 60)}h${pkg.duracion_minutos % 60 ? ` ${pkg.duracion_minutos % 60}m` : ''}`
-                                        : `${pkg.duracion_minutos}m`}
-                                    </span>
-                                    <span className="pkg-price">${pkg.precio.toLocaleString('es-MX')}</span>
+                                    {area}
                                   </button>
                                 ))}
                               </div>
-                            </div>
+
+                              {/* ── Package Chips ── */}
+                              <div className="portal-pkg-chips">
+                                {areaPkgs.map(pkg => {
+                                  const isSelected = nino.paquete_id === pkg.id;
+                                  return (
+                                    <button
+                                      key={pkg.id}
+                                      id={`portal-pkg-${idx}-${pkg.id}`}
+                                      className={`portal-pkg-chip ${isSelected ? 'selected' : ''}`}
+                                      onClick={() => updateNino(idx, 'paquete_id', pkg.id)}
+                                      type="button"
+                                    >
+                                      <span className="pkg-chip-left">
+                                        <span className="pkg-chip-check">
+                                          {isSelected && <Icon type="check" />}
+                                        </span>
+                                        <span className="pkg-chip-name">{pkg.nombre}</span>
+                                      </span>
+                                      <span className="pkg-chip-right">
+                                        <span className="pkg-chip-duration">{fmtDur(pkg.duracion_minutos)}</span>
+                                        <span className="pkg-chip-price">${pkg.precio.toLocaleString('es-MX')}</span>
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                                {areaPkgs.length === 0 && (
+                                  <p style={{ color: 'var(--p-text-2)', fontSize: '0.82rem', textAlign: 'center', padding: '0.75rem 0' }}>
+                                    Sin paquetes en esta área
+                                  </p>
+                                )}
+                              </div>
+                            </>
                           );
-                        })}
+                        })()}
                       </div>
 
                       {selectedPkg && (
@@ -376,7 +397,7 @@ export const PortalPage: React.FC = () => {
                 <h4>Tutor / Responsable</h4>
                 <div className="portal-summary-row"><span>Nombre</span><strong>{tutorNombre}</strong></div>
                 <div className="portal-summary-row"><span>Teléfono</span><strong>{formatPhone(tutorTelefono)}</strong></div>
-                {tutorEmail && <div className="portal-summary-row"><span>Email</span><strong>{tutorEmail}</strong></div>}
+
               </div>
 
               <div className="portal-summary-section">
@@ -465,7 +486,7 @@ export const PortalPage: React.FC = () => {
               className="portal-btn portal-btn-ghost"
               onClick={() => {
                 setStep('tutor');
-                setTutorNombre(''); setTutorTelefono(''); setTutorEmail('');
+                setTutorNombre(''); setTutorTelefono('');
                 setNinos([{ nombre: '', edad: 0, paquete_id: '' }]);
                 setConfirmCode(''); setPresaleExpiry(null);
               }}

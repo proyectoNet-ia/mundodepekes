@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Dashboard.module.css';
 import { PrinterService } from '../../lib/printerService';
-import { getActiveSessions, finishSession, subscribeToSessions, updateChildInfo, type ActiveSession } from '../../lib/sessionService';
+import { getActiveSessions, finishSession, subscribeToSessions, updateChildInfo, getActivePrivateEvents, addChildToPrivateEvent, getScheduledPrivateEventsCount, archivePackage, type ActiveSession } from '../../lib/sessionService';
 import { getSystemSettings } from '../../lib/settingsService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -27,8 +27,10 @@ import {
   faCloudUploadAlt,
   faLock,
   faReceipt,
-  faEllipsisV
+  faEllipsisV,
+  faBirthdayCake
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { syncService } from '../../lib/syncService';
@@ -81,17 +83,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
+  const [privateEvents, setPrivateEvents] = useState<any[]>([]);
+
+  // Estado del modal para agregar peke a un evento privado
+  const [addToEventModal, setAddToEventModal] = useState<{ transaccionId: string; packageId: string; area: string; tutorId: string; eventEndTime: Date; packageName: string; } | null>(null);
+  const [newPekeName, setNewPekeName] = useState('');
 
   const refreshData = async () => {
     setIsRefreshing(true);
     try {
-      const [active, settings] = await Promise.all([
+      const [active, settings, privEvents, sCount] = await Promise.all([
         getActiveSessions(),
-        getSystemSettings()
+        getSystemSettings(),
+        getActivePrivateEvents(),
+        getScheduledPrivateEventsCount()
       ]);
       setSessions(active);
       setLimits(settings);
+      setPrivateEvents(privEvents);
+      setScheduledCount(sCount);
       setLastRefreshed(new Date());
+
+      // Auto-archivado de paquetes de eventos terminados y vacíos
+      const now = new Date();
+      privEvents.forEach(event => {
+          const hasExpired = event.event_end_time ? now > new Date(event.event_end_time) : false;
+          const hasKidsInside = active.some(s => s.transaccionId === event.id);
+          if (hasExpired && !hasKidsInside && event.paquete_id) {
+              archivePackage(event.paquete_id);
+          }
+      });
     } finally {
       setIsRefreshing(false);
     }
@@ -195,15 +216,68 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
     return { totalMinutes, remainingMinutes };
   };
 
-  const handleCheckout = async (id: string) => {
+  const handleCheckout = async (sessionId: string) => {
     try {
-      await finishSession(id);
+      await finishSession(sessionId);
       refreshData();
-    } catch (error) {
-      console.error(error);
-      showToast('Error al realizar checkout de la sesión.', 'error');
+      showToast('Sesión finalizada con éxito.', 'success');
+    } catch (err) {
+      showToast('Error al finalizar sesión.', 'error');
     }
   };
+
+  const allSessions = [...sessions, ...offlineSessions];
+
+  // 1. Obtener eventos de Supabase
+  const onlinePrivateGroups = privateEvents.map(event => {
+      const eventSessions = allSessions.filter(s => s.transaccionId === event.id);
+      return {
+          transaccionId: event.id,
+          tutorName: event.cliente?.nombre || 'Tutor',
+          tutorId: event.cliente?.id,
+          tutorPhone: event.cliente?.telefono,
+          packageName: event.paquete?.nombre || 'Evento Privado',
+          packageId: event.paquete_id,
+          guestLimit: event.limite_invitados || 0,
+          area: event.paquete?.area || 'Mundo de Pekes',
+          duration: event.paquete?.duracion_minutos || 60,
+          eventStartTime: event.event_start_time ? new Date(event.event_start_time) : null,
+          eventEndTime: event.event_end_time ? new Date(event.event_end_time) : null,
+          sessions: eventSessions,
+          isOffline: false
+      };
+  });
+
+  // 2. Obtener eventos pendientes en la cola offline (syncService)
+  // Necesitamos buscar en la cola de sincronización
+  const [offlinePrivateEvents, setOfflinePrivateEvents] = useState<any[]>([]);
+  
+  useEffect(() => {
+    const fetchOfflinePrivate = async () => {
+        const pending = await syncService.getPendingItems();
+        const offPrivates = pending
+            .filter(item => item.type === 'sale' && item.data.esPrivado)
+            .map(item => ({
+                transaccionId: `off-${item.id}`,
+                tutorName: item.data.customer?.name || 'Tutor',
+                tutorId: item.data.customer?.id,
+                packageName: 'Paquete Privado', // El nombre real está en availablePackages, pero simplificamos
+                packageId: item.data.paquete_id,
+                area: 'Mundo de Pekes',
+                duration: 60,
+                eventStartTime: null,
+                eventEndTime: null,
+                sessions: [],
+                isOffline: true
+            }));
+        setOfflinePrivateEvents(offPrivates);
+    };
+    fetchOfflinePrivate();
+  }, [isRefreshing]);
+
+  const privateEventGroups = [...onlinePrivateGroups, ...offlinePrivateEvents];
+
+  const allSessionsShown = allSessions.filter(s => !privateEventGroups.some(p => p.transaccionId === s.transaccionId));
 
 
   const handleSaveObservations = async () => {
@@ -241,7 +315,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   // Áreas reconocidas por el sistema
   const KNOWN_AREAS = Object.keys(AREA_MAP); // ['Mundo Pekes', 'Trampolin', 'Mixto']
 
-  const allSessions = [...sessions, ...offlineSessions];
+
 
   // Total real: solo sesiones en áreas conocidas, sin duplicados por childId
   const visibleSessions = allSessions.filter(s => KNOWN_AREAS.includes(s.area));
@@ -258,7 +332,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
 
   const activeExpiredToasts = expiredSessions.filter(s => !dismissedExpired.has(s.id));
 
+
   // Estado para la pestaña activa de estadísticas en móvil
+  const [scheduledCount, setScheduledCount] = useState(0);
   const [activeStatTab, setActiveStatTab] = useState<'totales' | 'pekes' | 'trampolin' | 'mixta'>('totales');
 
   return (
@@ -334,10 +410,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                     </span>
                     <span className={styles.statValue}>{totalEnRecinto}</span>
                     <p style={{fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '1rem'}}>Niños activos actualmente</p>
-                    <button className={styles.newEntryBtnCard} onClick={() => onReentry?.(null)}>
-                      <FontAwesomeIcon icon={faPlus} />
-                      <span>NUEVO INGRESO</span>
-                    </button>
+                      <div style={{ display: 'grid', gridTemplateColumns: scheduledCount > 0 ? '1fr 1fr' : '1fr', gap: '0.6rem', marginTop: '0.5rem' }}>
+                          {scheduledCount > 0 && (
+                            <button 
+                                className={styles.actionPill} 
+                                style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}
+                                onClick={() => onReentry?.({ isPrivateEvent: true } as any)}
+                            >
+                                <FontAwesomeIcon icon={faBirthdayCake} />
+                                <span>Evento Privado</span>
+                            </button>
+                          )}
+                          <button 
+                            className={styles.actionPill} 
+                            style={{ background: 'linear-gradient(135deg, #1e40af, #1e3a8a)' }} 
+                            onClick={() => onReentry?.(null)}
+                          >
+                              <FontAwesomeIcon icon={faPlus} />
+                              <span>Nuevo Ingreso</span>
+                          </button>
+                      </div>
                 </div>
 
                 <div className={`${styles.statCard} ${getCapacityStatus(countMundo, limits.mundo_pekes)} ${activeStatTab === 'pekes' ? styles.activeStatCard : styles.hiddenStatCard}`}>
@@ -443,7 +535,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
             
             <div className={styles.sessionGrid}>
               {(() => {
-                const areaSessionsRaw = allSessions.filter(s => AREA_MAP[s.area] === uiArea);
+                const areaSessionsRaw = allSessionsShown.filter(s => AREA_MAP[s.area] === uiArea);
                 const uniqueKids = new Map();
                 areaSessionsRaw.forEach(s => {
                     // Si ya existe una sesión activa para este niño, mantenemos la que tenga el ID más reciente o mayor duración (o simplemente la primera que encontremos ya que salesService ahora limpia las viejas)
@@ -616,6 +708,161 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
           </div>
         ))}
       </section>
+
+      {/* 🎂 EVENTOS PRIVADOS ACTIVOS */}
+      {privateEventGroups.length > 0 && (
+        <section style={{ margin: '1.5rem 0', padding: '0 0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '1.4rem' }}>&#x1F382;</span>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#92400e' }}>Eventos Privados Activos</h2>
+            <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: '50px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 700, border: '1px solid #fde68a' }}>
+              {privateEventGroups.length} evento{privateEventGroups.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {privateEventGroups.map(event => {
+              const isPending = !event.eventEndTime;
+              const now = currentTime.getTime();
+              
+              let progressPct = 0;
+              let remainMins = 0;
+              let isExpiredEvent = false;
+              let isCritical = false;
+              let endStr = 'Por iniciar';
+
+              if (!isPending && event.eventEndTime && event.eventStartTime) {
+                  const eventEnd = event.eventEndTime.getTime();
+                  const eventStart = event.eventStartTime.getTime();
+                  const totalMs = Math.max(1, eventEnd - eventStart);
+                  const elapsedMs = now - eventStart;
+                  progressPct = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
+                  remainMins = Math.max(0, Math.round((eventEnd - now) / 60000));
+                  isExpiredEvent = remainMins === 0;
+                  isCritical = remainMins > 0 && remainMins <= 10;
+                  endStr = event.eventEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+
+              return (
+                <div key={event.transaccionId} style={{
+                  background: isExpiredEvent ? '#fef2f2' : '#fffbeb',
+                  border: `2px solid ${isExpiredEvent ? '#fca5a5' : isCritical ? '#fb923c' : '#fde68a'}`,
+                  borderRadius: '1rem',
+                  padding: '1.25rem',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  position: 'relative',
+                  opacity: (event as any).isOffline ? 0.7 : 1
+                }}>
+                  {(event as any).isOffline && (
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.5)', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '1rem', flexDirection: 'column', gap: '0.5rem' }}>
+                          <FontAwesomeIcon icon={faCloudUploadAlt} spin size="lg" style={{ color: '#d97706' }} />
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#d97706' }}>SINCRONIZANDO VENTA...</span>
+                      </div>
+                  )}
+                  {/* Header del evento */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#92400e', fontWeight: 800 }}>{event.packageName}</h3>
+                      <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#78350f', fontWeight: 600 }}>
+                          <FontAwesomeIcon icon={faUser} style={{ marginRight: '4px', opacity: 0.7 }} /> {event.tutorName}
+                        </span>
+                        {(event as any).tutorPhone && (
+                          <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 800 }}>
+                            <FontAwesomeIcon icon={faWhatsapp} style={{ marginRight: '4px' }} /> {(event as any).tutorPhone}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.8rem', background: '#fef3c7', padding: '2px 8px', borderRadius: '6px', color: '#92400e', fontWeight: 800, border: '1px solid #fde68a' }}>
+                           Fin: {endStr}
+                        </span>
+                        {(event as any).guestLimit > 0 && (
+                          <span style={{ 
+                            fontSize: '0.8rem', 
+                            background: event.sessions.length >= (event as any).guestLimit ? '#fee2e2' : '#f0fdf4', 
+                            padding: '2px 8px', 
+                            borderRadius: '6px', 
+                            color: event.sessions.length >= (event as any).guestLimit ? '#991b1b' : '#166534', 
+                            fontWeight: 800, 
+                            border: `1px solid ${event.sessions.length >= (event as any).guestLimit ? '#fecaca' : '#bbf7d0'}` 
+                          }}>
+                            Invitados: {event.sessions.length} / {(event as any).guestLimit}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      disabled={(event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit}
+                      style={{ 
+                        background: ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? '#d1d5db' : '#d97706', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: '8px', 
+                        padding: '0.5rem 1rem', 
+                        fontWeight: 700, 
+                        fontSize: '0.8rem', 
+                        cursor: ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? 'not-allowed' : 'pointer', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.4rem' 
+                      }}
+                      onClick={() => {
+                        setNewPekeName('');
+                        setAddToEventModal({ 
+                            transaccionId: event.transaccionId, 
+                            packageId: event.packageId, 
+                            area: event.area, 
+                            tutorId: event.tutorId, 
+                            eventEndTime: event.eventEndTime, 
+                            packageName: event.packageName,
+                            tutorName: event.tutorName
+                        } as any);
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faPlus} /> { ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? 'CUPO LLENO' : 'Ingresar Peke' }
+                    </button>
+                  </div>
+
+                  {/* Barra de tiempo SINCRONIZADA para TODO el evento */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ height: '8px', background: '#e5e7eb', borderRadius: '99px', overflow: 'hidden', marginBottom: '4px' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${progressPct}%`,
+                        background: isExpiredEvent ? '#ef4444' : isCritical ? '#f97316' : '#d97706',
+                        borderRadius: '99px',
+                        transition: 'width 1s linear'
+                      }} />
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#78716c', textAlign: 'right' }}>
+                      {isPending 
+                        ? <span style={{ color: '#d97706', fontWeight: 700 }}>&#x23F3; ESPERANDO PRIMER INGRESO</span>
+                        : isExpiredEvent
+                            ? <span style={{ color: '#ef4444', fontWeight: 700 }}>&#x26A0; TIEMPO EXPIRADO</span>
+                            : <span>{remainMins >= 60 ? `${Math.floor(remainMins/60)}h ${remainMins%60}m` : `${remainMins}m`} restantes &bull; todos salen a las {endStr}</span>
+                      }
+                    </div>
+                  </div>
+
+                  {/* Lista de pekes en el evento */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {event.sessions.map((s: ActiveSession) => (
+                      <div key={s.id} style={{ background: 'white', border: '1px solid #fde68a', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 600, color: '#44403c', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        &#x1F476; {s.childName}
+                        <button
+                          title="Dar salida"
+                          onClick={() => setCheckoutChild(s)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0 2px', fontSize: '0.75rem' }}
+                        >
+                          &#x2715;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Observations Modal */}
       {selectedChild && (
@@ -950,6 +1197,87 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
               <button onClick={() => setViewPurchase(null)} className="btn btn-primary" style={{ width: '100%' }}>Cerrar</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 🎂 MODAL PARA AGREGAR PEKE A EVENTO PRIVADO */}
+      {addToEventModal && (
+        <div className={styles.modalOverlay}>
+            <div className={styles.modal} style={{ maxWidth: '480px' }}>
+                <div className={styles.modalHeader} style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', color: 'white', borderRadius: '1rem 1rem 0 0', padding: '1.5rem', border: 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <FontAwesomeIcon icon={faBirthdayCake} style={{ fontSize: '1.8rem' }} />
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'white', fontWeight: 800 }}>Ingreso a Evento</h3>
+                            <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>{addToEventModal.packageName} &bull; Fin {addToEventModal.eventEndTime ? addToEventModal.eventEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Por definir'}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className={styles.modalBody} style={{ padding: '2rem 1.5rem' }}>
+                    <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', marginBottom: '0.6rem', display: 'block' }}>Nombre Completo del Niño</label>
+                        <input 
+                            type="text" 
+                            className={styles.input} 
+                            placeholder="Ej. Juanito Pérez" 
+                            value={newPekeName}
+                            onChange={(e) => setNewPekeName(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+                    <div style={{ marginTop: '2rem', fontSize: '0.75rem', color: '#92400e', background: '#fffbeb', padding: '1rem', borderRadius: '12px', border: '1px solid #fef3c7', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                        <FontAwesomeIcon icon={faBell} style={{ marginTop: '2px' }} />
+                        <span><strong>Nota de Sincronización:</strong> {addToEventModal.eventEndTime ? `El tiempo de este peke terminará automáticamente a las ${addToEventModal.eventEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} junto con todo el evento.` : 'El tiempo del evento comenzará a correr a partir de este primer ingreso.'}</span>
+                    </div>
+                </div>
+                <div className={styles.modalFooter} style={{ padding: '1.25rem 1.5rem', background: '#f8fafc', gap: '1rem' }}>
+                    <button 
+                        className="btn btn-ghost" 
+                        style={{ flex: 1, fontWeight: 700 }} 
+                        onClick={() => setAddToEventModal(null)}
+                        disabled={isRefreshing}
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        className="btn btn-primary" 
+                        style={{ 
+                            flex: 1.5, 
+                            background: 'linear-gradient(135deg, #d97706, #b45309)', 
+                            border: 'none', 
+                            fontWeight: 800,
+                            boxShadow: '0 4px 12px rgba(180, 83, 9, 0.3)'
+                        }}
+                        disabled={!newPekeName || isRefreshing}
+                        onClick={async () => {
+                            if (!newPekeName) return;
+                            setIsRefreshing(true);
+                            try {
+                                await addChildToPrivateEvent({
+                                    childName: newPekeName,
+                                    childAge: 0, // Age is now omitted, using default
+                                    tutorId: addToEventModal.tutorId,
+                                    packageId: addToEventModal.packageId,
+                                    area: addToEventModal.area,
+                                    transaccionId: addToEventModal.transaccionId,
+                                    eventEndTime: addToEventModal.eventEndTime,
+                                    durationMinutes: (addToEventModal as any).durationMinutes
+                                });
+                                showToast(`${newPekeName} ingresó al evento con éxito.`, 'success');
+                                setAddToEventModal(null);
+                                refreshData();
+                            } catch (error) {
+                                console.error(error);
+                                showToast('Error al ingresar el peke al evento.', 'error');
+                            } finally {
+                                setIsRefreshing(false);
+                            }
+                        }}
+                    >
+                        {isRefreshing ? 'Registrando...' : 'Confirmar Ingreso'}
+                    </button>
+                </div>
+            </div>
         </div>
       )}
 

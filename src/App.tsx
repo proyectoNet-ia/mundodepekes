@@ -90,11 +90,12 @@ function App() {
   const handlePresaleEntry = (data: any) => {
     // Mapeo de datos de preventa al formato que entiende el SalesEngine
     setPresaleData({
-      tutorName: data.tutorNombre,
-      phone: data.tutorTelefono,
-      email: data.tutorEmail,
-      presaleChildren: data.ninos,   // Array de niños con paquete pre-seleccionado
-      presaleId: data.presaleId,
+      tutorName:        data.tutorNombre,
+      phone:            data.tutorTelefono,
+      email:            data.tutorEmail,
+      presaleChildren:  data.ninos,       // Array de niños con paquete pre-seleccionado
+      presaleId:        data.presaleId,
+      isPrivateEvent:   data.isPrivateEvent ?? false,  // 🎂 Modo evento privado
     });
     setReentryData(null);
     setActiveTab('ingresos');

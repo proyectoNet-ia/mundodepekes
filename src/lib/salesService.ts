@@ -184,13 +184,22 @@ export const registerFullEntry = async (data: {
         throw error;
     }
 
+    const duration = (data as any).children?.[0]?.duration || 60;
+    const now = new Date();
+    const endTime = new Date(now.getTime() + duration * 60000);
+
     const { data: transaction, error: tError } = await supabase
       .from('transacciones')
       .insert({
         cliente_id: customerId,
         total: data.total || 0,
         metodo_pago: data.voucherFolio ? `${data.paymentMethod} (Folio: ${data.voucherFolio})` : data.paymentMethod,
-        arqueo_id: activeSession?.id || (isSync ? null : undefined) // Evitar nulls accidentales
+        arqueo_id: activeSession?.id || (isSync ? null : undefined), // Evitar nulls accidentales
+        es_privado: (data as any).esPrivado || false,
+        paquete_id: (data as any).paquete_id || ((data as any).esPrivado ? (data as any).children?.[0]?.packageId : null),
+        event_start_time: (data as any).esPrivado && data.children.length > 0 ? now.toISOString() : null,
+        event_end_time: (data as any).esPrivado && data.children.length > 0 ? endTime.toISOString() : null,
+        limite_invitados: (data as any).limite_invitados || 0
       })
       .select().single();
 

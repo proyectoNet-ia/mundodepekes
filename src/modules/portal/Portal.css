@@ -388,7 +388,7 @@
 .portal-remove-btn:hover { background: #fca5a5; }
 .portal-remove-btn .portal-icon svg { width: 16px; height: 16px; }
 
-/* ── Package selector ──────────────────────────────────── */
+/* ── Package selector — Mobile Optimized ───────────────── */
 .portal-pkg-section {
   margin-top: 1rem;
 }
@@ -400,84 +400,168 @@
   color: #374151;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  margin-bottom: 0.6rem;
+}
+
+/* ── Area Tabs ── */
+.portal-area-tabs {
+  display: flex;
+  gap: 0.4rem;
   margin-bottom: 0.75rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
 }
+.portal-area-tabs::-webkit-scrollbar { display: none; }
 
-.portal-area-group { margin-bottom: 1rem; }
-
-.portal-area-label {
-  font-size: 0.72rem;
-  font-weight: 900;
-  color: var(--p-text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.3rem;
-  border-bottom: 1px dashed var(--p-border);
-}
-
-.portal-pkg-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 0.6rem;
-}
-
-.portal-pkg-card {
-  background: white;
+.portal-area-tab {
+  flex-shrink: 0;
+  padding: 0.35rem 0.9rem;
+  border-radius: 50px;
   border: 2px solid var(--p-border);
-  border-radius: var(--p-radius-sm);
-  padding: 0.75rem;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  text-align: left;
-  transition: all .2s;
-  font-family: var(--font);
-}
-
-.portal-pkg-card:hover {
-  border-color: var(--p-brand-mid);
-  background: var(--p-brand-light);
-}
-
-.portal-pkg-card.selected {
-  border-color: var(--p-brand);
-  background: var(--p-brand-light);
-  box-shadow: 0 0 0 3px rgba(124,58,237,.15);
-}
-
-.pkg-name {
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: var(--p-text);
-}
-
-.pkg-duration {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
+  background: white;
   color: var(--p-text-2);
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all .18s;
+  white-space: nowrap;
 }
 
-.pkg-duration .portal-icon svg { width: 12px; height: 12px; }
-
-.pkg-price {
-  font-size: 1rem;
-  font-weight: 900;
+.portal-area-tab:hover {
+  border-color: var(--p-brand-mid);
   color: var(--p-brand);
 }
 
+.portal-area-tab.active {
+  background: var(--p-brand);
+  border-color: var(--p-brand);
+  color: white;
+  box-shadow: 0 3px 10px rgba(124,58,237,.35);
+}
+
+/* ── Package Chips ── */
+.portal-pkg-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.portal-pkg-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border: 2px solid var(--p-border);
+  border-radius: var(--p-radius-sm);
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  font-family: var(--font);
+  text-align: left;
+  transition: all .18s;
+  gap: 0.5rem;
+}
+
+.portal-pkg-chip:hover {
+  border-color: var(--p-brand-mid);
+  background: #faf8ff;
+}
+
+.portal-pkg-chip.selected {
+  border-color: var(--p-brand);
+  background: var(--p-brand-light);
+  box-shadow: 0 0 0 3px rgba(124,58,237,.12);
+}
+
+.pkg-chip-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.pkg-chip-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--p-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all .18s;
+  background: white;
+}
+
+.portal-pkg-chip.selected .pkg-chip-check {
+  background: var(--p-brand);
+  border-color: var(--p-brand);
+  color: white;
+}
+
+.pkg-chip-check .portal-icon svg { width: 11px; height: 11px; }
+
+.pkg-chip-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--p-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portal-pkg-chip.selected .pkg-chip-name {
+  color: var(--p-brand);
+  font-weight: 800;
+}
+
+.pkg-chip-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pkg-chip-duration {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--p-text-2);
+  background: #f3f4f6;
+  padding: 2px 7px;
+  border-radius: 50px;
+  white-space: nowrap;
+}
+
+.portal-pkg-chip.selected .pkg-chip-duration {
+  background: #ddd6fe;
+  color: var(--p-brand);
+}
+
+.pkg-chip-price {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--p-brand);
+  min-width: 52px;
+  text-align: right;
+}
+
+/* Selected badge — compact */
 .portal-pkg-selected-badge {
-  margin-top: 0.75rem;
+  margin-top: 0.65rem;
   background: #d1fae5;
   color: #065f46;
   border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 /* ── Add child button ──────────────────────────────────── */
