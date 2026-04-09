@@ -1,5 +1,5 @@
 # 📋 Pendientes — PekePark Admin OS
-**Fecha de revisión:** 18 de marzo, 2026
+**Fecha de revisión:** 09 de abril, 2026
 
 ---
 
@@ -46,10 +46,12 @@
 - [x] **Sincronización Offline**: Implementación de cola local con **IndexedDB** y sincronización automática al recuperar red.
 - [x] **UI de Sincronización**: Indicadores de red y contador de ventas pendientes en SystemBar.
 
----
-
 ### Fase 9 — Reportes & Administración
 - [x] **Exportación de Reportes**: Generación de PDF y Excel para Cierres de Caja, Inventario y Analítica BI.
+
+### Fase 10 — Verificación & Seguridad
+- [x] **Verificación de WhatsApp**: Integración de OTP de 6 dígitos para validación de clientes en el portal público.
+- [x] **Configuración de Impresoras**: Nuevo módulo de configuración para dispositivos TICKET y WRISTBAND.
 
 ---
 
@@ -66,3 +68,4 @@
 ## 💡 Próxima Tarea
 **🔴 Módulo de Reservas Online**:
 Permitir a los administradores agendar fiestas infantiles, controlar anticipos y disponibilidad de áreas.
+
