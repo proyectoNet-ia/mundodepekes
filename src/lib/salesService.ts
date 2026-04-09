@@ -14,6 +14,7 @@ export interface SearchResult {
   visitsCount: number;
   enListaNegra?: boolean;
   observaciones?: string;
+  whatsapp_verificado?: boolean;
   registeredChildren?: { id: string; name: string; age: number; observations: string; enListaNegra?: boolean }[];
 }
 
@@ -22,12 +23,12 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
 
   const { data: tutors, error: tError } = await supabase
     .from('clientes')
-    .select('id, nombre, telefono, visitas_acumuladas, ninos(id, nombre, edad, observaciones, en_lista_negra)')
+    .select('id, nombre, telefono, visitas_acumuladas, whatsapp_verificado, ninos(id, nombre, edad, observaciones, en_lista_negra)')
     .or(`nombre.ilike.%${term}%,telefono.ilike.%${term}%`);
 
   const { data: children, error: cError } = await supabase
     .from('ninos')
-    .select('id, nombre, en_lista_negra, observaciones, clientes(id, nombre, telefono, visitas_acumuladas, ninos(id, nombre, edad, observaciones, en_lista_negra))')
+    .select('id, nombre, en_lista_negra, observaciones, clientes(id, nombre, telefono, visitas_acumuladas, whatsapp_verificado, ninos(id, nombre, edad, observaciones, en_lista_negra))')
     .ilike('nombre', `%${term}%`);
 
   if (tError || cError) {
@@ -43,6 +44,7 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
       name: t.nombre,
       phone: t.telefono,
       visitsCount: t.visitas_acumuladas || 0,
+      whatsapp_verificado: t.whatsapp_verificado || false,
       registeredChildren: t.ninos?.map((n: any) => ({ 
           id: n.id, 
           name: n.nombre || '', 
@@ -62,6 +64,7 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
       childName: c.nombre, // Nombre del niño
       phone: c.clientes?.telefono,
       visitsCount: c.clientes?.visitas_acumuladas || 0,
+      whatsapp_verificado: c.clientes?.whatsapp_verificado || false,
       enListaNegra: c.en_lista_negra,
       observaciones: c.observaciones,
       registeredChildren: c.clientes?.ninos?.map((n: any) => ({ 

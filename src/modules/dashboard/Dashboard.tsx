@@ -1161,7 +1161,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                       mensaje: "*** REIMPRESION DE TICKET ***"
                     };
                     const content = PrinterService.formatEpsonTicket(ticketData as any);
-                    PrinterService.printRaw(content, 'EPSON');
+                    PrinterService.printRaw(content, 'TICKET');
                     showToast('Ticket enviado a cola de impresión.', 'success');
                   }}
                   className="btn btn-ghost" 
@@ -1184,7 +1184,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                       idPeke: viewPurchase.childId || '',
                     };
                     const content = PrinterService.formatZebraWristband(wristbandData);
-                    PrinterService.printRaw(content, 'ZEBRA');
+                    PrinterService.printRaw(content, 'WRISTBAND');
                     showToast('Pulsera enviada a impresora Zebra.', 'success');
                   }}
                   className="btn btn-ghost"

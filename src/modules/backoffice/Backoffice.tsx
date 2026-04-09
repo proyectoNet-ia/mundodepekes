@@ -8,8 +8,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye, faSignature, faUserPen, faEnvelope, faChild, faTableTennisPaddleBall, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { PrinterConfig } from './PrinterConfig';
 
-type ConfigSection = 'CATALOGS' | 'INVENTORY' | 'STAFF' | 'SAFETY' | 'BRANDING' | 'OPERATIONS'| 'LOYALTY' | 'MAINTENANCE';
+type ConfigSection = 'CATALOGS' | 'INVENTORY' | 'STAFF' | 'SAFETY' | 'BRANDING' | 'OPERATIONS'| 'LOYALTY' | 'MAINTENANCE' | 'PRINTERS';
 
 export const Backoffice: React.FC = () => {
   const { showToast } = useToast();
@@ -598,9 +599,11 @@ export const Backoffice: React.FC = () => {
           <button className={`${styles.navButton} ${activeSection === 'BRANDING' ? styles.active : ''}`} onClick={() => setActiveSection('BRANDING')}>🏷️ Marca</button>
           <button className={`${styles.navButton} ${activeSection === 'OPERATIONS' ? styles.active : ''}`} onClick={() => setActiveSection('OPERATIONS')}>⏰ Horarios</button>
           <button className={`${styles.navButton} ${activeSection === 'LOYALTY' ? styles.active : ''}`} onClick={() => setActiveSection('LOYALTY')}>🔥 Fidelidad</button>
+          <button className={`${styles.navButton} ${activeSection === 'PRINTERS' ? styles.active : ''}`} onClick={() => setActiveSection('PRINTERS')}>🖨️ Impresoras</button>
           <button className={`${styles.navButton} ${activeSection === 'MAINTENANCE' ? styles.active : ''}`} onClick={() => setActiveSection('MAINTENANCE')}>⚙️ Mantenimiento</button>
         </aside>
         <main className={styles.content}>
+          {activeSection === 'PRINTERS' && <PrinterConfig />}
           {activeSection === 'CATALOGS' && (
             // ... (keeping existing catalogs code)
             <section className={styles.configCard}>

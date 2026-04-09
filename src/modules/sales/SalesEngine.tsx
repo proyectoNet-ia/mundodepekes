@@ -16,7 +16,7 @@ import { PINModal } from '../../components/PINModal';
 import { supabase } from '../../lib/supabase';
 
 // Types
-type SalesStep = 'BUSQUEDA' | 'CLIENTE' | 'NINO' | 'PAQUETE' | 'ACCESORIOS' | 'PAGO';
+type SalesStep = 'BUSQUEDA' | 'CLIENTE' | 'VERIFICACION' | 'NINO' | 'PAQUETE' | 'ACCESORIOS' | 'PAGO';
 
 const formatMoney = (val: string) => {
     const clean = val.replace(/\D/g, '');
@@ -44,12 +44,23 @@ const toTitleCase = (str: string): string => {
         .join(' ');
 };
 
+const formatDuration = (mins: number) => {
+    if (mins === 0) return 'Tiempo Ilimitado';
+    if (mins >= 60) {
+        const hrs = Math.floor(mins / 60);
+        const remaining = mins % 60;
+        return remaining > 0 ? `${hrs}h ${remaining}m` : `${hrs} ${hrs === 1 ? 'Hora' : 'Horas'}`;
+    }
+    return `${mins} Minutos`;
+};
+
 interface CustomerData {
   id?: string;
   phone: string;
   name: string;
   email: string;
   visitsCount: number;
+  whatsapp_verificado?: boolean;
 }
 
 interface ChildData {
@@ -102,6 +113,11 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
   const [isNewRegistration, setIsNewRegistration] = useState(false);
   const [guestLimit, setGuestLimit] = useState<number>(15); // Default common limit
 
+  // Verificación WhatsApp
+  const [vCode, setVCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [vError, setVError] = useState('');
+
   const isPrivateEvent = !!(reentryData?.isPrivateEvent);
   const activeChildren = children.filter((c: ChildData) => c.included !== false && c.name.trim() !== '');
 
@@ -145,7 +161,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
             phone: reentryData.tutorContact || reentryData.clientes?.telefono || reentryData.phone || '',
             name: reentryData.tutorName || reentryData.clientes?.nombre || reentryData.name || '',
             email: reentryData.email || reentryData.clientes?.email || '',
-            visitsCount: reentryData.visitsCount || reentryData.clientes?.visitas_acumuladas || 0
+            visitsCount: reentryData.visitsCount || reentryData.clientes?.visitas_acumuladas || 0,
+            whatsapp_verificado: reentryData.whatsapp_verificado || reentryData.clientes?.whatsapp_verificado || false
           });
           if (reentryData.presaleChildren && reentryData.presaleChildren.length > 0) {
             setChildren(reentryData.presaleChildren.map((n: any) => ({
@@ -196,7 +213,14 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
   }, [searchTerm]);
 
   const handleSelectCustomer = async (res: SearchResult) => {
-    setCustomer({ id: res.id, phone: res.phone || '', name: res.name || '', email: '', visitsCount: res.visitsCount });
+    setCustomer({ 
+        id: res.id, 
+        phone: res.phone || '', 
+        name: res.name || '', 
+        email: '', 
+        visitsCount: res.visitsCount,
+        whatsapp_verificado: res.whatsapp_verificado 
+    });
     const activeSessions = await getActiveSessions();
     const activeIds = new Set(activeSessions.map((s) => s.childId));
 
@@ -228,7 +252,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
           const cleanSecondary = secondaryPhones.map(p => p.replace(/\D/g, '')).filter(p => p.length >= 10);
           let orQuery = `telefono.ilike.%${cleanPhone}%`;
           cleanSecondary.forEach(sp => { orQuery += `,telefono.ilike.%${sp}%`; });
-          const { data, error } = await supabase.from('clientes').select('id, nombre').or(orQuery);
+          const { data, error } = await supabase.from('clientes').select('id, nombre, whatsapp_verificado').or(orQuery);
+          
           if (!error && data && data.length > 0) {
               const duplicate = data.find(c => c.id !== customer.id);
               if (duplicate) {
@@ -236,8 +261,23 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                   setIsLoading(false);
                   return;
               }
+              
+              // Si ya está verificado, saltar verificación
+              if (data[0].whatsapp_verificado) {
+                  setCustomer(prev => ({ ...prev, whatsapp_verificado: true }));
+                  setCurrentStep('NINO');
+                  return;
+              }
           }
-          setCurrentStep('NINO');
+
+          // Iniciar verificación
+          const { whatsappService } = await import('../../lib/whatsappService');
+          const { success, error: vErr } = await whatsappService.sendVerificationCode(customer.phone);
+          if (success) {
+              setCurrentStep('VERIFICACION');
+          } else {
+              showToast(vErr || 'No se pudo enviar el código de WhatsApp.', 'error');
+          }
       } catch (e) {
           showToast('Error de validación.', 'error');
       } finally {
@@ -245,11 +285,59 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
       }
   };
 
-  const handleGoToPackages = () => {
+  const handleVerifyCode = async () => {
+      setIsVerifying(true);
+      setVError('');
+      try {
+          const { whatsappService } = await import('../../lib/whatsappService');
+          const { success, error } = await whatsappService.verifyCode(customer.phone, vCode);
+          if (success) {
+              // Actualizar estado local para evitar re-verificación
+              setCustomer(prev => ({ ...prev, whatsapp_verificado: true }));
+              
+              // Si el cliente existe, actualizar su estatus en la BD
+              if (customer.id) {
+                await supabase.from('clientes').update({ 
+                    whatsapp_verificado: true,
+                    whatsapp_verificado_at: new Date().toISOString()
+                }).eq('id', customer.id);
+              }
+              setCurrentStep('NINO');
+          } else {
+              setVError(error || 'Código incorrecto.');
+          }
+      } catch (err) {
+          setVError('Fallo en la verificación.');
+      } finally {
+          setIsVerifying(false);
+      }
+  };
+
+  const handleGoToPackages = async () => {
     if (activeChildren.length === 0) {
         showToast('Registre al menos un peke para continuar.', 'warning');
         return;
     }
+
+    // Si el cliente no está verificado y no es evento privado, forzar verificación
+    if (!customer.whatsapp_verificado && !isPrivateEvent) {
+        setIsLoading(true);
+        try {
+            const { whatsappService } = await import('../../lib/whatsappService');
+            const { success, error: vErr } = await whatsappService.sendVerificationCode(customer.phone);
+            if (success) {
+                setCurrentStep('VERIFICACION');
+            } else {
+                showToast(vErr || 'No se pudo enviar el código de WhatsApp.', 'error');
+            }
+        } catch (e) {
+            showToast('Error de conexión.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+        return;
+    }
+
     const blacklisted = activeChildren.filter(c => c.enListaNegra);
     const isAdmin = user?.role === 'admin';
     if (blacklisted.length > 0 && !isAuthorizedOverride && !isAdmin) {
@@ -339,7 +427,24 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 total: total,
                 paymentMethod: registration.transaction.metodo_pago
             };
-            PrinterService.printRaw(PrinterService.formatEpsonTicket(ticketData as any), 'EPSON');
+            // Imprimir Ticket General
+            PrinterService.printRaw(PrinterService.formatEpsonTicket(ticketData as any), 'TICKET');
+
+            // Imprimir Pulseras (una por cada niño)
+            registration.transaction.children.forEach((c: any) => {
+                const pkg = availablePackages.find(p => p.id === c.package);
+                const wristbandData = {
+                    nino: c.name,
+                    idPeke: c.id.substring(0,8).toUpperCase(),
+                    paquete: pkg?.nombre || 'Paquete',
+                    area: pkg?.area || 'Mundo de Pekes',
+                    duracion: pkg?.duracion_minutos || 0,
+                    horaEntrada: new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    horaSalida: new Date(c.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    folio: registration.transaction.id.substring(0,8).toUpperCase()
+                };
+                PrinterService.printRaw(PrinterService.formatZebraWristband(wristbandData), 'WRISTBAND');
+            });
         }
 
     } catch (e) {
@@ -385,7 +490,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 <h2>{isPrivateEvent ? 'EVENTO PRIVADO' : 'NUEVO INGRESO'}</h2>
             </div>
             <div className={styles.stepper}>
-                {['BUSQUEDA', 'CLIENTE', 'NINO', 'PAQUETE', 'ACCESORIOS', 'PAGO'].map((step, i) => (
+                {['BUSQUEDA', 'CLIENTE', 'VERIFICACION', 'NINO', 'PAQUETE', 'ACCESORIOS', 'PAGO'].map((step, i) => (
                     <div key={step} className={`${styles.stepIndicator} ${currentStep === step ? styles.active : ''}`}>
                         <div className={styles.dot} />
                         <span>PASO {i+1}</span>
@@ -466,6 +571,48 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                     </div>
                 )}
 
+                {currentStep === 'VERIFICACION' && (
+                    <div className={styles.fadeSlide}>
+                        <div className={styles.premiumFormCard}>
+                            <div className={styles.formHeader}>
+                                <div className={styles.formHeaderIcon} style={{ background: '#25D366' }}><FontAwesomeIcon icon={faWhatsapp} /></div>
+                                <div>
+                                    <h3>Confirmar WhatsApp</h3>
+                                    <p>Se envió un código a <strong>{customer.phone}</strong></p>
+                                </div>
+                            </div>
+                            <div style={{ padding: '2rem 0', textAlign: 'center' }}>
+                                <label style={{ display: 'block', marginBottom: '1rem', fontWeight: 800, color: '#64748b' }}>CÓDIGO DE 6 DÍGITOS</label>
+                                <input 
+                                    type="text" 
+                                    maxLength={6}
+                                    value={vCode}
+                                    onChange={(e) => setVCode(e.target.value.replace(/\D/g, ''))}
+                                    style={{ 
+                                        width: '320px', 
+                                        fontSize: '2.5rem', 
+                                        textAlign: 'center', 
+                                        letterSpacing: '1rem', 
+                                        paddingLeft: '1rem', // Para compensar el último letter-spacing
+                                        fontWeight: 900,
+                                        border: '3px solid #e2e8f0',
+                                        borderRadius: '16px',
+                                        padding: '1rem'
+                                    }}
+                                    placeholder="000000"
+                                />
+                                {vError && <p style={{ color: 'var(--danger)', marginTop: '1rem', fontWeight: 700 }}>{vError}</p>}
+                            </div>
+                            <div className={styles.navigationButtons}>
+                                <button className="btn btn-ghost" onClick={() => setCurrentStep('CLIENTE')}>Corregir Teléfono</button>
+                                <button className="btn btn-primary" onClick={handleVerifyCode} disabled={vCode.length !== 6 || isVerifying}>
+                                    {isVerifying ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Verificar e Ingresar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {currentStep === 'NINO' && (
                     <div className={styles.fadeSlide}>
                         <div className={styles.premiumFormCard}>
@@ -536,19 +683,48 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                           </div>
                         </>
                       ) : (
-                        activeChildren.map((child, idx) => (
-                          <div key={idx} style={{ marginBottom: '2rem' }}>
-                            <h4 style={{ color: 'var(--brand-600)', fontWeight: 900 }}>PAQUETE PARA {child.name}</h4>
-                            <div className={styles.packageGrid}>
-                              {availablePackages.filter(p => !p.es_privado).map(pkg => (
-                                <div key={pkg.id} className={`${styles.packageCard} ${childPackages[idx] === pkg.id ? styles.packageSelected : ''}`} onClick={() => setChildPackages({...childPackages, [idx]: pkg.id})}>
-                                  <strong>{pkg.nombre}</strong>
-                                  <span>${pkg.precio}</span>
+                        activeChildren.map((child, idx) => {
+                          const packagesByArea = availablePackages.filter(p => !p.es_privado).reduce((acc, pkg) => {
+                            if (!acc[pkg.area]) acc[pkg.area] = [];
+                            acc[pkg.area].push(pkg);
+                            return acc;
+                          }, {} as Record<string, Package[]>);
+
+                          return (
+                            <div key={idx} style={{ marginBottom: '3rem', paddingBottom: '2rem', borderBottom: '1px dashed #e2e8f0' }}>
+                              <h4 style={{ color: 'var(--brand-600)', fontWeight: 900, marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                PAQUETE PARA {child.name}
+                              </h4>
+                              
+                              {Object.entries(packagesByArea).map(([area, pkgs]) => (
+                                <div key={area} style={{ marginBottom: '2rem' }}>
+                                  <div className={styles.accCategoryHeader} style={{ marginBottom: '1.25rem' }}>
+                                    <div className={styles.accCategoryDot} />
+                                    <span>ÁREA: {area}</span>
+                                  </div>
+                                  <div className={styles.packageGrid}>
+                                    {pkgs.map(pkg => (
+                                      <div 
+                                        key={pkg.id} 
+                                        className={`${styles.packageCard} ${childPackages[idx] === pkg.id ? styles.packageSelected : ''}`} 
+                                        onClick={() => setChildPackages({...childPackages, [idx]: pkg.id})}
+                                      >
+                                        <div className={styles.pkgHeader}>
+                                          <strong style={{ fontSize: '1.1rem', color: '#1e293b' }}>{pkg.nombre}</strong>
+                                          <span className={styles.pkgPrice}>${pkg.precio}</span>
+                                        </div>
+                                        <div className={styles.pkgTime}>
+                                          <FontAwesomeIcon icon={faClock} style={{ marginRight: '0.4rem', color: 'var(--brand-400)' }} />
+                                          {formatDuration(pkg.duracion_minutos)}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                       <div className={styles.navigationButtons}>
                         <button className="btn btn-ghost" onClick={() => setCurrentStep('NINO')}>Atrás</button>
@@ -559,23 +735,72 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
 
                 {currentStep === 'ACCESORIOS' && (
                     <div className={styles.fadeSlide}>
-                        <h3>Accesorios Adicionales</h3>
-                        <div className={styles.accessoryGrid}>
-                            {availableAccessories.map(acc => {
-                                const qty = selectedAccessories.find(a => a.id === acc.id)?.qty || 0;
-                                return (
-                                    <div key={acc.id} className={`${styles.accessoryCard} ${qty > 0 ? styles.accessorySelected : ''}`}>
-                                        <strong>{acc.nombre}</strong>
-                                        <span>${acc.precio_venta}</span>
-                                        <div className={styles.qtyControlWidget}>
-                                            <button onClick={(e) => handleAccChange(e, acc, -1)}>-</button>
-                                            <span>{qty}</span>
-                                            <button onClick={(e) => handleAccChange(e, acc, 1)} disabled={qty >= acc.cantidad}>+</button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                        <div className={styles.accStepHeader}>
+                            <div className={styles.formHeader}>
+                                <div className={styles.formHeaderIcon}><FontAwesomeIcon icon={faTicketAlt} /></div>
+                                <div>
+                                    <h3>Accesorios Adicionales</h3>
+                                    <p>Venta sugerida y complementos</p>
+                                </div>
+                            </div>
+                            <div className={styles.accSelectionSummary}>
+                                <span className={styles.accBadge}>{selectedAccessories.reduce((sum, a) => sum + a.qty, 0)}</span>
+                                <span style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--brand-700)' }}>Artículos seleccionados</span>
+                            </div>
                         </div>
+
+                        {availableAccessories.length === 0 ? (
+                            <div className={styles.accEmptyState}>
+                                <p>No hay productos disponibles en inventario actualmente.</p>
+                            </div>
+                        ) : (
+                            Object.entries(
+                                availableAccessories.reduce((acc, item) => {
+                                    const cat = item.categoria || 'Generales';
+                                    if (!acc[cat]) acc[cat] = [];
+                                    acc[cat].push(item);
+                                    return acc;
+                                }, {} as Record<string, StockItem[]>)
+                            ).map(([category, items]) => (
+                                <div key={category} className={styles.accCategorySection}>
+                                    <div className={styles.accCategoryHeader}>
+                                        <div className={styles.accCategoryDot} />
+                                        <span>{category}</span>
+                                        <span className={styles.accCategoryCount}>{items.length} productos</span>
+                                    </div>
+                                    <div className={styles.accessoryGrid}>
+                                        {items.map(acc => {
+                                            const sel = selectedAccessories.find(a => a.id === acc.id);
+                                            const qty = sel?.qty || 0;
+                                            return (
+                                                <div 
+                                                    key={acc.id} 
+                                                    className={`${styles.accessoryCard} ${qty > 0 ? styles.accessorySelected : ''}`}
+                                                    onClick={(e) => handleAccChange(e, acc, 1)}
+                                                >
+                                                    {qty > 0 && <div className={styles.accSelectedBadge}>✓ {qty}</div>}
+                                                    <div className={styles.accCardBody}>
+                                                        <span className={styles.accName}>{acc.nombre}</span>
+                                                        <span className={styles.accPrice}>${acc.precio_venta}</span>
+                                                    </div>
+                                                    <div className={styles.accCardFooter}>
+                                                        <span className={`${acc.cantidad <= (acc.minimo_alert || 5) ? styles.accStockLow : styles.accStock}`}>
+                                                            {acc.cantidad} disp.
+                                                        </span>
+                                                        <div className={styles.qtyControlWidget} onClick={(e) => e.stopPropagation()}>
+                                                            <button className={styles.qtyBtn} onClick={(e) => handleAccChange(e, acc, -1)} disabled={qty === 0}>-</button>
+                                                            <span className={styles.qtyValue}>{qty}</span>
+                                                            <button className={styles.qtyBtn} onClick={(e) => handleAccChange(e, acc, 1)} disabled={qty >= acc.cantidad}>+</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+
                         <div className={styles.navigationButtons}>
                             <button className="btn btn-ghost" onClick={() => setCurrentStep('PAQUETE')}>Atrás</button>
                             <button className="btn btn-primary" onClick={() => setCurrentStep('PAGO')}>Ir al Pago</button>
@@ -627,7 +852,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                     </div>
                                 )}
 
-                                <div className={styles.totalRow}>
+                                <div className={styles.totalRow} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span>TOTAL A COBRAR</span>
                                     <span>${total}.00</span>
                                 </div>

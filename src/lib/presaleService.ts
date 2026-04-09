@@ -22,6 +22,7 @@ export interface Presale {
   ninos: PresaleChild[];
   total_estimado: number;
   cliente_id?: string;
+  telefono_verificado?: boolean;
 }
 
 export interface CreatePresaleInput {
@@ -30,6 +31,7 @@ export interface CreatePresaleInput {
   tutor_email?: string;
   ninos: PresaleChild[];
   total_estimado: number;
+  telefono_verificado?: boolean;
 }
 
 /** Crea una nueva preventa desde el portal público (usa cliente sin auth para evitar lock contention) */
@@ -52,6 +54,7 @@ export const createPresale = async (data: CreatePresaleInput): Promise<Presale> 
       total_estimado: data.total_estimado,
       cliente_id: existing?.id || null,
       estado: 'pendiente',
+      telefono_verificado: data.telefono_verificado || false,
       // expires_at se genera por defecto en la BD (now() + 30 min)
     })
     .select()

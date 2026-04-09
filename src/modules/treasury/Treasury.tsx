@@ -138,7 +138,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
             paymentMethod: tx.metodo_pago,
             staffEmail: user?.email || 'admin@mundodepekes.com'
         };
-        PrinterService.printRaw(PrinterService.formatGenericPOSTicket(payload), 'EPSON');
+        PrinterService.printRaw(PrinterService.formatGenericPOSTicket(payload), 'TICKET');
     };
 
     const confirmCancelTicket = async () => {

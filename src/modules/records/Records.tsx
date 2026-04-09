@@ -35,6 +35,7 @@ interface RecordData {
     isBlacklisted?: boolean;
     tutorName?: string;
     tutorPhone?: string;
+    isWhatsAppVerified?: boolean;
 }
 
 interface RecordsProps {
@@ -42,6 +43,20 @@ interface RecordsProps {
 }
 
 const PAGE_SIZE = 25;
+
+const formatPhone = (phone: string) => {
+    if (!phone) return '';
+    const clean = phone.replace(/\D/g, '');
+    if (clean.length === 10) {
+        return `(${clean.substring(0, 3)}) ${clean.substring(3, 6)}-${clean.substring(6)}`;
+    }
+    return phone;
+};
+
+const formatMultiplePhones = (phones: string) => {
+    if (!phones) return 'Sin teléfono';
+    return phones.split(',').map(p => formatPhone(p.trim())).join(', ');
+};
 
 export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -97,7 +112,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                         subtext: t.telefono || 'Sin teléfono',
                         details: `${t.visitas_acumuladas} visitas acumuladas`,
                         visits: t.visitas_acumuladas,
-                        tutorPhone: t.telefono
+                        tutorPhone: t.telefono,
+                        isWhatsAppVerified: t.whatsapp_verificado
                     });
                 });
             }
@@ -105,7 +121,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
             if (filter === 'all' || filter === 'children') {
                 let q = supabase
                     .from('ninos')
-                    .select('*, clientes(id, nombre, telefono)', { count: 'exact' })
+                    .select('*, clientes(id, nombre, telefono, whatsapp_verificado)', { count: 'exact' })
                     .ilike('nombre', `%${debouncedSearch}%`);
 
                 if (!isSearching) {
@@ -123,7 +139,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                         details: c.observaciones || 'Sin observaciones',
                         isBlacklisted: c.en_lista_negra,
                         tutorName: (c.clientes as any)?.nombre,
-                        tutorPhone: (c.clientes as any)?.telefono
+                        tutorPhone: (c.clientes as any)?.telefono,
+                        isWhatsAppVerified: (c.clientes as any)?.whatsapp_verificado
                     });
                 });
             }
@@ -305,7 +322,29 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                     </span>
                                     {item.isBlacklisted && <span className={`${styles.badge} ${styles.badgeDanger}`} style={{ marginLeft: '0.4rem' }}>⛔</span>}
                                 </td>
-                                <td data-label="Contacto">{item.subtext}</td>
+                                <td data-label="Contacto">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        {formatMultiplePhones(item.tutorPhone || '')}
+                                        {item.isWhatsAppVerified && (
+                                            <span 
+                                                title="WhatsApp Verificado" 
+                                                style={{ 
+                                                    color: '#25D366', 
+                                                    background: '#f0fdf4', 
+                                                    padding: '2px 6px', 
+                                                    borderRadius: '4px', 
+                                                    fontSize: '0.7rem',
+                                                    border: '1px solid #bbf7d0',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '3px'
+                                                }}
+                                            >
+                                                <FontAwesomeIcon icon={faWhatsapp} />
+                                            </span>
+                                        )}
+                                    </div>
+                                </td>
                                 <td data-label="Detalles" className={styles.detailsCell}>{item.details}</td>
                                 <td data-label="Acciones">
                                     <div className={styles.actionGroup} ref={menuOpenId === item.id ? menuRef : null}>

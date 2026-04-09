@@ -188,20 +188,61 @@ export class PrinterService {
     }
 
     /**
-     * Envía comandos RAW a la impresora (Simulación usando iframe para demo)
+     * Envía comandos RAW a la impresora basándose en la configuración local
      */
-    static async printRaw(content: string, printerType: 'EPSON' | 'ZEBRA') {
-        console.log(`[PRINTING ${printerType}]`, content);
+    static async printRaw(content: string, deviceRole: 'TICKET' | 'WRISTBAND') {
+        const settingsRaw = localStorage.getItem('printer_settings');
+        const settings = settingsRaw ? JSON.parse(settingsRaw) : null;
         
-        // Simulación de ventana de impresión
-        const printWindow = window.open('', '_blank', 'width=300,height=400');
-        if (printWindow) {
-            printWindow.document.write('<pre>' + content + '</pre>');
-            printWindow.document.close();
-            // En un entorno real, aquí se usaría una extensión de Chrome o API de impresión térmica
-            // printWindow.print(); 
+        const deviceSettings = deviceRole === 'TICKET' ? settings?.ticketPrinter : settings?.wristbandPrinter;
+        const connectionType = deviceSettings?.connection || 'WEBUSB';
+        
+        console.log(`[PRINT_SERVICE] Printing ${deviceRole} via ${connectionType}`);
+
+        try {
+            if (connectionType === 'PROXY' && deviceSettings?.address) {
+                // Enviar a agente local (ej: Node.js o QZ Tray)
+                await fetch(deviceSettings.address, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: content
+                });
+            } else if (connectionType === 'NETWORK' && deviceSettings?.address) {
+                // Enviar vía raw socket (requiere un proxy o backend intermedio si no hay WebSockets)
+                console.warn('Network printing requires a local gateway.');
+            } else {
+                // Por defecto o WebUSB
+                // Si ejecutamos en Chrome, podríamos intentar WebUSB aquí
+                // Para efectos de esta demo, mostramos previsualización profesional
+                const printWindow = window.open('', '_blank', 'width=400,height=600');
+                if (printWindow) {
+                    printWindow.document.write(`
+                        <html>
+                            <head>
+                                <title>Impresión de ${deviceRole}</title>
+                                <style>
+                                    body { font-family: 'Courier New', Courier, monospace; font-size: 14px; padding: 20px; }
+                                    pre { white-space: pre-wrap; word-wrap: break-word; }
+                                    .actions { margin-bottom: 20px; no-print: true; }
+                                    @media print { .actions { display: none; } }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="actions">
+                                    <button onclick="window.print()">[ IMPRIMIR EN ${deviceRole} ]</button>
+                                    <button onclick="window.close()">Cerrar</button>
+                                </div>
+                                <pre>${content}</pre>
+                            </body>
+                        </html>
+                    `);
+                    printWindow.document.close();
+                }
+            }
+            return true;
+        } catch (error) {
+            console.error('Error in print service:', error);
+            return false;
         }
-        
-        return true;
     }
 }

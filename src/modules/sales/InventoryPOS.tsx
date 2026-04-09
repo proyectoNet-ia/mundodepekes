@@ -218,8 +218,8 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                     };
                     const ticketStr = PrinterService.formatGenericPOSTicket(ticketData);
                     // Imprimimos dos tickets: Original y Copia
-                    await PrinterService.printRaw(ticketStr, 'EPSON');
-                    await PrinterService.printRaw(ticketStr, 'EPSON');
+                    await PrinterService.printRaw(ticketStr, 'TICKET');
+                    await PrinterService.printRaw(ticketStr, 'TICKET');
                 } catch (e) {
                     console.error('Error al imprimir ticket:', e);
                 }

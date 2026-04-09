@@ -17,7 +17,7 @@ interface PortalChild {
   paquete_id: string;
 }
 
-type Step = 'tutor' | 'children' | 'confirm' | 'success';
+type Step = 'tutor' | 'verify' | 'children' | 'confirm' | 'success';
 
 const toTitleCase = (str: string) =>
   str.toLowerCase().split(' ').map((w, i) => {
@@ -73,6 +73,12 @@ export const PortalPage: React.FC = () => {
   const [presaleExpiry, setPresaleExpiry] = useState<Date | null>(null);
   const [countdown, setCountdown] = useState('');
 
+  // Verificación WhatsApp
+  const [vCode, setVCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [vError, setVError] = useState('');
+  const [isVLoading, setIsVLoading] = useState(false);
+
   useEffect(() => {
     getPublicPackages()
       .then(setPackages)
@@ -114,6 +120,42 @@ export const PortalPage: React.FC = () => {
   const canGoToChildren = tutorNombre.trim().length >= 2 && tutorTelefono.replace(/\D/g, '').length === 10;
   const canGoToConfirm = ninos.every(n => n.nombre.trim() && n.edad > 0 && n.paquete_id);
 
+  const handleSendCode = async () => {
+    setIsVLoading(true);
+    setVError('');
+    try {
+      const { whatsappService } = await import('../../lib/whatsappService');
+      const { success, error } = await whatsappService.sendVerificationCode(tutorTelefono);
+      if (success) {
+        setStep('verify');
+      } else {
+        setVError(error || 'No se pudo enviar el código. Revisa el número.');
+      }
+    } catch (err) {
+      setVError('Error de conexión al enviar el código.');
+    } finally {
+      setIsVLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    setIsVerifying(true);
+    setVError('');
+    try {
+      const { whatsappService } = await import('../../lib/whatsappService');
+      const { success, error } = await whatsappService.verifyCode(tutorTelefono, vCode);
+      if (success) {
+        setStep('children');
+      } else {
+        setVError(error || 'Código incorrecto. Intenta de nuevo.');
+      }
+    } catch (err) {
+      setVError('Error al verificar el código.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setError('');
@@ -136,6 +178,7 @@ export const PortalPage: React.FC = () => {
         tutor_telefono: tutorTelefono.replace(/\D/g, ''),
         ninos: ninosData,
         total_estimado: total,
+        telefono_verificado: true,
       });
 
       setConfirmCode('PEKES-' + presale.id.substring(0, 6).toUpperCase());
@@ -166,8 +209,8 @@ export const PortalPage: React.FC = () => {
           <div className="portal-steps-bar">
             {(['tutor','children','confirm'] as const).map((s, i) => (
               <div key={s} className={`portal-step ${step === s ? 'active' : (step === 'children' && i === 0) || (step === 'confirm' && i <= 1) ? 'done' : ''}`}>
-                <div className="portal-step-dot">{((step === 'children' && i === 0) || (step === 'confirm' && i <= 1)) ? <Icon type="check" /> : i + 1}</div>
-                <span>{['Tutor', 'Pekes', 'Confirmar'][i]}</span>
+                <div className="portal-step-dot">{((step === 'verify' && i === 0) || (step === 'children' && i <= 1) || (step === 'confirm' && i <= 2)) ? <Icon type="check" /> : i + 1}</div>
+                <span>{['Registro', 'Pekes', 'Confirmar'][i]}</span>
               </div>
             ))}
           </div>
@@ -217,13 +260,80 @@ export const PortalPage: React.FC = () => {
             </div>
 
             <button
-              id="portal-btn-to-children"
+              id="portal-btn-to-verify"
               className="portal-btn portal-btn-primary"
-              disabled={!canGoToChildren}
-              onClick={() => setStep('children')}
+              disabled={!canGoToChildren || isVLoading}
+              onClick={handleSendCode}
             >
-              Continuar <span className="btn-arrow">→</span>
+              {isVLoading ? <span className="portal-spinner-sm" /> : <>Verificar WhatsApp <span className="btn-arrow">→</span></>}
             </button>
+            {vError && <div className="portal-error" style={{ marginTop: '1rem' }}>{vError}</div>}
+          </div>
+        )}
+
+        {/* PASO 1.5: Verificación de Código */}
+        {step === 'verify' && (
+          <div className="portal-card portal-animate">
+            <div className="portal-card-header">
+              <div className="portal-card-icon"><Icon type="check" /></div>
+              <div>
+                <h2>Verifica tu número</h2>
+                <p>Hemos enviado un código de 6 dígitos a <strong>{formatPhone(tutorTelefono)}</strong></p>
+              </div>
+            </div>
+
+            <div className="portal-form">
+              <div className="portal-field">
+                <label>Código de Verificación</label>
+                <input
+                  id="portal-vcode"
+                  type="text"
+                  placeholder="000000"
+                  maxLength={6}
+                  value={vCode}
+                  onChange={e => setVCode(e.target.value.replace(/\D/g, ''))}
+                  inputMode="numeric"
+                  autoFocus
+                  className="portal-vcode-input"
+                  style={{ 
+                    textAlign: 'center', 
+                    fontSize: '2rem', 
+                    letterSpacing: '0.8rem', 
+                    paddingLeft: '0.8rem',
+                    fontWeight: '900',
+                    width: '280px',
+                    margin: '0 auto',
+                    display: 'block'
+                  }}
+                />
+                <span className="portal-field-hint">Ingresa el código que recibiste por WhatsApp</span>
+              </div>
+            </div>
+
+            {vError && <div className="portal-error">{vError}</div>}
+
+            <div className="portal-nav-row">
+              <button className="portal-btn portal-btn-ghost" onClick={() => setStep('tutor')}>Cambiar número</button>
+              <button
+                id="portal-btn-do-verify"
+                className="portal-btn portal-btn-primary"
+                disabled={vCode.length !== 6 || isVerifying}
+                onClick={handleVerifyCode}
+              >
+                {isVerifying ? <span className="portal-spinner-sm" /> : 'Confirmar Código'}
+              </button>
+            </div>
+
+            <div className="portal-resend-wrap" style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+               <button 
+                className="portal-btn-link" 
+                disabled={isVLoading}
+                onClick={handleSendCode}
+                style={{ background: 'none', border: 'none', color: 'var(--p-primary)', cursor: 'pointer', fontSize: '0.9rem' }}
+               >
+                 ¿No recibiste el código? Reenviar
+               </button>
+            </div>
           </div>
         )}
 
