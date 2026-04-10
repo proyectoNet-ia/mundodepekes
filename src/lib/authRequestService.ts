@@ -64,6 +64,15 @@ export const authRequestService = {
         { event: 'UPDATE', schema: 'public', table: 'solicitudes_autorizacion', filter: `id=eq.${requestId}` },
         (payload) => onUpdate(payload.new as AuthRequest)
       )
+      .on(
+        'broadcast',
+        { event: 'request_response' },
+        (payload) => {
+          if (payload.payload.id === requestId) {
+            onUpdate(payload.payload as AuthRequest);
+          }
+        }
+      )
       .subscribe();
   },
 
@@ -108,11 +117,20 @@ export const authRequestService = {
 
   // Aprobar o rechazar solicitud (Supervisor actua)
   async respondToRequest(requestId: string, status: 'aprobada' | 'rechazada', autorizadorId: string) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('solicitudes_autorizacion')
       .update({ estado: status, autorizador_id: autorizadorId })
-      .eq('id', requestId);
+      .eq('id', requestId)
+      .select()
+      .single();
 
     if (error) throw error;
+
+    // ✅ EMISIÓN ULTRA-RÁPIDA DE RESPUESTA
+    globalAuthChannel.send({
+      type: 'broadcast',
+      event: 'request_response',
+      payload: data
+    });
   }
 };
