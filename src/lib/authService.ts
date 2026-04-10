@@ -111,8 +111,8 @@ export const authService = {
                 return {
                     id: session.user.id,
                     email: session.user.email || 'admin@mundodepekes.com',
-                    role: 'admin', // Acceso de emergencia
-                    nombre_completo: 'Administrador (Emergencia)'
+                    role: 'cajero', // Acceso de emergencia limitado
+                    nombre_completo: 'Usuario (Modo Emergencia)'
                 };
             }
             return null;

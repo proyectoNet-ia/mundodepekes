@@ -128,13 +128,16 @@ export class ReportService {
         const summaryData: Record<string, any>[] = [
             { concepto: 'Fondo Inicial', monto: `$ ${session.monto_inicial.toFixed(2)}` },
             { concepto: 'Ventas en Efectivo (+)', monto: `$ ${summary.efectivo.toFixed(2)}` },
-            { concepto: 'Ventas con Tarjeta (Ref)', monto: `$ ${summary.tarjeta.toFixed(2)}` },
-            { concepto: 'Total Ingresos Brutos', monto: `$ ${(summary.efectivo + summary.tarjeta).toFixed(2)}` },
+            { concepto: 'SALDO NETO ESPERADO EN EFECTIVO', monto: `$ ${(session.monto_inicial + summary.efectivo - summary.gastos).toFixed(2)}` },
+            { concepto: 'Efectivo Real Contado', monto: `$ ${session.monto_final_real?.toFixed(2) || '---'}` },
+            { concepto: 'Diferencia Efectivo (+/-)', monto: `$ ${(session.monto_final_real - (session.monto_inicial + summary.efectivo - summary.gastos)).toFixed(2)}` },
             { concepto: '----------------------------', monto: '------------' },
-            { concepto: 'Gastos / Salidas en Efectivo (-)', monto: `$ ${summary.gastos.toFixed(2)}` },
-            { concepto: 'SALDO NETO ESPERADO EN CAJA', monto: `$ ${(session.monto_inicial + summary.efectivo - summary.gastos).toFixed(2)}` },
-            { concepto: 'Monto Real Contado', monto: `$ ${session.monto_final_real?.toFixed(2) || '---'}` },
-            { concepto: 'Diferencia Arqueo (+/-)', monto: `$ ${(session.monto_final_real - (session.monto_inicial + summary.efectivo - summary.gastos)).toFixed(2)}` },
+            { concepto: 'Ventas Tarjeta Esperadas', monto: `$ ${summary.tarjeta.toFixed(2)}` },
+            { concepto: 'Vouchers Tarjeta (Físico)', monto: `$ ${session.monto_final_tarjeta_real?.toFixed(2) || '---'}` },
+            { concepto: 'Diferencia Tarjeta (+/-)', monto: `$ ${(session.monto_final_tarjeta_real - summary.tarjeta).toFixed(2)}` },
+            { concepto: '----------------------------', monto: '------------' },
+            { concepto: 'Operaciones Anuladas (Cant)', monto: `${summary.cancelados_count} transacciones` },
+            { concepto: 'Monto Total Anulado (Ref)', monto: `$ ${summary.cancelados_monto.toFixed(2)}` },
             { concepto: 'Observaciones', monto: session.observaciones || 'Sin notas' },
         ];
 

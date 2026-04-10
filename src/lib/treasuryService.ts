@@ -12,6 +12,7 @@ export interface CashSession {
   monto_final_efectivo_esperado: number;
   monto_final_tarjeta_esperado: number;
   monto_final_real?: number;
+  monto_final_tarjeta_real?: number;
   observaciones?: string;
   estado: CashSessionStatus;
 }
@@ -114,16 +115,23 @@ export const getTransactionsSummary = async (since: string, arqueoId?: string) =
     query = query.eq('arqueo_id', arqueoId);
   }
 
-  const { data, error } = await query;
-
-  if (error) throw error;
-
   const summary = {
     efectivo: 0,
     tarjeta: 0,
     gastos: 0,
-    total: 0
+    total: 0,
+    cancelados_monto: 0,
+    cancelados_count: 0
   };
+
+  // Cargar transacciones (pagadas y canceladas)
+  const { data: trans, error: tError } = await supabase
+    .from('transacciones')
+    .select('total, metodo_pago, estado')
+    .eq('arqueo_id', arqueoId)
+    .gte('fecha', since);
+
+  if (tError) throw tError;
 
   // Cargar también gastos del periodo vinculado al arqueo
   const { data: expenses, error: eError } = await supabase
@@ -134,16 +142,21 @@ export const getTransactionsSummary = async (since: string, arqueoId?: string) =
   if (eError) console.warn('Error al cargar gastos:', eError);
   summary.gastos = expenses?.reduce((acc, exp) => acc + Number(exp.monto), 0) || 0;
 
-  data?.forEach((t: any) => {
+  trans?.forEach((t: any) => {
     const amount = Number(t.total);
-    if (t.metodo_pago.toLowerCase() === 'efectivo') {
-      summary.efectivo += amount;
-    } else {
-      summary.tarjeta += amount;
+    if (t.estado === 'cancelado') {
+        summary.cancelados_monto += amount;
+        summary.cancelados_count += 1;
+    } else if (t.estado === 'pagado') {
+        if (t.metodo_pago.toLowerCase() === 'efectivo') {
+          summary.efectivo += amount;
+        } else {
+          summary.tarjeta += amount;
+        }
     }
   });
 
-  // El saldo neto esperado es (Ingresos) - (Egresos)
+  // El saldo neto esperado es (Ingresos Pagados) - (Egresos)
   summary.total = (summary.efectivo + summary.tarjeta) - summary.gastos;
 
   return summary;
@@ -237,7 +250,8 @@ export const getExpenses = async (arqueoId: string): Promise<Expense[]> => {
 export const closeCash = async (id: string, data: {
   efectivo: number;
   tarjeta: number;
-  real: number;
+  realEfectivo: number;
+  realTarjeta: number;
   obs?: string;
 }) => {
   // 1. Obtener la sesión actual para tener el fondo inicial
@@ -263,8 +277,9 @@ export const closeCash = async (id: string, data: {
   const montoInicial = Number(arqueoData.monto_inicial);
   const esperadoEfectivo = montoInicial + data.efectivo - totalGastos;
   
-  const diferencia = Math.abs(data.real - esperadoEfectivo); 
-  const estadoFinal: CashSessionStatus = diferencia > 100 ? 'auditoria' : 'corte_cerrado';
+  const diferenciaEfectivo = Math.abs(data.realEfectivo - esperadoEfectivo); 
+  const diferenciaTarjeta = Math.abs(data.realTarjeta - data.tarjeta);
+  const estadoFinal: CashSessionStatus = (diferenciaEfectivo > 100 || diferenciaTarjeta > 100) ? 'auditoria' : 'corte_cerrado';
 
   const { error } = await supabase
     .from('arqueos_caja')
@@ -272,7 +287,8 @@ export const closeCash = async (id: string, data: {
       fecha_cierre: new Date().toISOString(),
       monto_final_efectivo_esperado: data.efectivo,
       monto_final_tarjeta_esperado: data.tarjeta,
-      monto_final_real: data.real,
+      monto_final_real: data.realEfectivo,
+      monto_final_tarjeta_real: data.realTarjeta,
       observaciones: data.obs,
       estado: estadoFinal
     })
@@ -283,17 +299,25 @@ export const closeCash = async (id: string, data: {
   await AuditService.log({
     accion: estadoFinal === 'auditoria' ? 'DISCREPANCIA' : 'CIERRE',
     modulo: 'TESORERIA',
-    descripcion: `Cierre de caja ${id}. Diferencia: $ ${diferencia.toFixed(2)}. ${data.obs || ''}`,
-    metadatos: { arqueo_id: id, diferencia, real: data.real, esperado: esperadoEfectivo },
+    descripcion: `Cierre de caja ${id}. Dif Efectivo: $ ${diferenciaEfectivo.toFixed(2)}, Dif Tarjeta: $ ${diferenciaTarjeta.toFixed(2)}. ${data.obs || ''}`,
+    metadatos: { 
+        arqueo_id: id, 
+        diferenciaEfectivo, 
+        diferenciaTarjeta,
+        realEfectivo: data.realEfectivo, 
+        esperadoEfectivo,
+        realTarjeta: data.realTarjeta,
+        esperadoTarjeta: data.tarjeta
+    },
     severidad: estadoFinal === 'auditoria' ? 'CRITICAL' : 'INFO'
   });
 
   const title = estadoFinal === 'auditoria' ? '⚠️ DISCREPANCIA EN CIERRE' : '🔒 Caja Cerrada';
   const msg = estadoFinal === 'auditoria' 
-    ? `Cierre con diferencia de $${diferencia.toFixed(2)}. (Esperado: $${esperadoEfectivo.toFixed(2)} | Real: $${data.real.toFixed(2)})`
-    : `Turno finalizado con un saldo real de $${data.real.toFixed(2)}.`;
+    ? `Cierre con discrepancia. Efectivo: $${diferenciaEfectivo.toFixed(2)} | Tarjeta: $${diferenciaTarjeta.toFixed(2)}`
+    : `Turno finalizado. Efectivo Real: $${data.realEfectivo.toFixed(2)} | Tarjeta Real: $${data.realTarjeta.toFixed(2)}.`;
 
-  await notificationsService.notify('cash_close', title, msg, { arqueo_id: id, diferencia, estado: estadoFinal });
+  await notificationsService.notify('cash_close', title, msg, { arqueo_id: id, diferenciaEfectivo, diferenciaTarjeta, estado: estadoFinal });
 
   return { success: true, estado: estadoFinal };
 };

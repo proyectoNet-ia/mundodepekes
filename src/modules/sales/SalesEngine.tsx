@@ -246,32 +246,27 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
 
   const handleCustomerContinue = async () => {
       if (isPrivateEvent) { setCurrentStep('NINO'); return; }
-      setIsLoading(true);
       try {
+          const { whatsappService } = await import('../../lib/whatsappService');
           const cleanPhone = customer.phone.replace(/\D/g, '');
-          const cleanSecondary = secondaryPhones.map(p => p.replace(/\D/g, '')).filter(p => p.length >= 10);
-          let orQuery = `telefono.ilike.%${cleanPhone}%`;
-          cleanSecondary.forEach(sp => { orQuery += `,telefono.ilike.%${sp}%`; });
-          const { data, error } = await supabase.from('clientes').select('id, nombre, whatsapp_verificado').or(orQuery);
-          
-          if (!error && data && data.length > 0) {
-              const duplicate = data.find(c => c.id !== customer.id);
-              if (duplicate) {
-                  showToast(`El teléfono ya pertenece a "${duplicate.nombre}".`, 'warning');
-                  setIsLoading(false);
-                  return;
-              }
-              
-              // Si ya está verificado, saltar verificación
-              if (data[0].whatsapp_verificado) {
-                  setCustomer(prev => ({ ...prev, whatsapp_verificado: true }));
-                  setCurrentStep('NINO');
-                  return;
-              }
+
+          // 1. Si no hay teléfono o es evento privado, saltar validación extra aquí (se valida en step)
+          if (cleanPhone.length < 10) {
+              if (isPrivateEvent) setCurrentStep('NINO');
+              else showToast('Teléfono inválido.', 'warning');
+              return;
           }
 
-          // Iniciar verificación
-          const { whatsappService } = await import('../../lib/whatsappService');
+          // 2. Verificar si el número YA está verificado en la base de datos
+          const alreadyVerified = await whatsappService.isAlreadyVerified(cleanPhone);
+          
+          if (alreadyVerified) {
+              setCustomer(prev => ({ ...prev, whatsapp_verificado: true }));
+              setCurrentStep('NINO');
+              return;
+          }
+
+          // 3. Si no está verificado, enviar código
           const { success, error: vErr } = await whatsappService.sendVerificationCode(customer.phone);
           if (success) {
               setCurrentStep('VERIFICACION');
@@ -324,6 +319,15 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
         setIsLoading(true);
         try {
             const { whatsappService } = await import('../../lib/whatsappService');
+            
+            // Re-checar si ya está verificado por si se cambió el número
+            const alreadyVerified = await whatsappService.isAlreadyVerified(customer.phone);
+            if (alreadyVerified) {
+                setCustomer(prev => ({ ...prev, whatsapp_verificado: true }));
+                setCurrentStep('PAQUETE');
+                return;
+            }
+
             const { success, error: vErr } = await whatsappService.sendVerificationCode(customer.phone);
             if (success) {
                 setCurrentStep('VERIFICACION');

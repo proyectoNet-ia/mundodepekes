@@ -125,6 +125,15 @@ export const PortalPage: React.FC = () => {
     setVError('');
     try {
       const { whatsappService } = await import('../../lib/whatsappService');
+      
+      // 1. Verificar si el número ya está validado históricamente
+      const alreadyVerified = await whatsappService.isAlreadyVerified(tutorTelefono);
+      if (alreadyVerified) {
+        setStep('children');
+        return;
+      }
+
+      // 2. Si no, enviar el código
       const { success, error } = await whatsappService.sendVerificationCode(tutorTelefono);
       if (success) {
         setStep('verify');

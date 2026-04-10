@@ -27,7 +27,7 @@ interface TreasuryProps {
 export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     const { showToast } = useToast();
     const [activeSession, setActiveSession] = useState<CashSession | null>(null);
-    const [summary, setSummary] = useState({ efectivo: 0, tarjeta: 0, gastos: 0, total: 0 });
+    const [summary, setSummary] = useState({ efectivo: 0, tarjeta: 0, gastos: 0, total: 0, cancelados_monto: 0, cancelados_count: 0 });
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [montoApertura, setMontoApertura] = useState('');
@@ -176,33 +176,40 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     };
 
     const [showCloseModal, setShowCloseModal] = useState(false);
-    const [montoReal, setMontoReal] = useState('');
+    const [montoRealEfectivo, setMontoRealEfectivo] = useState('');
+    const [montoRealTarjeta, setMontoRealTarjeta] = useState('');
 
     const handleClose = async () => {
         if (!activeSession) return;
-        const monto = getNumericAmount(montoReal);
-        if (!montoReal || isNaN(monto)) return showToast('Ingrese el monto real contado.', 'warning', 'Arqueo Erróneo');
+        const realEfectivo = getNumericAmount(montoRealEfectivo);
+        const realTarjeta = getNumericAmount(montoRealTarjeta);
+        
+        if (!montoRealEfectivo || isNaN(realEfectivo)) return showToast('Ingrese el monto físico de efectivo.', 'warning', 'Arqueo Erróneo');
+        if (!montoRealTarjeta || isNaN(realTarjeta)) return showToast('Ingrese el monto total en vouchers de tarjeta.', 'warning', 'Arqueo Erróneo');
 
         setIsLoading(true);
         try {
             const { estado: estadoFinal } = await closeCash(activeSession.id, {
                 efectivo: summary.efectivo,
                 tarjeta: summary.tarjeta,
-                real: monto,
+                realEfectivo: realEfectivo,
+                realTarjeta: realTarjeta,
                 obs: obs
             });
             
             // Generar reporte automático al cerrar
             const closingSession: CashSession = {
                 ...activeSession,
-                monto_final_real: monto,
+                monto_final_real: realEfectivo,
+                monto_final_tarjeta_real: realTarjeta,
                 estado: estadoFinal
             };
             await ReportService.generateClosureReport(closingSession, summary, 'PDF');
 
             showToast('Caja cerrada correctamente. Documento generado.', 'success', 'Arqueo Finalizado');
             setObs('');
-            setMontoReal('');
+            setMontoRealEfectivo('');
+            setMontoRealTarjeta('');
             setShowCloseModal(false);
             await loadData();
         } catch (error) {
@@ -365,6 +372,11 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                             <span>Saldo Neto en Caja:</span>
                             <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(activeSession ? activeSession.monto_inicial + summary.efectivo + summary.tarjeta - summary.gastos : 0).toFixed(2)}</strong>
                         </div>
+                        {summary.cancelados_count > 0 && (
+                            <div className={styles.cancelledSummary}>
+                                <FontAwesomeIcon icon={faBan} /> {summary.cancelados_count} operaciones anuladas por un total de <strong>${summary.cancelados_monto.toFixed(2)}</strong> (Informativo)
+                            </div>
+                        )}
                     </div>
 
                     <div className={styles.obsSection}>
@@ -418,18 +430,33 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                     </div>
                                 </div>
 
-                                <div className={styles.inputGroup}>
-                                    <label>Monto real contado en caja (Total)</label>
-                                    <div className={styles.inputWithIcon}>
-                                        <span>$</span>
-                                        <input 
-                                            type="text" 
-                                            autoFocus
-                                            value={montoReal}
-                                            onChange={(e) => setMontoReal(formatMoney(e.target.value))}
-                                            onFocus={(e) => e.target.select()}
-                                            placeholder="0.00"
-                                        />
+                                <div className={styles.inputGrid}>
+                                    <div className={styles.inputGroup}>
+                                        <label>Efectivo contado (Físico)</label>
+                                        <div className={styles.inputWithIcon}>
+                                            <span>$</span>
+                                            <input 
+                                                type="text" 
+                                                autoFocus
+                                                value={montoRealEfectivo}
+                                                onChange={(e) => setMontoRealEfectivo(formatMoney(e.target.value))}
+                                                onFocus={(e) => e.target.select()}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className={styles.inputGroup}>
+                                        <label>Vouchers Tarjeta (Total)</label>
+                                        <div className={styles.inputWithIcon}>
+                                            <span>$</span>
+                                            <input 
+                                                type="text" 
+                                                value={montoRealTarjeta}
+                                                onChange={(e) => setMontoRealTarjeta(formatMoney(e.target.value))}
+                                                onFocus={(e) => e.target.select()}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 

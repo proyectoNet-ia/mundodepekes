@@ -5,6 +5,29 @@ const WHATSAPP_TOKEN   = import.meta.env.VITE_WHATSAPP_TOKEN   || '';
 
 export const whatsappService = {
   /**
+   * Verifica si un número ya ha sido validado previamente en el sistema (clientes).
+   */
+  async isAlreadyVerified(telefono: string): Promise<boolean> {
+    try {
+      const cleanPhone = telefono.replace(/\D/g, '');
+      const { data, error } = await supabasePublic
+        .from('clientes')
+        .select('whatsapp_verificado')
+        .eq('telefono', cleanPhone)
+        .eq('whatsapp_verificado', true)
+        .maybeSingle();
+
+      if (error) {
+          console.warn('No se pudo verificar estatus previo:', error);
+          return false;
+      }
+      return !!data;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  /**
    * Genera un código de 6 dígitos, lo guarda en la BD y lo envía por WhatsApp.
    */
   async sendVerificationCode(telefono: string): Promise<{ success: boolean; error?: string }> {
