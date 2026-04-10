@@ -57,7 +57,7 @@ export const useResilience = () => {
           results.epson = 'connected';
       } else if (settings.ticketPrinter?.connection === 'PROXY' && settings.ticketPrinter.address) {
           try {
-              const res = await fetch(settings.ticketPrinter.address, { method: 'HEAD', mode: 'no-cors' });
+              await fetch(settings.ticketPrinter.address, { method: 'HEAD', mode: 'no-cors' });
               results.epson = 'connected';
           } catch (e) {
               results.epson = 'disconnected';
