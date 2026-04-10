@@ -36,14 +36,52 @@ export const useResilience = () => {
       setStatus(prev => ({ ...prev, pendingSyncCount: count }));
     });
 
-    // 3. Simulated Hardware Check
-    const checkHardware = setTimeout(() => {
-      setStatus(prev => ({
-        ...prev,
-        printerEpson: 'connected',
-        printerZebra: 'connected',
+    // 3. Real Hardware Check
+    const checkHardware = async () => {
+      const settingsRaw = localStorage.getItem('printer_settings');
+      if (!settingsRaw) {
+        setStatus(prev => ({ ...prev, printerEpson: 'disconnected', printerZebra: 'disconnected' }));
+        return;
+      }
+
+      const settings = JSON.parse(settingsRaw);
+      const results = {
+        epson: 'disconnected' as 'connected' | 'disconnected',
+        zebra: 'disconnected' as 'connected' | 'disconnected'
+      };
+
+      // Verificar Epson (Ticket)
+      if (settings.ticketPrinter?.connection === 'WEBUSB') {
+          // En WebUSB no podemos "pinguear" sin permiso/interacción, 
+          // pero si está configurada, la marcamos como vinculada.
+          results.epson = 'connected';
+      } else if (settings.ticketPrinter?.connection === 'PROXY' && settings.ticketPrinter.address) {
+          try {
+              const res = await fetch(settings.ticketPrinter.address, { method: 'HEAD', mode: 'no-cors' });
+              results.epson = 'connected';
+          } catch (e) {
+              results.epson = 'disconnected';
+          }
+      } else if (settings.ticketPrinter?.connection === 'NETWORK') {
+          results.epson = 'connected'; // Asumimos configurada
+      }
+
+      // Verificar Zebra (Wristband)
+      if (settings.wristbandPrinter?.connection === 'WEBUSB') {
+          results.zebra = 'connected';
+      } else if (settings.wristbandPrinter?.connection === 'NETWORK' && settings.wristbandPrinter.address) {
+          results.zebra = 'connected';
+      }
+
+      setStatus(prev => ({ 
+        ...prev, 
+        printerEpson: results.epson, 
+        printerZebra: results.zebra 
       }));
-    }, 1500);
+    };
+
+    checkHardware();
+    const hardwareInterval = setInterval(checkHardware, 30000); // Re-checar cada 30s
 
     // 4. Medidor de Velocidad Constante (Network Information API)
     const updateNetworkData = () => {
@@ -101,7 +139,7 @@ export const useResilience = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       unsubscribe();
-      clearTimeout(checkHardware);
+      clearInterval(hardwareInterval);
       if (conn) conn.removeEventListener('change', updateNetworkData);
       clearInterval(speedInterval);
       clearInterval(offlinePollInterval);

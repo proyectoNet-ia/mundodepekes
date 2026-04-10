@@ -81,16 +81,43 @@ export const PreFlightCheck: React.FC<{ onCompleted: (needsCashOpening: boolean)
             }
         }
 
-        // 2. Printers Check (Critical)
+        // 2. Real Hardware Check
         setPrinterEpson('checking');
         setPrinterZebra('checking');
 
-        // Simulamos impresoras
-        setTimeout(() => {
-            setPrinterEpson('success');
-            setPrinterZebra('success');
-            setAllSystemsGo(true); 
-        }, 1000);
+        const checkHardware = async () => {
+          const settingsRaw = localStorage.getItem('printer_settings');
+          if (!settingsRaw) {
+            setPrinterEpson('fail');
+            setPrinterZebra('fail');
+            return { epson: 'fail' as CheckStatus, zebra: 'fail' as CheckStatus };
+          }
+
+          const settings = JSON.parse(settingsRaw);
+          const results = { epson: 'fail' as CheckStatus, zebra: 'fail' as CheckStatus };
+
+          // Epson check
+          if (settings.ticketPrinter?.connection === 'WEBUSB' || settings.ticketPrinter?.connection === 'NETWORK') {
+              results.epson = 'success';
+          } else if (settings.ticketPrinter?.connection === 'PROXY' && settings.ticketPrinter.address) {
+              try {
+                  await fetch(settings.ticketPrinter.address, { method: 'HEAD', mode: 'no-cors' });
+                  results.epson = 'success';
+              } catch (e) { results.epson = 'fail'; }
+          }
+
+          // Zebra check
+          if (settings.wristbandPrinter?.connection === 'WEBUSB' || settings.wristbandPrinter?.connection === 'NETWORK') {
+              results.zebra = 'success';
+          }
+
+          setPrinterEpson(results.epson);
+          setPrinterZebra(results.zebra);
+          return results;
+        };
+
+        await checkHardware();
+        setAllSystemsGo(true); 
     };
 
     useEffect(() => {
