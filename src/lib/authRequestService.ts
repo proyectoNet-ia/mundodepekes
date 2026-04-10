@@ -13,6 +13,10 @@ export interface AuthRequest {
   metadata?: any;
 }
 
+// Canal global para eventos instantáneos (Broadcast)
+const globalAuthChannel = supabase.channel('global-auth-events');
+globalAuthChannel.subscribe();
+
 export const authRequestService = {
   // Crear una nueva solicitud (Cajero)
   async createRequest(req: Partial<AuthRequest>) {
@@ -32,8 +36,15 @@ export const authRequestService = {
 
     if (error) throw error;
 
-    // ✅ Emitir también en la tabla de notificaciones para garantizar entrega al admin
-    // (doble canal: solicitudes_autorizacion + notificaciones)
+    // ✅ EMISIÓN ULTRA-RÁPIDA (BROADCAST)
+    // No espera a la DB, se envía de inmediato a todos los navegadores abiertos
+    globalAuthChannel.send({
+      type: 'broadcast',
+      event: 'new_request',
+      payload: data
+    });
+
+    // ✅ Notificación persistente
     await notificationsService.notify(
       'auth_request',
       `🔐 Firma Requerida: ${user.email?.split('@')[0] || 'Cajero'}`,
@@ -81,10 +92,15 @@ export const authRequestService = {
         { event: 'INSERT', schema: 'public', table: 'solicitudes_autorizacion' },
         (payload) => {
           const req = payload.new as AuthRequest;
-          // Filtrar en cliente: solo procesar las que llegan en estado pendiente
-          if (req.estado === 'pendiente') {
-            onNew(req);
-          }
+          if (req.estado === 'pendiente') onNew(req);
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'new_request' },
+        (payload) => {
+          // El broadcast llega ANTES que el postgres_changes
+          onNew(payload.payload as AuthRequest);
         }
       )
       .subscribe();

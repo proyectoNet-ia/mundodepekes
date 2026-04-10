@@ -78,7 +78,11 @@ export const RemoteAuthBell: React.FC = () => {
             let authChannel: any = null;
             if (canSeeAuthRequests(currUser.role)) {
                 authChannel = authRequestService.subscribeToNewRequests((newReq) => {
-                    setPendingRequests(prev => [newReq, ...prev]);
+                    setPendingRequests(prev => {
+                        // Deduplicar (por si llega por broadcast y luego por postgres_changes)
+                        if (prev.some(r => r.id === newReq.id)) return prev;
+                        return [newReq, ...prev];
+                    });
                     showToast(`Firma Requerida: ${newReq.solicitante_nombre}`, 'info');
                     setActiveTab('auth');
                 });
@@ -88,11 +92,10 @@ export const RemoteAuthBell: React.FC = () => {
                 if (!allowedTypes.includes(notification.type)) return;
 
                 if (notification.type === 'auth_request' && canSeeAuthRequests(currUser.role)) {
-                    const freshRequests = await authRequestService.getPendingRequests();
-                    setPendingRequests(freshRequests);
-                    showToast(notification.title, 'info');
-                    setActiveTab('auth');
+                    // No hace falta re-fetchear todo, el authChannel ya debió capturarlo
+                    // Solo abrimos el panel para alertar al supervisor
                     handleTogglePanel(true);
+                    setActiveTab('auth');
                 } else {
                     // Si el panel ya está abierto, marcar como leída de inmediato
                     if (panelOpenRef.current) {
