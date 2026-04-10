@@ -1486,10 +1486,11 @@
 }
 
 .openInputGroup span {
-    font-size: 2.5rem;
-    font-weight: 900;
-    color: #94a3b8;
-    margin-right: 0.5rem;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #cbd5e1;
+    margin-right: 0.75rem;
+    user-select: none;
 }
 
 .openInputGroup input {

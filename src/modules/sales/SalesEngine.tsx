@@ -477,7 +477,10 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 <h2>Caja Cerrada</h2>
                 <div className={styles.quickOpenForm}>
                     <label>FONDO INICIAL</label>
-                    <input type="text" value={openingAmount} onChange={(e) => setOpeningAmount(formatMoney(e.target.value))} placeholder="0.00" />
+                    <div className={styles.openInputGroup}>
+                        <span>$</span>
+                        <input type="text" value={openingAmount} onChange={(e) => setOpeningAmount(formatMoney(e.target.value))} placeholder="0.00" />
+                    </div>
                     <button className={styles.openCashBtn} onClick={handleOpenCash}>Abrir Turno</button>
                     <button className={styles.secondaryNavBtn} onClick={onCancel}>Volver</button>
                 </div>
