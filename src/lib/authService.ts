@@ -108,11 +108,13 @@ export const authService = {
             ]) as any;
 
             if (session?.user) {
+                // Alerta Obligatoria: Registrar que se está abusando del modo offline
+                console.warn('⚠️ MODO EMERGENCIA ACTIVADO. Operaciones críticas bloqueadas.');
                 return {
                     id: session.user.id,
                     email: session.user.email || 'admin@mundodepekes.com',
-                    role: 'cajero', // Acceso de emergencia limitado
-                    nombre_completo: 'Usuario (Modo Emergencia)'
+                    role: 'cajero', // Forzar siempre el nivel de privilegio más bajo en offline
+                    nombre_completo: 'Usuario (Offline Estricto)'
                 };
             }
             return null;
@@ -123,21 +125,15 @@ export const authService = {
     },
 
     async validateManagerPin(pin: string): Promise<UserProfile | null> {
-        const { data: profile, error } = await supabase
-            .from('perfiles')
-            .select('*')
-            .eq('pin_seguridad', pin)
-            .in('rol_slug', ['admin', 'supervisor', 'gerente'])
-            .single();
+        // Validación SEGURA: Se ejecuta en el lado del servidor para evitar descarga masiva de PINs (Punto 3.1)
+        const { data, error } = await supabase.rpc('validar_pin_supervisor', { pin_ingresado: pin });
 
-        if (error || !profile) return null;
+        if (error || !data) {
+            console.error('Error o PIN inválido:', error);
+            return null;
+        }
 
-        return {
-            id: profile.id,
-            email: profile.email,
-            role: profile.rol_slug as UserRole,
-            nombre_completo: profile.nombre_completo || profile.email.split('@')[0]
-        };
+        return data as UserProfile;
     },
 
     async logSecurityEvent(event: {

@@ -36,23 +36,17 @@ export const whatsappService = {
       const cleanPhone = telefono.replace(/\D/g, '');
       if (cleanPhone.length < 10) throw new Error('Número de teléfono inválido');
 
-      // 2. Generar código aleatorio
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 10 * 60000); // 10 minutos
-
-      // 3. Guardar en Supabase (usando el cliente público)
-      const { error: dbError } = await supabasePublic
-        .from('verificaciones_whatsapp')
-        .insert({
-          telefono: cleanPhone,
-          codigo: code,
-          expires_at: expiresAt.toISOString(),
-          verificado: false
-        });
+      // 2. Generar y guardar código usando el sistema seguro (RPC) para Rate Limiting
+      const { data, error: dbError } = await supabasePublic.rpc('generar_codigo_whatsapp', {
+          telefono_input: cleanPhone
+      });
 
       if (dbError) throw dbError;
+      if (!data.success) throw new Error(data.error || 'No se pudo generar el código');
 
-      // 4. Enviar vía API de WhatsApp (Simulado si no hay URL configurada)
+      const code = data.codigo;
+
+      // 3. Enviar vía API de WhatsApp (Simulado si no hay URL configurada)
       if (!WHATSAPP_API_URL || !WHATSAPP_TOKEN) {
         console.warn('⚠️ WhatsApp API no configurada. Código de verificación (DEBUG):', code);
         // En desarrollo, podemos retornar éxito pero avisar que es simulado
@@ -93,32 +87,14 @@ export const whatsappService = {
     try {
       const cleanPhone = telefono.replace(/\D/g, '');
 
-      // 🧪 MODO TEST: Permite validar el proceso sin esperar el mensaje
-      if (code === '123456') {
-        return { success: true };
-      }
-
-      const { data, error } = await supabasePublic
-        .from('verificaciones_whatsapp')
-        .select('*')
-        .eq('telefono', cleanPhone)
-        .eq('codigo', code)
-        .eq('verificado', false)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // 1. Delegar verificación al backend (Controla intentos y expiración)
+      const { data, error } = await supabasePublic.rpc('verificar_codigo_whatsapp', {
+          telefono_input: cleanPhone,
+          codigo_input: code
+      });
 
       if (error) throw error;
-      if (!data) return { success: false, error: 'Código inválido o expirado.' };
-
-      // Marcar como verificado
-      const { error: updateError } = await supabasePublic
-        .from('verificaciones_whatsapp')
-        .update({ verificado: true })
-        .eq('id', data.id);
-
-      if (updateError) throw updateError;
+      if (!data.success) return { success: false, error: data.error };
 
       return { success: true };
     } catch (error: any) {
