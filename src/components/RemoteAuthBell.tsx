@@ -12,7 +12,7 @@ export const RemoteAuthBell: React.FC = () => {
     const { showToast } = useToast();
     const [user, setUser] = useState<UserProfile | null>(null);
     const [pendingRequests, setPendingRequests] = useState<AuthRequest[]>([]);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<(Notification & { readAt?: number })[]>([]);
     const [showPanel, setShowPanel] = useState(false);
     const [activeTab, setActiveTab] = useState<'auth' | 'ops'>('auth');
 
@@ -33,7 +33,7 @@ export const RemoteAuthBell: React.FC = () => {
     // Marca todas las no-leídas como leídas en BD y en estado local
     const autoMarkAllRead = useCallback(async () => {
         await notificationsService.markAllAsRead();
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setNotifications(prev => prev.map(n => ({ ...n, read: true, readAt: n.readAt || Date.now() })));
     }, []);
 
     // Abre/cierra el panel y dispara el auto-read al abrir
@@ -72,7 +72,8 @@ export const RemoteAuthBell: React.FC = () => {
             }
 
             const initialOps = await notificationsService.getRecent(15);
-            const filtered = initialOps.filter(n => allowedTypes.includes(n.type));
+            // Mostrar solo no leídas al iniciar (las leídas previas ya no se cargan)
+            const filtered = initialOps.filter(n => allowedTypes.includes(n.type) && !n.read);
             setNotifications(filtered);
 
             let authChannel: any = null;
@@ -99,7 +100,7 @@ export const RemoteAuthBell: React.FC = () => {
                 } else {
                     // Si el panel ya está abierto, marcar como leída de inmediato
                     if (panelOpenRef.current) {
-                        setNotifications(prev => [{ ...notification, read: true }, ...prev]);
+                        setNotifications(prev => [{ ...notification, read: true, readAt: Date.now() }, ...prev]);
                         await notificationsService.markAsRead(notification.id);
                     } else {
                         setNotifications(prev => [notification, ...prev]);
@@ -158,9 +159,16 @@ export const RemoteAuthBell: React.FC = () => {
         });
 
         init();
+
+        // 🧹 Limpiador automático: remueve de la lista notificaciones leídas hace más de 30s
+        const sweepInterval = setInterval(() => {
+            setNotifications(prev => prev.filter(n => !n.read || !n.readAt || (Date.now() - n.readAt < 30000)));
+        }, 5000);
+
         return () => {
             subscription.unsubscribe();
             if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
+            clearInterval(sweepInterval);
         };
     }, []);
 

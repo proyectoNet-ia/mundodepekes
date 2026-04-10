@@ -13,6 +13,10 @@ export interface Notification {
     metadata?: any;
 }
 
+// Canal global para notificaciones instantáneas (Broadcast)
+const globalNotifChannel = supabase.channel('global-notif-events');
+globalNotifChannel.subscribe();
+
 export const notificationsService = {
     /**
      * Registra una nueva notificación en DB y la emite en tiempo real
@@ -50,6 +54,14 @@ export const notificationsService = {
                 .single();
 
             if (error) throw error;
+            
+            // ✅ Emisión ultra-rápida (Broadcast)
+            globalNotifChannel.send({
+                type: 'broadcast',
+                event: 'new_notification',
+                payload: data
+            });
+
             return { success: true, notification: data };
         } catch (error) {
             console.error('Error al emitir notificación:', error);
@@ -58,12 +70,14 @@ export const notificationsService = {
     },
 
     /**
-     * Obtiene las notificaciones más recientes
+     * Obtiene las notificaciones más recientes (Últimas 24 horas)
      */
     async getRecent(limit = 20) {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { data, error } = await supabase
             .from('notificaciones')
                 .select('*')
+                .gte('created_at', twentyFourHoursAgo)
                 .order('created_at', { ascending: false })
                 .limit(limit);
         
@@ -107,6 +121,13 @@ export const notificationsService = {
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones' }, payload => {
                 callback(payload.new as Notification);
             })
+            .on(
+                'broadcast',
+                { event: 'new_notification' },
+                (payload) => {
+                    callback(payload.payload as Notification);
+                }
+            )
             .subscribe();
     }
 };
