@@ -6,6 +6,7 @@ import { stockService, type StockItem } from '../../lib/stockService';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye, faSignature, faUserPen, faEnvelope, faChild, faTableTennisPaddleBall, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
+import { PortalQR } from '../../components/PortalQR';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { PrinterConfig } from './PrinterConfig';
@@ -190,7 +191,7 @@ export const Backoffice: React.FC = () => {
 
   const renderStaffSection = () => (
     <section className={styles.configCard}>
-        <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
                 <h3><FontAwesomeIcon icon={faUsers} /> Gestión de Personal y Seguridad</h3>
                 <p>Administre roles y PINs de autorización para gerentes y cajeros.</p>
@@ -339,12 +340,12 @@ export const Backoffice: React.FC = () => {
 
   const renderInventorySection = () => (
     <section className={styles.configCard}>
-        <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
                 <h3><FontAwesomeIcon icon={faBoxes} /> Catálogo de Inventarios</h3>
                 <p>Gestione productos, precios y umbrales de alerta de stock.</p>
             </div>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={showInactiveStock} onChange={(e) => setShowInactiveStock(e.target.checked)} />
                     Ver archivados
@@ -607,12 +608,12 @@ export const Backoffice: React.FC = () => {
           {activeSection === 'CATALOGS' && (
             // ... (keeping existing catalogs code)
             <section className={styles.configCard}>
-              <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                   <h3><FontAwesomeIcon icon={faBoxOpen} /> Catálogo de Paquetes</h3>
                   <p>Gestione los tipos de entrada y costos del parque infantil.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                     Ver archivados
@@ -886,17 +887,47 @@ export const Backoffice: React.FC = () => {
           )}
 
           {activeSection === 'BRANDING' && (
-            <section className={styles.configCard}>
-              <h3>Marca y Personalización</h3>
-              <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
-                <label>Nombre del Negocio (Ticket y Tickets App)</label>
-                <input type="text" className={styles.input} value={settings.nombre_negocio || ''} onChange={(e) => setSettings({...settings, nombre_negocio: e.target.value})} placeholder="Ej. Mundo de Pekes" />
+            <section className={styles.configCard} style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '300px' }}>
+                <h3>Marca y Personalización</h3>
+                <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
+                  <label>Logotipo del Sistema</label>
+                  {settings.logo_url && (
+                      <img src={settings.logo_url} alt="Logo" style={{ height: '80px', objectFit: 'contain', marginBottom: '0.5rem', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', alignSelf: 'flex-start' }} />
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/png, image/jpeg, image/jpg, image/webp" 
+                    className={styles.input} 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                          if (file.size > 2 * 1024 * 1024) {
+                              showToast('El logo no debe exceder 2MB', 'error');
+                              return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                              setSettings({...settings, logo_url: ev.target?.result as string});
+                          };
+                          reader.readAsDataURL(file);
+                      }
+                    }} 
+                  />
+                </div>
+                <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
+                  <label>Nombre del Negocio (Ticket y Tickets App)</label>
+                  <input type="text" className={styles.input} value={settings.nombre_negocio || ''} onChange={(e) => setSettings({...settings, nombre_negocio: e.target.value})} placeholder="Ej. Mundo de Pekes" />
+                </div>
+                <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
+                  <label>Mensaje de Pie de Página en Ticket</label>
+                  <textarea className={styles.input} rows={3} value={settings.texto_ticket || ''} onChange={(e) => setSettings({...settings, texto_ticket: e.target.value})} placeholder="Mensaje de despedida u ofertas..." />
+                </div>
+                <button className="btn btn-primary" onClick={() => handleSaveSettings('Datos de marca actualizados.')} disabled={isLoading}>{isLoading ? 'Guardando...' : 'Actualizar Marca'}</button>
               </div>
-              <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
-                <label>Mensaje de Pie de Página en Ticket</label>
-                <textarea className={styles.input} rows={3} value={settings.texto_ticket || ''} onChange={(e) => setSettings({...settings, texto_ticket: e.target.value})} placeholder="Mensaje de despedida u ofertas..." />
+              <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+                <PortalQR />
               </div>
-              <button className="btn btn-primary" onClick={() => handleSaveSettings('Datos de marca actualizados.')} disabled={isLoading}>{isLoading ? 'Guardando...' : 'Actualizar Marca'}</button>
             </section>
           )}
 

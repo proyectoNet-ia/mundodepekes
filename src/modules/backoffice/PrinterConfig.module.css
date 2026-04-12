@@ -186,3 +186,28 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+@media (max-width: 800px) {
+    .configContainer {
+        padding: 1rem;
+    }
+    
+    .settingsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .connectionToggle {
+        flex-direction: column;
+    }
+
+    .footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1.5rem;
+    }
+
+    .saveBtn {
+        justify-content: center;
+        width: 100%;
+    }
+}

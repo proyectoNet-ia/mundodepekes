@@ -4,6 +4,8 @@ import styles from './Login.module.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock, faRocket, faTriangleExclamation, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 
+import { getSystemSettings } from '../../lib/settingsService';
+
 interface LoginProps {
     onLoginSuccess: () => void;
 }
@@ -14,6 +16,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [sysInfo, setSysInfo] = useState<{logo: string | null, name: string}>({logo: null, name: 'Mundo de Pekes'});
+
+    React.useEffect(() => {
+        getSystemSettings().then(s => setSysInfo({ logo: s.logo_url || null, name: s.nombre_negocio || 'Mundo de Pekes' }));
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -37,10 +44,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             
             <div className={styles.loginCard}>
                 <div className={styles.header}>
-                    <div className={styles.logoCircle}>
-                        <FontAwesomeIcon icon={faRocket} />
-                    </div>
-                    <h1>Mundo de Pekes</h1>
+                    {sysInfo.logo ? (
+                        <img src={sysInfo.logo} alt="Logo" style={{ maxWidth: '200px', maxHeight: '80px', objectFit: 'contain', marginBottom: '1rem' }} />
+                    ) : (
+                        <>
+                            <div className={styles.logoCircle}>
+                                <FontAwesomeIcon icon={faRocket} />
+                            </div>
+                            <h1>{sysInfo.name}</h1>
+                        </>
+                    )}
                     <p>Admin OS — Acceso Seguro</p>
                 </div>
 

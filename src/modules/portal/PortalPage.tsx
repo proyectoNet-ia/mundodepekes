@@ -78,12 +78,17 @@ export const PortalPage: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [vError, setVError] = useState('');
   const [isVLoading, setIsVLoading] = useState(false);
+  const [sysInfo, setSysInfo] = useState<{logo: string | null, name: string}>({logo: null, name: 'Mundo de Pekes'});
 
   useEffect(() => {
     getPublicPackages()
       .then(setPackages)
       .catch(() => setError('No se pudieron cargar los paquetes. Intenta de nuevo.'))
       .finally(() => setLoadingPkgs(false));
+
+    import('../../lib/settingsService').then(({ getSystemSettings }) => {
+        getSystemSettings().then(s => setSysInfo({ logo: s.logo_url || null, name: s.nombre_negocio || 'Mundo de Pekes' }));
+    });
   }, []);
 
   // Countdown timer
@@ -206,11 +211,15 @@ export const PortalPage: React.FC = () => {
       {/* Header */}
       <header className="portal-header">
         <div className="portal-logo-wrap">
-          <div className="portal-logo-icon">
-            <Icon type="star" />
-          </div>
+          {sysInfo.logo ? (
+             <img src={sysInfo.logo} style={{ maxWidth: '60px', maxHeight: '50px', objectFit: 'contain' }} alt="Logo" />
+          ) : (
+            <div className="portal-logo-icon">
+              <Icon type="star" />
+            </div>
+          )}
           <div>
-            <h1 className="portal-brand">Mundo de Pekes</h1>
+            <h1 className="portal-brand">{sysInfo.name}</h1>
             <p className="portal-tagline">Pre-registro de Entrada</p>
           </div>
         </div>
@@ -617,7 +626,7 @@ export const PortalPage: React.FC = () => {
       </main>
 
       <footer className="portal-footer">
-        <p>© 2026 Mundo de Pekes · <a href="#">Aviso de Privacidad</a></p>
+        <p>© {new Date().getFullYear()} {sysInfo.name} · <a href="#">Aviso de Privacidad</a></p>
       </footer>
     </div>
   );

@@ -22,6 +22,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { syncService } from '../lib/syncService';
 import { useEffect } from 'react';
+import { getSystemSettings } from '../lib/settingsService';
 
 interface NavigationProps {
   activeTab: 'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos';
@@ -46,8 +47,12 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [pendingSync, setPendingSync] = useState(0);
+    const [systemLogo, setSystemLogo] = useState<string | null>(null);
 
     useEffect(() => {
+      getSystemSettings().then(settings => {
+          if (settings.logo_url) setSystemLogo(settings.logo_url);
+      });
       return syncService.onChange(setPendingSync);
     }, []);
 
@@ -166,8 +171,14 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         {/* ── DESKTOP SIDEBAR ── */}
         <nav className={styles.navContainer}>
             <div className={styles.logo}>
-              <span className={styles.logoIcon}><FontAwesomeIcon icon={faGamepad} /></span>
-              <span className={styles.logoText}>PekePark <span className={styles.adminText}>Admin</span></span>
+              {systemLogo ? (
+                <img src={systemLogo} alt="Logo" style={{ maxWidth: '80%', maxHeight: '45px', objectFit: 'contain' }} />
+              ) : (
+                <>
+                  <span className={styles.logoIcon}><FontAwesomeIcon icon={faGamepad} /></span>
+                  <span className={styles.logoText}>PekePark <span className={styles.adminText}>Admin</span></span>
+                </>
+              )}
             </div>
             <div className={styles.tabs}>{navItems}</div>
             
@@ -215,8 +226,14 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         <nav className={`${styles.drawer} ${drawerOpen ? styles.open : ''}`}>
           <div className={styles.drawerHeader}>
             <div className={styles.logo}>
-              <span className={styles.logoIcon}><FontAwesomeIcon icon={faGamepad} /></span>
-              <span className={styles.logoText}>PekePark <span className={styles.adminText}>Admin</span></span>
+              {systemLogo ? (
+                <img src={systemLogo} alt="Logo" style={{ maxWidth: '180px', maxHeight: '40px', objectFit: 'contain' }} />
+              ) : (
+                <>
+                  <span className={styles.logoIcon}><FontAwesomeIcon icon={faGamepad} /></span>
+                  <span className={styles.logoText}>PekePark <span className={styles.adminText}>Admin</span></span>
+                </>
+              )}
             </div>
             <button className={styles.drawerCloseBtn} onClick={() => setDrawerOpen(false)} aria-label="Cerrar menú">
               <FontAwesomeIcon icon={faTimes} />

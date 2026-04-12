@@ -14,6 +14,7 @@ export interface SystemSettings {
   edad_minima: number;
   edad_maxima: number;
   categorias_inventario?: string[];
+  logo_url?: string;
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
