@@ -1,0 +1,172 @@
+.bar {
+    background: var(--bg-tertiary);
+    padding: 0.4rem 2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.offline {
+    background: var(--danger);
+    color: white;
+}
+
+.statusGroup {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.separator {
+    opacity: 0.3;
+}
+
+.hardware {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.connected { color: var(--success); }
+.offline .connected { color: white; }
+.disconnected { color: var(--danger); }
+.checking { color: var(--warning); }
+
+.syncGroup {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.syncBadge {
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fdba74;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    animation: slideIn 0.3s ease-out;
+}
+
+.syncIcon {
+    animation: bounce 2s infinite;
+}
+
+.networkStatus {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 2rem;
+    font-weight: 700;
+    font-size: 0.75rem;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.pulseDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.speedFast {
+    color: #059669;
+    border-color: #a7f3d0;
+    background: #ecfdf5;
+}
+.speedFast .pulseDot {
+    background: #10b981;
+    animation: pulse 2s infinite ease-in-out;
+}
+
+.speedMedium {
+    color: #b45309;
+    border-color: #fce7f3;
+    background: #fff7ed;
+}
+.speedMedium .pulseDot {
+    background: #f59e0b;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+.speedSlow {
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+.speedSlow .pulseDot {
+    background: #ef4444;
+    animation: pulse 0.8s infinite ease-in-out;
+}
+
+.speedOffline {
+    color: #6b7280;
+    border-color: #e5e7eb;
+    background: #f3f4f6;
+}
+.speedOffline .pulseDot {
+    background: #9ca3af;
+    animation: none;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0,0,0, 0.2); }
+    70% { box-shadow: 0 0 0 4px rgba(0,0,0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0,0,0, 0); }
+}
+
+@media (max-width: 800px) {
+    .bar { padding: 0.8rem 1rem; }
+    .syncBadge span { display: none; }
+    .syncBadge { padding: 0.4rem 0.6rem; border-radius: 50%; }
+    .separator, .hardware { display: none; }
+    .networkStatus { display: none; }
+    .syncGroup { gap: 0.75rem; }
+}
+
+.toggleGroup {
+    display: flex;
+    align-items: center;
+    transition: all 0.2s ease;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.toggleGroup:hover {
+    background: rgba(0,0,0,0.05);
+}
+
+.activeText {
+    color: #0d9488;
+    background: #f0fdfa;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #99f6e4;
+    font-weight: 800;
+}
+
+.inactiveText {
+    color: #64748b;
+    background: #f8fafc;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    font-weight: 400;
+}

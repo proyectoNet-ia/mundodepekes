@@ -1,0 +1,133 @@
+import { supabase } from './supabase';
+
+export type NotificationType = 'cash_open' | 'cash_close' | 'low_stock' | 'expense' | 'auth_request';
+
+export interface Notification {
+    id: string;
+    created_at: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    user_id?: string;
+    read: boolean;
+    metadata?: any;
+}
+
+// Canal global para notificaciones instantáneas (Broadcast)
+const globalNotifChannel = supabase.channel('global-notif-events');
+globalNotifChannel.subscribe();
+
+export const notificationsService = {
+    /**
+     * Registra una nueva notificación en DB y la emite en tiempo real
+     */
+    async notify(type: NotificationType, title: string, message: string, metadata?: any) {
+        try {
+            // 🚫 DEDUPLICACIÓN INTELIGENTE: No enviar si hay una alerta igual sin leer
+            const { data: existing } = await supabase
+                .from('notificaciones')
+                .select('id')
+                .eq('type', type)
+                .eq('title', title)
+                .eq('read', false)
+                .limit(1)
+                .maybeSingle();
+
+            if (existing) {
+                return { success: true, skipped: true };
+            }
+
+            const { data: authData } = await supabase.auth.getUser();
+            const userId = authData?.user?.id || null;
+            
+            const { data, error } = await supabase
+                .from('notificaciones')
+                .insert([{
+                    type,
+                    title,
+                    message,
+                    user_id: userId,
+                    metadata,
+                    read: false
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            
+            // ✅ Emisión ultra-rápida (Broadcast)
+            globalNotifChannel.send({
+                type: 'broadcast',
+                event: 'new_notification',
+                payload: data
+            });
+
+            return { success: true, notification: data };
+        } catch (error) {
+            console.error('Error al emitir notificación:', error);
+            return { success: false, error };
+        }
+    },
+
+    /**
+     * Obtiene las notificaciones más recientes (Últimas 24 horas)
+     */
+    async getRecent(limit = 20) {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('notificaciones')
+                .select('*')
+                .gte('created_at', twentyFourHoursAgo)
+                .order('created_at', { ascending: false })
+                .limit(limit);
+        
+        if (error) return [];
+        return data as Notification[];
+    },
+
+    /**
+     * Marca una notificación como leída
+     */
+    async markAsRead(id: string) {
+        const { error } = await supabase
+            .from('notificaciones')
+            .update({ read: true })
+            .eq('id', id);
+        if (error) throw error;
+    },
+
+    /**
+     * Marca todas las notificaciones como leídas para el usuario actual
+     */
+    async markAllAsRead() {
+        const { data: authData } = await supabase.auth.getUser();
+        if (!authData?.user?.id) return;
+
+        const { error } = await supabase
+            .from('notificaciones')
+            .update({ read: true })
+            .eq('user_id', authData.user.id)
+            .eq('read', false);
+        
+        if (error) throw error;
+    },
+
+    /**
+     * Escucha notificaciones en tiempo real
+     */
+    subscribe(callback: (notification: Notification) => void) {
+        return supabase
+            .channel('public:notificaciones')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones' }, payload => {
+                callback(payload.new as Notification);
+            })
+            .on(
+                'broadcast',
+                { event: 'new_notification' },
+                (payload) => {
+                    callback(payload.payload as Notification);
+                }
+            )
+            .subscribe();
+    }
+};

@@ -1,0 +1,766 @@
+.posContainer {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 2rem;
+    height: 100%;
+    max-height: calc(100vh - 150px);
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: var(--radius-2xl);
+    overflow: hidden;
+}
+
+.productsSection {
+    background: white;
+    padding: 2rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    overflow-y: auto;
+}
+
+.posHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.posHeader h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #0f172a;
+}
+
+.searchBar {
+    position: relative;
+    width: 350px;
+    display: flex;
+    align-items: center;
+}
+
+.searchBar input {
+    width: 100%;
+    padding: 0.85rem 1rem 0.85rem 3.25rem !important;
+    border-radius: 18px !important;
+    border: 3px solid var(--brand-50) !important;
+    background: #fdfdfd !important;
+    color: var(--brand-900) !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
+}
+
+.searchBar input:focus {
+    outline: none !important;
+    border-color: var(--brand-500) !important;
+    box-shadow: 0 0 0 6px var(--brand-50), inset 0 2px 4px rgba(0,0,0,0.01) !important;
+    background: white !important;
+    transform: scale(1.02);
+}
+
+.searchIcon {
+    position: absolute;
+    left: 1.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--brand-400);
+    font-size: 1.2rem;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.productGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.productCard {
+    background: white;
+    border: 1px solid #e2e8f0;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.productCard:hover:not(.productCardDisabled) {
+    border-color: var(--brand-400);
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0,27,72,0.05);
+}
+
+.productCardDisabled {
+    opacity: 0.6;
+    background: #f8fafc;
+    cursor: not-allowed;
+    border-style: dashed;
+}
+
+.productCardDisabled .priceTag {
+    background: #e2e8f0;
+    color: #94a3b8;
+}
+
+.productCardDisabled .productPrice {
+    color: #94a3b8;
+}
+
+.productCardDisabled::after {
+    content: 'SIN STOCK';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg);
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    padding: 0.25rem 1rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    pointer-events: none;
+}
+
+.productInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 1;
+}
+
+.productCard h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #0f172a;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.priceTag {
+    background: #f1f5f9;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+    border: 1px solid #e2e8f0;
+}
+
+.productPrice {
+    font-weight: 900;
+    color: var(--brand-600);
+    font-size: 1.1rem;
+    white-space: nowrap;
+}
+
+.productStock {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.cartSection {
+    background: white;
+    border-radius: var(--radius-xl);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-sm);
+}
+
+.cartHeader {
+    padding: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.cartItems {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.cartItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #f8fafc;
+}
+
+.itemInfo {
+    display: flex;
+    flex-direction: column;
+}
+
+.itemInfo strong {
+    font-size: 0.9rem;
+    color: #0f172a;
+}
+
+.itemInfo small {
+    color: #64748b;
+}
+
+.qtyActions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.qtyBtn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+.qtyBtn:hover {
+    background: #f8fafc;
+}
+
+.cartFooter {
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+}
+
+.summaryTotal {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: #0f172a;
+    margin-bottom: 1.5rem;
+}
+
+.paymentMethods {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.methodBtn {
+    padding: 1rem;
+    border: 2px solid #e2e8f0;
+    background: white;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    transition: all 0.2s;
+}
+
+.methodBtn.active {
+    border-color: var(--brand-500);
+    background: var(--brand-50);
+    color: var(--brand-700);
+}
+
+.payBtn {
+    width: 100%;
+    padding: 1.25rem;
+    border-radius: 12px;
+    background: var(--brand-600);
+    color: white;
+    border: none;
+    font-weight: 800;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.payBtn:hover:not(:disabled) {
+    background: var(--brand-700);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.payBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.emptyCart {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    gap: 1rem;
+}
+
+.cashInputWrapper {
+    margin: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.cashInput {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.cashInput span {
+    position: absolute;
+    left: 1.25rem;
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: var(--brand-400);
+}
+
+.cashInput input {
+    width: 100%;
+    padding: 1rem 1.25rem 1rem 3.5rem !important;
+    font-size: 2.5rem !important;
+    font-weight: 900 !important;
+    text-align: right;
+    border-radius: 20px !important;
+    border: 3px solid var(--brand-100) !important;
+    background: #fdfdfd !important;
+    color: var(--brand-900) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.03) !important;
+}
+
+.cashInput input:focus {
+    outline: none !important;
+    border-color: var(--brand-500) !important;
+    box-shadow: 0 0 0 6px var(--brand-50), inset 0 2px 4px rgba(0,0,0,0.01) !important;
+    background: white !important;
+}
+
+.folioInputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.folioInputWrapper svg {
+    position: absolute;
+    left: 1.2rem;
+    font-size: 1.25rem;
+    color: #94a3b8;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.folioInput {
+    width: 100%;
+    padding: 1rem 1.25rem 1rem 3.25rem !important;
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    text-align: left !important;
+    border-radius: 16px !important;
+    border: 2px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.folioInput::placeholder {
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.folioInput:focus {
+    outline: none !important;
+    border-color: var(--brand-500) !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 4px rgba(0, 27, 72, 0.05) !important;
+}
+
+.changeInfo {
+    margin-top: 1rem;
+    padding: 1.25rem;
+    background: #dcfce7;
+    color: #15803d;
+    border-radius: 16px;
+    text-align: center;
+    font-weight: 900;
+    font-size: 1.5rem;
+    border: 2px solid #bbf7d0;
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* --- PREMIUM MODAL LOCK SCREEN --- */
+
+.cashClosedNotice, .posLockOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.4); /* Fondo oscuro semi-transparente */
+    backdrop-filter: blur(8px); /* Efecto de desenfoque premium */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999; /* Por encima de todo */
+    padding: 2rem;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.premiumLockCard {
+    background: white;
+    padding: 3.5rem 2.5rem;
+    border-radius: 2.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    animation: fadeInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
+
+.premiumLockCard h2 {
+    color: #0f172a;
+    font-size: 2.2rem;
+    font-weight: 850;
+    margin: 0;
+    letter-spacing: -1px;
+}
+
+.premiumLockCard p {
+    color: #64748b;
+    font-size: 1.15rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.quickOpenForm {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.quickOpenForm label {
+    font-weight: 800;
+    color: #475569;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-align: left;
+}
+
+.openInputGroup {
+    position: relative;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 1.25rem;
+    padding: 0.5rem 1.5rem;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s;
+}
+
+.openInputGroup:focus-within {
+    border-color: #0284c7;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.1);
+}
+
+.openInputGroup span {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #94a3b8;
+    margin-right: 0.5rem;
+}
+
+.openInputGroup input {
+    border: none !important;
+    background: transparent !important;
+    font-size: 2.5rem !important;
+    font-weight: 900 !important;
+    color: #1e293b !important;
+    width: 100%;
+    padding: 0.5rem 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.openCashBtn {
+    background: #0284c7;
+    color: white;
+    border: none;
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+    font-size: 1.25rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.2);
+}
+
+.openCashBtn:hover {
+    background: #0369a1;
+    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgba(2, 132, 199, 0.3);
+}
+
+.secondaryNavBtn {
+    background: transparent;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 1rem;
+    border-radius: 1.25rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.secondaryNavBtn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+
+@media (max-width: 768px) {
+    .posContainer {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        gap: 0;
+        border-radius: 0;
+        max-height: 100vh;
+        height: 100vh;
+    }
+
+    .productsSection {
+        flex: 1;
+        padding: 1rem;
+        border-radius: 0;
+        border: none;
+        padding-bottom: 220px; /* Espacio para el carrito fijo */
+    }
+
+    .posHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .searchBar {
+        width: 100%;
+    }
+
+    .searchBar input {
+        font-size: 1rem !important;
+        padding: 0.75rem 1rem 0.75rem 3rem !important;
+    }
+
+    .productCard {
+        padding: 1rem;
+    }
+
+    .productCard h4 {
+        font-size: 1.1rem;
+    }
+
+    .cartSection {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: auto;
+        max-height: 75px; /* Altura inicial cerrada */
+        z-index: 1000;
+        border-radius: 2rem 2rem 0 0;
+        box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.2);
+        background: white;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+    }
+
+    .cartSection.expanded {
+        max-height: 85vh; /* Se expande casi toda la pantalla */
+    }
+
+    .cartHeader {
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--brand-600); /* Un azul más vibrante y premium */
+        color: white !important;
+        border-radius: 2rem 2rem 0 0;
+        cursor: pointer;
+    }
+
+    .cartHeader h3 {
+        color: white !important;
+        margin: 0;
+        font-weight: 800;
+        font-size: 1.2rem;
+    }
+
+    .cartHeader svg {
+        color: white !important;
+    }
+
+    .mobileSummary {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .mobileTotal {
+        font-weight: 900;
+        font-size: 1.1rem;
+        background: rgba(255,255,255,0.15);
+        padding: 4px 12px;
+        border-radius: 10px;
+    }
+
+    .toggleIcon {
+        font-size: 1.2rem;
+        opacity: 0.8;
+    }
+
+    .cartItems {
+        max-height: 35vh;
+        overflow-y: auto;
+        background: #fdfdfd;
+        border-bottom: 1px solid #f1f5f9;
+        display: block; /* Siempre visible si el contenedor lo permite */
+    }
+
+    .cartItem {
+        padding: 0.85rem 1rem;
+    }
+
+    .qtyBtn {
+        width: 36px; /* Botones más grandes para dedos */
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    .cartFooter {
+        padding: 1rem;
+    }
+
+    .summaryTotal {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .paymentMethods {
+        gap: 0.5rem;
+    }
+
+    .methodBtn {
+        padding: 0.75rem;
+        font-size: 0.8rem;
+    }
+
+    .cashInput input {
+        font-size: 1.75rem !important;
+        padding: 0.75rem 1rem 0.75rem 2.5rem !important;
+    }
+
+    .payBtn {
+        width: calc(100% - 100px); /* Espacio libre para la campana de notificaciones */
+        margin-right: 15px;
+        padding: 1.15rem;
+        font-size: 1.1rem;
+        border-radius: 1rem;
+        font-weight: 850;
+    }
+
+    .cartFooter {
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start; /* Alinear a la izquierda para dejar libre el espacio del botón de notificaciones */
+    }
+
+    .summaryTotal, .paymentMethods, .cashInputWrapper {
+        width: 100%; /* El resto sí ocupa todo el ancho */
+    }
+
+    /* Ajuste de Bóveda en móvil */
+    .premiumLockCard {
+        padding: 2.5rem 1.5rem;
+        width: 95%;
+        border-radius: 2rem;
+    }
+
+    .premiumLockCard h2 {
+        font-size: 1.75rem;
+    }
+
+    .openInputGroup span,
+    .openInputGroup input {
+        font-size: 1.75rem !important;
+    }
+}
+
+/* --- PREMIUM MODAL LOCK SCREEN --- */
+.cashClosedNotice, .posLockOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    padding: 2rem;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.premiumLockCard {
+    background: white;
+    padding: 3.5rem 2.5rem;
+    border-radius: 2.5rem;
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.5);
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    animation: fadeInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
