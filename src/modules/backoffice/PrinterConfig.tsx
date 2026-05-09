@@ -275,9 +275,12 @@ export const PrinterConfig: React.FC = () => {
                                 {agentStatus === 'offline' && (
                                     <div className={styles.offlineWarning}>
                                         <FontAwesomeIcon icon={faTriangleExclamation} />
-                                        <div>
+                                        <div style={{ flex: 1 }}>
                                             <strong>El agente no está corriendo.</strong>
-                                            <p>Abre la carpeta <code>print-agent</code> y haz doble clic en <code>INICIAR_AGENTE.bat</code></p>
+                                            <p>Haz clic en el botón de abajo para iniciarlo automáticamente, o abre la carpeta <code>print-agent</code> y ejecuta <code>INICIAR_AGENTE.bat</code></p>
+                                            <a href="peke-agent://start" onClick={() => setTimeout(checkAgentStatus, 3000)} style={{ display: 'inline-block', marginTop: '0.8rem', padding: '0.4rem 1rem', background: '#dc2626', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontWeight: 600, fontSize: '0.85rem' }}>
+                                                🚀 Arrancar Impresoras
+                                            </a>
                                         </div>
                                     </div>
                                 )}

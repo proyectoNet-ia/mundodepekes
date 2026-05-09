@@ -154,12 +154,12 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
             </button>
           )}
-          {userRole === 'admin' && (
+          {['admin', 'gerente', 'cajero', 'supervisor'].includes(userRole || '') && (
             <button className={`${styles.tab} ${activeTab === 'config' ? styles.active : ''}`} onClick={() => handleTabSelect('config')}>
               <div className={styles.tabIcon}><FontAwesomeIcon icon={faCogs} /></div>
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Ajustes</span>
-                <span className={styles.tabSubtitle}>Configurar el Parque</span>
+                <span className={styles.tabSubtitle}>{userRole === 'admin' ? 'Configurar el Parque' : 'Impresoras'}</span>
               </div>
             </button>
           )}

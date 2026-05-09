@@ -47,6 +47,7 @@ export const Backoffice: React.FC = () => {
         setCurrentUserData(user);
         
         if (user?.role !== 'admin') {
+            setActiveSection('PRINTERS');
             setIsLoading(false);
             return;
         }
@@ -189,7 +190,7 @@ export const Backoffice: React.FC = () => {
     }
   };
 
-  const renderStaffSection = () => (
+  const renderStaffSection = () => currentUserData?.role === 'admin' && (
     <section className={styles.configCard}>
         <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
@@ -338,7 +339,7 @@ export const Backoffice: React.FC = () => {
     </section>
   );
 
-  const renderInventorySection = () => (
+  const renderInventorySection = () => currentUserData?.role === 'admin' && (
     <section className={styles.configCard}>
         <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
@@ -577,35 +578,32 @@ export const Backoffice: React.FC = () => {
   );
 
 
-  if (currentUserData && currentUserData.role !== 'admin') {
-      return (
-          <div className={styles.container} style={{ alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '600px' }}>
-              <div className={styles.emptyState} style={{ maxWidth: '500px' }}>
-                  <h3 style={{ color: 'var(--danger)', marginBottom: '1rem' }}><FontAwesomeIcon icon={faUserShield} size="2x" /> <br/><br/>Acceso Denegado</h3>
-                  <p>Por seguridad operativa, el módulo de Configuración General y Gestión de Personal está estrictamente reservado para el <strong>Administrador Principal</strong> del parque.</p>
-              </div>
-          </div>
-      );
-  }
+  // Acceso denegado removido para permitir ver las impresoras
 
   return (
     <div className={styles.container}>
       <header className={styles.header}><h2>Panel de Configuración</h2><p>Gestión administrativa y personalización del sistema</p></header>
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
-          <button className={`${styles.navButton} ${activeSection === 'CATALOGS' ? styles.active : ''}`} onClick={() => setActiveSection('CATALOGS')}>📂 Paquetes</button>
-          <button className={`${styles.navButton} ${activeSection === 'INVENTORY' ? styles.active : ''}`} onClick={() => setActiveSection('INVENTORY')}>📦 Inventarios</button>
-          <button className={`${styles.navButton} ${activeSection === 'STAFF' ? styles.active : ''}`} onClick={() => setActiveSection('STAFF')}>👥 Personal</button>
-          <button className={`${styles.navButton} ${activeSection === 'SAFETY' ? styles.active : ''}`} onClick={() => setActiveSection('SAFETY')}>🛡️ Seguridad</button>
-          <button className={`${styles.navButton} ${activeSection === 'BRANDING' ? styles.active : ''}`} onClick={() => setActiveSection('BRANDING')}>🏷️ Marca</button>
-          <button className={`${styles.navButton} ${activeSection === 'OPERATIONS' ? styles.active : ''}`} onClick={() => setActiveSection('OPERATIONS')}>⏰ Horarios</button>
-          <button className={`${styles.navButton} ${activeSection === 'LOYALTY' ? styles.active : ''}`} onClick={() => setActiveSection('LOYALTY')}>🔥 Fidelidad</button>
+          {currentUserData?.role === 'admin' && (
+            <>
+              <button className={`${styles.navButton} ${activeSection === 'CATALOGS' ? styles.active : ''}`} onClick={() => setActiveSection('CATALOGS')}>📂 Paquetes</button>
+              <button className={`${styles.navButton} ${activeSection === 'INVENTORY' ? styles.active : ''}`} onClick={() => setActiveSection('INVENTORY')}>📦 Inventarios</button>
+              <button className={`${styles.navButton} ${activeSection === 'STAFF' ? styles.active : ''}`} onClick={() => setActiveSection('STAFF')}>👥 Personal</button>
+              <button className={`${styles.navButton} ${activeSection === 'SAFETY' ? styles.active : ''}`} onClick={() => setActiveSection('SAFETY')}>🛡️ Seguridad</button>
+              <button className={`${styles.navButton} ${activeSection === 'BRANDING' ? styles.active : ''}`} onClick={() => setActiveSection('BRANDING')}>🏷️ Marca</button>
+              <button className={`${styles.navButton} ${activeSection === 'OPERATIONS' ? styles.active : ''}`} onClick={() => setActiveSection('OPERATIONS')}>⏰ Horarios</button>
+              <button className={`${styles.navButton} ${activeSection === 'LOYALTY' ? styles.active : ''}`} onClick={() => setActiveSection('LOYALTY')}>🔥 Fidelidad</button>
+            </>
+          )}
           <button className={`${styles.navButton} ${activeSection === 'PRINTERS' ? styles.active : ''}`} onClick={() => setActiveSection('PRINTERS')}>🖨️ Impresoras</button>
-          <button className={`${styles.navButton} ${activeSection === 'MAINTENANCE' ? styles.active : ''}`} onClick={() => setActiveSection('MAINTENANCE')}>⚙️ Mantenimiento</button>
+          {currentUserData?.role === 'admin' && (
+            <button className={`${styles.navButton} ${activeSection === 'MAINTENANCE' ? styles.active : ''}`} onClick={() => setActiveSection('MAINTENANCE')}>⚙️ Mantenimiento</button>
+          )}
         </aside>
         <main className={styles.content}>
           {activeSection === 'PRINTERS' && <PrinterConfig />}
-          {activeSection === 'CATALOGS' && (
+          {currentUserData?.role === 'admin' && activeSection === 'CATALOGS' && (
             // ... (keeping existing catalogs code)
             <section className={styles.configCard}>
               <div className={styles.sectionHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
