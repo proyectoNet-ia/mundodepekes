@@ -459,6 +459,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 telefono: registration.transaction.phone,
                 items: registration.transaction.children.map((c: any) => ({
                     nino: c.name,
+                    idPeke: (c.id || '').substring(0,8).toUpperCase(),
                     nombre: availablePackages.find(p => p.id === c.package)?.nombre || 'Paquete',
                     precio: availablePackages.find(p => p.id === c.package)?.precio || 0,
                     duracion: availablePackages.find(p => p.id === c.package)?.duracion_minutos || 0,

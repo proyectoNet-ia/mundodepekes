@@ -216,6 +216,7 @@ export const registerFullEntry = async (data: {
     });
 
     // 3. Process Children and Sessions
+    const registeredChildrenDetails = [];
     for (const childInfo of data.children) {
       let childId: string;
 
@@ -253,6 +254,17 @@ export const registerFullEntry = async (data: {
       }
       const startTime = originalTimestamp ? new Date(originalTimestamp) : new Date();
       const endTime = new Date(startTime.getTime() + childInfo.duration * 60000);
+
+      // Guardar detalle para el retorno
+      registeredChildrenDetails.push({
+        id: childId,
+        name: childInfo.name,
+        package: childInfo.packageId,
+        area: childInfo.area,
+        duration: childInfo.duration,
+        startTime: startTime,
+        endTime: endTime
+      });
 
       // --- LIMPIEZA DE SESIONES PREVIAS (Evita Duplicados) ---
       // Si el niño ya estaba adentro, cerramos su sesión anterior para que la nueva tome el control
@@ -304,14 +316,7 @@ export const registerFullEntry = async (data: {
         ...transaction,
         customer: data.customer?.name || 'Cliente',
         phone: data.customer?.phone || primaryPhone,
-        children: data.children.map(c => ({
-            name: c.name,
-            package: c.packageId,
-            area: c.area,
-            duration: c.duration,
-            startTime: new Date(),
-            endTime: new Date(Date.now() + c.duration * 60000)
-        }))
+        children: registeredChildrenDetails
       }
     };
   } catch (err: any) {

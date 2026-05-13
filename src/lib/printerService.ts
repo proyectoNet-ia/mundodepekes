@@ -9,6 +9,7 @@ export interface EpsonTicketData {
     staffEmail?: string;
     items: { 
         nino: string; 
+        idPeke?: string;
         nombre: string; 
         precio: number;
         duracion?: number; // Minutes
@@ -108,12 +109,13 @@ export class PrinterService {
         lines.push("\x1B\x61\x00"); // Alinear izquierda
 
         data.items.forEach((item) => {
-            lines.push(`PEKE: ${n(item.nino).toUpperCase()}`);
+            const pekeIdLabel = item.idPeke ? ` [${item.idPeke}]` : '';
+            lines.push(`PEKE: ${n(item.nino).toUpperCase()}${pekeIdLabel}`);
             const durationStr = item.duracion ? ` (${PrinterService.formatDuration(item.duracion)})` : '';
             lines.push(`PAQUETE: ${n(item.nombre)}${durationStr}`);
             lines.push("\x1B\x45\x01" + `PRECIO: $ ${item.precio.toFixed(2)}`.padStart(width) + "\x1B\x45\x00");
             if (item.hora_entrada && item.hora_salida) {
-                lines.push(`HORARIO: ${item.hora_entrada} - ${item.hora_salida}`);
+                lines.push(`HORARIO: ${item.hora_entrada} - \x1B\x45\x01${item.hora_salida}\x1B\x45\x00`);
             }
             lines.push("- - - - - - - - - - - - - - - - ");
         });
