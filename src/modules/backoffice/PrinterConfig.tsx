@@ -146,7 +146,10 @@ export const PrinterConfig: React.FC = () => {
             };
             const original = PrinterService.formatEpsonTicket(testData as any, false);
             const copia = PrinterService.formatEpsonTicket(testData as any, true);
-            ok = await PrinterService.printRaw(original + "\n" + copia, 'TICKET');
+            
+            // Enviamos dos trabajos de impresión separados
+            await PrinterService.printRaw(original, 'TICKET');
+            ok = await PrinterService.printRaw(copia, 'TICKET');
         } else {
             const wristData = {
                 nino: 'PRUEBA ZEBRA',

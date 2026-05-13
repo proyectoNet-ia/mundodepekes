@@ -478,7 +478,10 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
             if (settings.autoPrintTickets !== false && settings.ticketPrinter?.address) {
                 const original = PrinterService.formatEpsonTicket(ticketData as any, false);
                 const copia = PrinterService.formatEpsonTicket(ticketData as any, true);
-                await PrinterService.printRaw(original + "\n" + copia, 'TICKET');
+                
+                // Enviamos dos trabajos de impresión separados
+                await PrinterService.printRaw(original, 'TICKET');
+                await PrinterService.printRaw(copia, 'TICKET');
             }
 
             // Imprimir Pulseras solo si está activo y hay impresora configurada

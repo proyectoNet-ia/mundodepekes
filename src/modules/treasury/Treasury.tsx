@@ -140,7 +140,10 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
         };
         const original = PrinterService.formatGenericPOSTicket(payload, false);
         const copia = PrinterService.formatGenericPOSTicket(payload, true);
-        PrinterService.printRaw(original + "\n" + copia, 'TICKET');
+        
+        // Enviamos dos trabajos de impresión separados
+        PrinterService.printRaw(original, 'TICKET');
+        PrinterService.printRaw(copia, 'TICKET');
     };
 
     const confirmCancelTicket = async () => {

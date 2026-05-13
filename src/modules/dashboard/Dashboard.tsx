@@ -1162,7 +1162,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                     };
                     const original = PrinterService.formatEpsonTicket(ticketData as any, false);
                     const copia = PrinterService.formatEpsonTicket(ticketData as any, true);
-                    PrinterService.printRaw(original + "\n" + copia, 'TICKET');
+                    
+                    // Enviamos dos trabajos de impresión separados
+                    PrinterService.printRaw(original, 'TICKET');
+                    PrinterService.printRaw(copia, 'TICKET');
                     showToast('Ticket enviado a cola de impresión.', 'success');
                   }}
                   className="btn btn-ghost" 
