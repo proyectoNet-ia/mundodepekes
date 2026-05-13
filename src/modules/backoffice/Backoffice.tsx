@@ -37,7 +37,7 @@ export const Backoffice: React.FC = () => {
   const [archivingItem, setArchivingItem] = useState<StockItem | null>(null);
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [showInactiveStock, setShowInactiveStock] = useState(false);
-  // const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<any | null>(null);
 
   const loadData = async () => {
