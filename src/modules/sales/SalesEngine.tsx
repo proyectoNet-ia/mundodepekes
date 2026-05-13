@@ -484,8 +484,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 await PrinterService.printRaw(copia, 'TICKET');
             }
 
-            // Imprimir Pulseras solo si está activo y hay impresora configurada
-            if (settings.autoPrintWristbands !== false && settings.wristbandPrinter?.address) {
+            // Imprimir Pulseras solo si está activo, hay impresora y NO es un reingreso
+            if (settings.autoPrintWristbands !== false && settings.wristbandPrinter?.address && !reentryData?.isReentry) {
                 // Imprimir Pulseras (una por cada niño) de forma secuencial
                 for (const c of (registration.transaction.children || [])) {
                     const pkg = availablePackages.find(p => p.id === c.package);

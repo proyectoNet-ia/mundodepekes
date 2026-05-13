@@ -307,7 +307,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
     if (onReentry) {
         onReentry({
             ...session,
-            tutorName: session.tutorName || 'Tutor'
+            tutorName: session.tutorName || 'Tutor',
+            isReentry: true
         });
     }
   };
