@@ -3,7 +3,7 @@ import { createPresale, getPublicPackages, type PresaleChild } from '../../lib/p
 import { supabasePublic } from '../../lib/supabasePublic';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChild, faCheck, faPlus, faTrash, faClock, faPhone, faTicketAlt, faStar, faQrcode, faMagic, faUserPlus, faShoppingCart, faChevronRight, faExclamationTriangle, faCheckCircle, faBirthdayCake } from '@fortawesome/free-solid-svg-icons';
+import { faChild, faCheck, faPlus, faTrash, faClock, faPhone, faTicketAlt, faStar, faQrcode, faMagic, faUserPlus, faShoppingCart, faChevronRight, faExclamationTriangle, faBirthdayCake } from '@fortawesome/free-solid-svg-icons';
 import './Portal.css';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -99,19 +99,21 @@ export const PortalPage: React.FC = () => {
   const [vCode, setVCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [vError, setVError] = useState('');
-  const [isVLoading, setIsVLoading] = useState(false);
+  const isVLoading = false; // State setter removed
   const [sysInfo, setSysInfo] = useState<{logo: string | null, name: string}>({logo: null, name: 'Mundo de Pekes'});
 
   // Captcha — inicializado con lazy initializer (solo se ejecuta UNA vez, incluso en StrictMode)
-  const [captcha, setCaptcha] = useState(newCaptcha);
+  const [captcha] = useState(newCaptcha);
   const [captchaInput, setCaptchaInput] = useState('');
   const [isCaptchaValid, setIsCaptchaValid] = useState(false);
 
+  /*
   const generateCaptcha = () => {
     setCaptcha(newCaptcha());
     setCaptchaInput('');
     setIsCaptchaValid(false);
   };
+  */
 
   useEffect(() => {
     getPublicPackages()
@@ -167,7 +169,7 @@ export const PortalPage: React.FC = () => {
   };
 
 
-  const canGoToChildren = tutorNombre.trim().length >= 2 && tutorTelefono.replace(/\D/g, '').length === 10;
+  // const canGoToChildren = tutorNombre.trim().length >= 2 && tutorTelefono.replace(/\D/g, '').length === 10;
   const fullTutorPhone = `${tutorPrefix}${tutorTelefono.replace(/\D/g, '')}`;
   const canGoToConfirm = intent === 'registration' 
     ? ninos.every(n => n.nombre.trim() && n.edad > 0)

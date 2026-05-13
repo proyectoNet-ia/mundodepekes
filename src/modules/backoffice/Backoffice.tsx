@@ -37,7 +37,7 @@ export const Backoffice: React.FC = () => {
   const [archivingItem, setArchivingItem] = useState<StockItem | null>(null);
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [showInactiveStock, setShowInactiveStock] = useState(false);
-  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
+  // const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<any | null>(null);
 
   const loadData = async () => {
@@ -974,8 +974,9 @@ export const Backoffice: React.FC = () => {
           {activeSection === 'MAINTENANCE' && (
             <section className={styles.configCard}>
               <h3>Herramientas de Mantenimiento</h3>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Utilice estas herramientas para limpiar el sistema de datos de prueba.</p>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Las herramientas de limpieza han sido inhabilitadas por seguridad.</p>
               
+              {/* 
               <div style={{ display: 'grid', gap: '1rem' }}>
                 <div style={{ padding: '1rem', border: '1px solid #fee2e2', borderRadius: '8px', background: '#fef2f2' }}>
                   <h4 style={{ color: '#991b1b', marginBottom: '0.5rem' }}>⚠️ Purga de Datos de Operación</h4>
@@ -995,7 +996,7 @@ export const Backoffice: React.FC = () => {
                   <ConfirmDialog
                     isOpen={showPurgeConfirm}
                     title="⚠️ ACCIÓN CRÍTICA"
-                    message="¿Está ABSOLUTAMENTE seguro de borrar TODOS los datos de sesiones, ventas, niños y clientes? Esta acción no se puede deshacer."
+                    message="¿Está ABSOLUTAMENTE seguro de borrar TODOS los datos de sesiones, ventas, gastos, arqueos, inventario, niños y clientes? Esta acción dejará el sistema en blanco (excepto precios y usuarios). No se puede deshacer."
                     confirmText="SÍ, PURGAR TODO"
                     cancelText="Cancelar"
                     onCancel={() => setShowPurgeConfirm(false)}
@@ -1003,10 +1004,22 @@ export const Backoffice: React.FC = () => {
                       setShowPurgeConfirm(false);
                       setIsLoading(true);
                       try {
+                        // 1. Datos de Operación, Ventas y Reservas
                         await supabase.from('sesiones').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                         await supabase.from('transacciones').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                        await supabase.from('gastos_diarios').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                        await supabase.from('preventas').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                        await supabase.from('eventos_programados').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                        await supabase.from('verificaciones_whatsapp').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                        
+                        // 2. Datos de Tesorería e Inventario
+                        await supabase.from('arqueos_caja').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                        await supabase.from('movimientos_inventario').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                        
+                        // 3. Registros de Clientes
                         await supabase.from('ninos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                         await supabase.from('clientes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
                         
                         showToast('Base de datos limpiada correctamente.', 'success', 'Limpieza Exitosa');
                         window.location.reload();
@@ -1019,8 +1032,10 @@ export const Backoffice: React.FC = () => {
                   />
                 </div>
               </div>
+              */}
             </section>
           )}
+
         </main>
       </div>
 

@@ -1,11 +1,9 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faPhone, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
-import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
-import { PINModal } from '../../components/PINModal';
+import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 
 // Capitaliza nombres propios respetando preposiciones en español
@@ -59,12 +57,10 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [data, setData]       = useState<RecordData[]>([]);
     const [total, setTotal]     = useState(0);
     const [page, setPage]       = useState(1);
-    const [isLoading, setIsLoading] = useState(false);
     
     // UI states
     const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
     const [menuPos, setMenuPos]       = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-    const menuRef = useRef<HTMLDivElement>(null);
 
     // Edit states
     const [editItem, setEditItem]   = useState<RecordData | null>(null);
@@ -73,9 +69,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [editPrefixes, setEditPrefixes] = useState<string[]>([]);
     const [isSaving, setIsSaving]   = useState(false);
 
-    // PIN modal
-    const [showPinModal, setShowPinModal] = useState(false);
-    const [pendingChild, setPendingChild] = useState<RecordData | null>(null);
+    // PIN modal (removed unused)
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -86,7 +80,6 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     }, [searchTerm]);
 
     const fetchData = useCallback(async () => {
-        setIsLoading(true);
         try {
             const isSearching = debouncedSearch.trim().length > 0;
             let results: RecordData[] = [];
@@ -134,7 +127,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
         } catch (err) {
             showToast('Error al cargar datos', 'error');
         } finally {
-            setIsLoading(false);
+            // Loading handled internally
         }
     }, [debouncedSearch, filter, page]);
 
@@ -210,7 +203,6 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     };
 
     const handleTutorEntry = async (tutor: RecordData) => {
-        setIsLoading(true);
         try {
             const { data: children } = await supabase.from('ninos').select('*').eq('tutor_id', tutor.id);
             if (children && onEntry) {
@@ -219,7 +211,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
         } catch (err) {
             showToast('Error al buscar niños', 'error');
         } finally {
-            setIsLoading(false);
+            // Loading handled internally
         }
     };
 
