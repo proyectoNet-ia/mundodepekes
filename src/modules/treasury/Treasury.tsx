@@ -210,8 +210,34 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                 estado: estadoFinal
             };
             await ReportService.generateClosureReport(closingSession, summary, 'PDF');
+            
+            // Imprimir Ticket Físico de Arqueo
+            try {
+                const arqueoTicketData = {
+                    folio: activeSession.id.substring(0, 8).toUpperCase(),
+                    fechaApertura: new Date(activeSession.fecha_apertura).toLocaleString(),
+                    fechaCierre: new Date().toLocaleString(),
+                    staffEmail: user?.email || 'admin',
+                    montoInicial: activeSession.monto_inicial,
+                    ventasEfectivo: summary.efectivo,
+                    ventasTarjeta: summary.tarjeta,
+                    gastos: expenses.map(e => ({ concepto: e.descripcion, monto: e.monto })),
+                    totalGastos: summary.gastos,
+                    esperadoEfectivo: summary.efectivo + activeSession.monto_inicial - summary.gastos,
+                    realEfectivo: realEfectivo,
+                    esperadoTarjeta: summary.tarjeta,
+                    realTarjeta: realTarjeta,
+                    diferenciaEfectivo: realEfectivo - (summary.efectivo + activeSession.monto_inicial - summary.gastos),
+                    diferenciaTarjeta: realTarjeta - summary.tarjeta,
+                    totalVentas: summary.total
+                };
+                const ticketRaw = PrinterService.formatArqueoTicket(arqueoTicketData);
+                await PrinterService.printRaw(ticketRaw, 'TICKET');
+            } catch (printErr) {
+                console.error('Error al imprimir ticket de arqueo:', printErr);
+            }
 
-            showToast('Caja cerrada correctamente. Documento generado.', 'success', 'Arqueo Finalizado');
+            showToast('Caja cerrada correctamente. Ticket y PDF generados.', 'success', 'Arqueo Finalizado');
             setObs('');
             setMontoRealEfectivo('');
             setMontoRealTarjeta('');

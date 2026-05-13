@@ -53,6 +53,25 @@ export interface ZebraWristbandData {
     tutor?: string;
 }
 
+export interface ArqueoTicketData {
+    folio: string;
+    fechaApertura: string;
+    fechaCierre: string;
+    staffEmail: string;
+    montoInicial: number;
+    ventasEfectivo: number;
+    ventasTarjeta: number;
+    gastos: { concepto: string; monto: number }[];
+    totalGastos: number;
+    esperadoEfectivo: number;
+    realEfectivo: number;
+    esperadoTarjeta: number;
+    realTarjeta: number;
+    diferenciaEfectivo: number;
+    diferenciaTarjeta: number;
+    totalVentas: number;
+}
+
 export class PrinterService {
     static normalizeString(str: string): string {
         if (!str) return '';
@@ -185,6 +204,70 @@ export class PrinterService {
         lines.push('');
         lines.push('\x1B\x61\x01');
         lines.push('Gracias por su compra');
+        lines.push('\x1D\x56\x41\x03');
+
+        return lines.join('\n');
+    }
+
+    static formatArqueoTicket(data: ArqueoTicketData): string {
+        const n = (s: string) => PrinterService.normalizeString(s);
+        
+        let lines = [
+            '\x1B\x40',
+            '\x1B\x74\x11',
+            '\x1B\x61\x01',
+            '\x1B\x45\x01ARQUEO DE CAJA\x1B\x45\x00',
+            '\x1B\x45\x01MUNDO DE PEKES\x1B\x45\x00',
+            'Plaza NEA Local 9',
+            '--------------------------------',
+        ];
+
+        lines.push(`Cajero: ${n(data.staffEmail)}`);
+        lines.push(`Apertura: ${data.fechaApertura}`);
+        lines.push(`Cierre:   ${data.fechaCierre}`);
+        lines.push('--------------------------------');
+        lines.push('\x1B\x61\x00'); // Left
+        
+        lines.push('RESUMEN DE VENTAS');
+        lines.push('EFECTIVO:'.padEnd(20) + `$ ${data.ventasEfectivo.toFixed(2)}`.padStart(12));
+        lines.push('TARJETA:'.padEnd(20) + `$ ${data.ventasTarjeta.toFixed(2)}`.padStart(12));
+        lines.push('TOTAL VENTAS:'.padEnd(20) + `$ ${data.totalVentas.toFixed(2)}`.padStart(12));
+        lines.push('');
+
+        if (data.gastos.length > 0) {
+            lines.push('GASTOS DEL TURNO');
+            data.gastos.forEach(g => {
+                lines.push(n(g.concepto).substring(0, 19).padEnd(20) + `$ ${g.monto.toFixed(2)}`.padStart(12));
+            });
+            lines.push('TOTAL GASTOS:'.padEnd(20) + `$ ${data.totalGastos.toFixed(2)}`.padStart(12));
+            lines.push('');
+        }
+
+        lines.push('BALANCE DE EFECTIVO');
+        lines.push('FONDO INICIAL:'.padEnd(20) + `$ ${data.montoInicial.toFixed(2)}`.padStart(12));
+        lines.push('ESPERADO:'.padEnd(20) + `$ ${data.esperadoEfectivo.toFixed(2)}`.padStart(12));
+        lines.push('REAL:'.padEnd(20) + `$ ${data.realEfectivo.toFixed(2)}`.padStart(12));
+        
+        const diffEfe = data.diferenciaEfectivo;
+        const diffEfeLabel = diffEfe === 0 ? 'OK' : diffEfe > 0 ? 'SOBRANTE' : 'FALTANTE';
+        lines.push(`DIFERENCIA (${diffEfeLabel}):`.padEnd(20) + `$ ${Math.abs(diffEfe).toFixed(2)}`.padStart(12));
+        lines.push('');
+
+        lines.push('BALANCE DE TARJETA');
+        lines.push('ESPERADO:'.padEnd(20) + `$ ${data.esperadoTarjeta.toFixed(2)}`.padStart(12));
+        lines.push('REAL:'.padEnd(20) + `$ ${data.realTarjeta.toFixed(2)}`.padStart(12));
+        
+        const diffTar = data.diferenciaTarjeta;
+        const diffTarLabel = diffTar === 0 ? 'OK' : diffTar > 0 ? 'SOBRANTE' : 'FALTANTE';
+        lines.push(`DIFERENCIA (${diffTarLabel}):`.padEnd(20) + `$ ${Math.abs(diffTar).toFixed(2)}`.padStart(12));
+        
+        lines.push('--------------------------------');
+        lines.push('');
+        lines.push('\x1B\x61\x01');
+        lines.push('FIRMA CAJERO');
+        lines.push('');
+        lines.push('');
+        lines.push('__________________________');
         lines.push('\x1D\x56\x41\x03');
 
         return lines.join('\n');
