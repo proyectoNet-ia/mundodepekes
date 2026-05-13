@@ -1,5 +1,6 @@
 /**
  * PrinterService - Maneja formatos para EPSON (ESC/POS) y ZEBRA (ZPL)
+ * [v1.1 - Ticket Formatting Fix]
  */
 
 export interface EpsonTicketData {
