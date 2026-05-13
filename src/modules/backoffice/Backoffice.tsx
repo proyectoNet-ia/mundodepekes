@@ -974,9 +974,8 @@ export const Backoffice: React.FC = () => {
           {activeSection === 'MAINTENANCE' && (
             <section className={styles.configCard}>
               <h3>Herramientas de Mantenimiento</h3>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Las herramientas de limpieza han sido inhabilitadas por seguridad.</p>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Utilice estas herramientas con extrema precaución.</p>
               
-              {/* 
               <div style={{ display: 'grid', gap: '1rem' }}>
                 <div style={{ padding: '1rem', border: '1px solid #fee2e2', borderRadius: '8px', background: '#fef2f2' }}>
                   <h4 style={{ color: '#991b1b', marginBottom: '0.5rem' }}>⚠️ Purga de Datos de Operación</h4>
@@ -1032,7 +1031,6 @@ export const Backoffice: React.FC = () => {
                   />
                 </div>
               </div>
-              */}
             </section>
           )}
 
