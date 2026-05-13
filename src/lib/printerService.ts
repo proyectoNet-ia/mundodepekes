@@ -80,7 +80,7 @@ export class PrinterService {
     /**
      * Formatea el ticket de venta para comando RAW (Epson/Térmica)
      */
-    static formatEpsonTicket(data: EpsonTicketData): string {
+    static formatEpsonTicket(data: EpsonTicketData, isClientCopy: boolean = false): string {
         const d = new Date();
         const now = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
         const n = (s: string) => PrinterService.normalizeString(s);
@@ -92,7 +92,14 @@ export class PrinterService {
             "\x1B\x40",     // Reset / Reestablecer
             "\x1B\x74\x11", // Seleccionar tabla de caracteres Latin-1 (CP850)
             "\x1B\x61\x01", // Centrar
-            "\x1B\x45\x01MUNDO DE PEKES\x1B\x45\x00", // Negrita ON/OFF
+        ];
+
+        if (isClientCopy) {
+            lines.push("\x1B\x21\x30*** COPIA CLIENTE ***\x1B\x21\x00");
+            lines.push("");
+        }
+
+        lines.push("\x1B\x45\x01MUNDO DE PEKES\x1B\x45\x00"); // Negrita ON/OFF
             "Plaza NEA Local 9",
             "--------------------------------",
             `${now}`,
@@ -148,7 +155,7 @@ export class PrinterService {
     /**
      * Formatea un ticket genérico de punto de venta (Solo productos)
      */
-    static formatGenericPOSTicket(data: GenericPOSTicketData): string {
+    static formatGenericPOSTicket(data: GenericPOSTicketData, isClientCopy: boolean = false): string {
         const d = new Date();
         const now = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
         const n = (s: string) => PrinterService.normalizeString(s);
@@ -157,7 +164,14 @@ export class PrinterService {
             "\x1B\x40",     // Reset
             "\x1B\x74\x11", // Seleccionar tabla de caracteres CP850
             "\x1B\x61\x01", // Centrar
-            "\x1B\x45\x01MUNDO DE PEKES TIENDA\x1B\x45\x00",
+        ];
+
+        if (isClientCopy) {
+            lines.push("\x1B\x21\x30*** COPIA CLIENTE ***\x1B\x21\x00");
+            lines.push("");
+        }
+
+        lines.push("\x1B\x45\x01MUNDO DE PEKES TIENDA\x1B\x45\x00");
             "Plaza NEA Local 9",
             "--------------------------------",
             `${now}`,
@@ -200,11 +214,11 @@ export class PrinterService {
         // Diseñado para imprimir a lo largo de la pulsera (Rotated 90 deg)
         // Se omitio el codigo de barras a peticion del usuario para dar prioridad al texto
         return `^XA^PW300^LL1200^LS0^CI28
-^FO220,40^A0R,60,60^FD${n(data.nino).toUpperCase()}^FS
-^FO155,40^A0R,30,30^FDTUTOR: ${n(data.tutor || '').toUpperCase()}^FS
-^FO120,40^A0R,28,28^FDID: ${data.folio} TEL: ${data.telefono || ''}^FS
-^FO85,40^A0R,25,25^FDENT: ${data.horaEntrada} SAL: ${data.horaSalida} PKG: ${formattedDur}^FS
-^FO55,40^A0R,25,25^FDZONA: ${n(data.area).toUpperCase()}^FS
+^FO205,100^A0R,60,60^FD${n(data.nino).toUpperCase()}^FS
+^FO150,100^A0R,30,30^FDTUTOR: ${n(data.tutor || '').toUpperCase()}^FS
+^FO115,100^A0R,28,28^FDID: ${data.folio} TEL: ${data.telefono || ''}^FS
+^FO85,100^A0R,25,25^FDENT: ${data.horaEntrada} SAL: ${data.horaSalida} PKG: ${formattedDur}^FS
+^FO55,100^A0R,25,25^FDZONA: ${n(data.area).toUpperCase()}^FS
 ^XZ`.trim();
     }
 

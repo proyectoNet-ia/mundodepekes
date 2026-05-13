@@ -81,6 +81,8 @@ export const PortalPage: React.FC = () => {
   const [tutorTelefono, setTutorTelefono] = useState('');
   const [tutorTelefonoConfirm, setTutorTelefonoConfirm] = useState('');
   const [tutorPrefix, setTutorPrefix] = useState('+52');
+  const [secondaryPhones, setSecondaryPhones] = useState<string[]>([]);
+  const [secondaryPrefixes, setSecondaryPrefixes] = useState<string[]>([]);
 
   // Niños
   const [ninos, setNinos] = useState<PortalChild[]>([{ nombre: '', edad: 0, paquete_id: '' }]);
@@ -192,9 +194,15 @@ export const PortalPage: React.FC = () => {
         };
       });
 
+      const extraPhonesFormatted = secondaryPhones
+        .map((p, i) => `${secondaryPrefixes[i]}${p.replace(/\D/g, '')}`)
+        .filter(p => p.length > 5);
+      
+      const allPhones = [fullTutorPhone, ...extraPhonesFormatted].join(', ');
+
       const res = await createPresale({
         tutor_nombre: tutorNombre,
-        tutor_telefono: fullTutorPhone,
+        tutor_telefono: allPhones,
         tutor_email: '',
         ninos: ninosData,
         total_estimado: intent === 'registration' ? 0 : ninosData.reduce((sum, n) => sum + n.precio, 0),
@@ -366,6 +374,82 @@ export const PortalPage: React.FC = () => {
                     style={{ flex: 1 }}
                   />
                 </div>
+                <div className="portal-input-group">
+                <label>Confirma tu WhatsApp (10 dígitos)</label>
+                <div className="portal-phone-input-wrap">
+                  <span className="portal-phone-prefix">{tutorPrefix}</span>
+                  <input
+                    type="tel"
+                    id="portal-tutor-phone-confirm"
+                    className="portal-input"
+                    value={tutorTelefonoConfirm}
+                    onChange={(e) => setTutorTelefonoConfirm(e.target.value.replace(/\D/g, '').substring(0, 10))}
+                    placeholder="Escríbelo de nuevo"
+                  />
+                </div>
+              </div>
+
+              {/* Sección de Teléfonos Adicionales */}
+              <div style={{ marginTop: '1.5rem', background: '#f8fafc', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#475569', fontWeight: 800 }}>
+                    <Icon type="phone" /> Teléfonos Adicionales
+                  </h4>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setSecondaryPhones([...secondaryPhones, '']);
+                      setSecondaryPrefixes([...secondaryPrefixes, '+52']);
+                    }}
+                    style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    + Añadir
+                  </button>
+                </div>
+
+                {secondaryPhones.length === 0 && (
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>Recomendado para casos de emergencia</p>
+                )}
+
+                {secondaryPhones.map((phone, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.8rem', alignItems: 'center' }}>
+                    <select 
+                      value={secondaryPrefixes[idx]} 
+                      onChange={(e) => {
+                        const newPrefixes = [...secondaryPrefixes];
+                        newPrefixes[idx] = e.target.value;
+                        setSecondaryPrefixes(newPrefixes);
+                      }}
+                      style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', fontSize: '0.85rem' }}
+                    >
+                      <option value="+52">+52 (MX)</option>
+                      <option value="+1">+1 (US)</option>
+                    </select>
+                    <input 
+                      type="tel"
+                      className="portal-input"
+                      style={{ flex: 1, margin: 0 }}
+                      placeholder="Teléfono extra"
+                      value={phone}
+                      onChange={(e) => {
+                        const newPhones = [...secondaryPhones];
+                        newPhones[idx] = e.target.value.replace(/\D/g, '').substring(0, 10);
+                        setSecondaryPhones(newPhones);
+                      }}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setSecondaryPhones(secondaryPhones.filter((_, i) => i !== idx));
+                        setSecondaryPrefixes(secondaryPrefixes.filter((_, i) => i !== idx));
+                      }}
+                      style={{ background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', width: '38px', height: '38px', cursor: 'pointer' }}
+                    >
+                      <Icon type="trash" />
+                    </button>
+                  </div>
+                ))}
+              </div>
                 <span className="portal-field-hint">Lo usamos para contactarte si es necesario</span>
               </div>
               <div className="portal-field">

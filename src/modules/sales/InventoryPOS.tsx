@@ -216,10 +216,9 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                         iva: total - (total / 1.16),
                         paymentMethod: result.transaction.metodo_pago
                     };
-                    const ticketStr = PrinterService.formatGenericPOSTicket(ticketData);
-                    // Imprimimos dos tickets: Original y Copia
-                    await PrinterService.printRaw(ticketStr, 'TICKET');
-                    await PrinterService.printRaw(ticketStr, 'TICKET');
+                    const original = PrinterService.formatGenericPOSTicket(ticketData, false);
+                    const copia = PrinterService.formatGenericPOSTicket(ticketData, true);
+                    await PrinterService.printRaw(original + "\n" + copia, 'TICKET');
                 } catch (e) {
                     console.error('Error al imprimir ticket:', e);
                 }

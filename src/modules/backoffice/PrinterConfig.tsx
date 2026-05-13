@@ -144,8 +144,9 @@ export const PrinterConfig: React.FC = () => {
                 paymentMethod: 'EFECTIVO',
                 mensaje: '✓ Impresión de prueba correcta'
             };
-            const content = PrinterService.formatEpsonTicket(testData as any);
-            ok = await PrinterService.printRaw(content, 'TICKET');
+            const original = PrinterService.formatEpsonTicket(testData as any, false);
+            const copia = PrinterService.formatEpsonTicket(testData as any, true);
+            ok = await PrinterService.printRaw(original + "\n" + copia, 'TICKET');
         } else {
             const wristData = {
                 nino: 'PRUEBA ZEBRA',

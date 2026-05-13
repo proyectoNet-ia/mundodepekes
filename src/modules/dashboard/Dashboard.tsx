@@ -1160,8 +1160,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                       iva: (viewPurchase.transaccionTotal || 0) - ((viewPurchase.transaccionTotal || 0) / 1.16),
                       mensaje: "*** REIMPRESION DE TICKET ***"
                     };
-                    const content = PrinterService.formatEpsonTicket(ticketData as any);
-                    PrinterService.printRaw(content, 'TICKET');
+                    const original = PrinterService.formatEpsonTicket(ticketData as any, false);
+                    const copia = PrinterService.formatEpsonTicket(ticketData as any, true);
+                    PrinterService.printRaw(original + "\n" + copia, 'TICKET');
                     showToast('Ticket enviado a cola de impresión.', 'success');
                   }}
                   className="btn btn-ghost" 
