@@ -215,11 +215,11 @@ export class PrinterService {
         // Diseñado para imprimir a lo largo de la pulsera (Rotated 90 deg)
         // Se omitio el codigo de barras a peticion del usuario para dar prioridad al texto
         return `^XA^PW300^LL1200^LS0^CI28
-^FO205,800^A0R,60,60^FD${n(data.nino).toUpperCase()}^FS
-^FO150,800^A0R,30,30^FDTUTOR: ${n(data.tutor || '').toUpperCase()}^FS
-^FO115,800^A0R,28,28^FDID: ${data.folio} TEL: ${data.telefono || ''}^FS
-^FO85,800^A0R,25,25^FDENT: ${data.horaEntrada} SAL: ${data.horaSalida} PKG: ${formattedDur}^FS
-^FO55,800^A0R,25,25^FDZONA: ${n(data.area).toUpperCase()}^FS
+^FO205,100^A0R,60,60^FD${n(data.nino).toUpperCase()}^FS
+^FO150,100^A0R,30,30^FDTUTOR: ${n(data.tutor || '').toUpperCase()}^FS
+^FO115,100^A0R,28,28^FDID: ${data.folio} TEL: ${data.telefono || ''}^FS
+^FO85,100^A0R,25,25^FDENT: ${data.horaEntrada} SAL: ${data.horaSalida} PKG: ${formattedDur}^FS
+^FO55,100^A0R,25,25^FDZONA: ${n(data.area).toUpperCase()}^FS
 ^XZ`.trim();
     }
 
