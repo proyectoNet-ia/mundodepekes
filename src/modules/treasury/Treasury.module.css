@@ -114,7 +114,26 @@
     color: var(--text-primary);
 }
 
-/* Arqueo Card */
+.testPrintMiniBtn {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: #4b5563;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+
+.testPrintMiniBtn:hover {
+    background: #e5e7eb;
+    color: #111827;
+    transform: translateY(-1px);
+}
 .summaryCard {
     background: white;
     padding: 2.5rem;
