@@ -23,6 +23,7 @@ export interface ActiveSession {
   transaccionTotal?: number;
   metodoPago?: string;
   esPrivado?: boolean;       // true si el paquete de esta sesión es privado
+  isReentry?: boolean;
 }
 
 export const getActiveSessions = async (): Promise<ActiveSession[]> => {
