@@ -100,13 +100,12 @@ export class PrinterService {
         }
 
         lines.push("\x1B\x45\x01MUNDO DE PEKES\x1B\x45\x00"); // Negrita ON/OFF
-            "Plaza NEA Local 9",
-            "--------------------------------",
-            `${now}`,
-            `Cajero: ${n(data.staffEmail || 'admin')}`,
-            "--------------------------------",
-            "\x1B\x61\x00", // Alinear izquierda
-        ];
+        lines.push("Plaza NEA Local 9");
+        lines.push("--------------------------------");
+        lines.push(`${now}`);
+        lines.push(`Cajero: ${n(data.staffEmail || 'admin')}`);
+        lines.push("--------------------------------");
+        lines.push("\x1B\x61\x00"); // Alinear izquierda
 
         data.items.forEach((item) => {
             lines.push(`PEKE: ${n(item.nino).toUpperCase()}`);
@@ -172,15 +171,14 @@ export class PrinterService {
         }
 
         lines.push("\x1B\x45\x01MUNDO DE PEKES TIENDA\x1B\x45\x00");
-            "Plaza NEA Local 9",
-            "--------------------------------",
-            `${now}`,
-            `Cajero: ${n(data.staffEmail || 'admin')}`,
-            "--------------------------------",
-            "\x1B\x61\x00", 
-            "CANT  CONCEPTO            IMP. ",
-            "--------------------------------"
-        ];
+        lines.push("Plaza NEA Local 9");
+        lines.push("--------------------------------");
+        lines.push(`${now}`);
+        lines.push(`Cajero: ${n(data.staffEmail || 'admin')}`);
+        lines.push("--------------------------------");
+        lines.push("\x1B\x61\x00");
+        lines.push("CANT  CONCEPTO            IMP. ");
+        lines.push("--------------------------------");
 
         data.items.forEach(item => {
             const qty = item.cantidad.toString().padEnd(6);
