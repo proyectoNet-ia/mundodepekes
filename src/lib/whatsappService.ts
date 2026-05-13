@@ -3,13 +3,22 @@ import { supabasePublic } from './supabasePublic';
 const WHATSAPP_API_URL = import.meta.env.VITE_WHATSAPP_API_URL || '';
 const WHATSAPP_TOKEN   = import.meta.env.VITE_WHATSAPP_TOKEN   || '';
 
+const formatWhatsAppFull = (phone: string) => {
+  const clean = phone.replace(/\D/g, '');
+  if (!clean) return '';
+  // Si tiene 10 dígitos, es lada de México sin código de país -> Añadir 52
+  if (clean.length === 10) return `52${clean}`;
+  // Si ya tiene 12 dígitos y empieza con 52, o tiene otra longitud (internacional), lo dejamos limpio
+  return clean;
+};
+
 export const whatsappService = {
   /**
    * Verifica si un número ya ha sido validado previamente en el sistema (clientes).
    */
   async isAlreadyVerified(telefono: string): Promise<boolean> {
     try {
-      const cleanPhone = telefono.replace(/\D/g, '');
+      const cleanPhone = formatWhatsAppFull(telefono);
       const { data, error } = await supabasePublic
         .from('clientes')
         .select('whatsapp_verificado')
@@ -32,8 +41,8 @@ export const whatsappService = {
    */
   async sendVerificationCode(telefono: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // 1. Limpiar teléfono (solo números)
-      const cleanPhone = telefono.replace(/\D/g, '');
+      // 1. Limpiar teléfono con lada inteligente
+      const cleanPhone = formatWhatsAppFull(telefono);
       if (cleanPhone.length < 10) throw new Error('Número de teléfono inválido');
 
       // 2. Generar y guardar código usando el sistema seguro (RPC) para Rate Limiting
@@ -85,7 +94,7 @@ export const whatsappService = {
    */
   async verifyCode(telefono: string, code: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const cleanPhone = telefono.replace(/\D/g, '');
+      const cleanPhone = formatWhatsAppFull(telefono);
 
       // 1. Delegar verificación al backend (Controla intentos y expiración)
       const { data, error } = await supabasePublic.rpc('verificar_codigo_whatsapp', {

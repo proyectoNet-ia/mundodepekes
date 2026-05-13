@@ -20,8 +20,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabasePublic = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession:    false,   // No usar localStorage
-    autoRefreshToken:  false,   // No refrescar token (sin lock contention)
-    detectSessionInUrl: false,  // No procesar ?code= ni #access_token
+    persistSession:    false,
+    autoRefreshToken:  false,
+    detectSessionInUrl: false,
+    storageKey: 'sb-portal-public-auth', // Clave única → Web Lock separado del admin
   },
 });

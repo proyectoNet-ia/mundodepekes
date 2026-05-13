@@ -94,6 +94,32 @@
   flex-wrap: wrap;
 }
 
+.codeGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge {
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.badgeRegistration {
+  background: #fdf4ff;
+  color: #a21caf;
+  border: 1px solid #f5d0fe;
+}
+
+.badgePresale {
+  background: #ecfeff;
+  color: #0891b2;
+  border: 1px solid #cffafe;
+}
+
 .code {
   font-size: 0.72rem;
   font-weight: 900;

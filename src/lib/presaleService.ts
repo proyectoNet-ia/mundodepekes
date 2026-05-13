@@ -23,6 +23,7 @@ export interface Presale {
   total_estimado: number;
   cliente_id?: string;
   telefono_verificado?: boolean;
+  notas?: string; // Almacena el tipo de solicitud: 'registration' | 'presale'
 }
 
 export interface CreatePresaleInput {
@@ -127,4 +128,73 @@ export const getPublicPackages = async () => {
 
   if (error) throw error;
   return data || [];
+};
+
+/** Verifica si un número de teléfono ya existe en la tabla de clientes */
+export const isCustomerRegistered = async (phone: string): Promise<boolean> => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length < 10) return false;
+
+  // Buscamos con un patrón que ignore posibles formatos intermedios (espacios, guiones, etc.)
+  const pattern = `%${cleanPhone.substring(0, 3)}%${cleanPhone.substring(3, 6)}%${cleanPhone.substring(6)}%`;
+
+  const { data, error } = await supabasePublic
+    .from('clientes')
+    .select('id')
+    .or(`telefono.ilike.${pattern},telefono.ilike.%${cleanPhone}%,telefono.ilike.%${cleanPhone.substring(cleanPhone.length - 10)}`)
+    .limit(1);
+
+  if (error) {
+    console.error('Error checking customer registration:', error);
+    return false;
+  }
+  return data && data.length > 0;
+};
+
+/** Registra un cliente y sus niños de forma permanente (Solo Registro) */
+export const registerCustomerOnly = async (data: { tutor_nombre: string, tutor_telefono: string, ninos: { nombre: string, edad: number }[] }) => {
+  const primaryPhone = data.tutor_telefono.replace(/\D/g, '');
+  
+  // 1. Buscar o Crear el tutor
+  let tutorId: string;
+  const { data: existing } = await supabasePublic
+    .from('clientes')
+    .select('id')
+    .ilike('telefono', `%${primaryPhone}%`)
+    .maybeSingle();
+
+  if (existing) {
+    tutorId = existing.id;
+    // Opcional: Actualizar nombre si es diferente
+    await supabasePublic.from('clientes').update({ nombre: data.tutor_nombre }).eq('id', tutorId);
+  } else {
+    const { data: newTutor, error: tError } = await supabasePublic
+      .from('clientes')
+      .insert({ nombre: data.tutor_nombre, telefono: data.tutor_telefono })
+      .select()
+      .maybeSingle();
+    if (tError) {
+      if (tError.code === '42501' || tError.message.includes('policy')) {
+        throw new Error('Permiso denegado: La tabla "clientes" no permite registros públicos. Activa la política RLS para INSERT.');
+      }
+      throw tError;
+    }
+    if (!newTutor) throw new Error('No se pudo crear el registro del tutor.');
+    tutorId = newTutor.id;
+  }
+
+  // 2. Registrar a los niños
+  const ninosToInsert = data.ninos.map(n => ({
+    nombre: n.nombre,
+    edad: n.edad,
+    tutor_id: tutorId
+  }));
+
+  const { error: nError } = await supabasePublic
+    .from('ninos')
+    .insert(ninosToInsert);
+
+  if (nError) throw nError;
+
+  return { success: true, tutorId };
 };

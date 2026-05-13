@@ -511,7 +511,55 @@
         font-size: 0.8rem;
     }
     
-    .mobileOnly {
-        display: flex;
-    }
+    .mobileOnly { display: flex; }
+}
+
+.phonesSection {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.phoneRow {
+    display: flex;
+    gap: 8px;
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    align-items: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.addBtn {
+    background: var(--brand-50);
+    color: var(--brand-600);
+    border: 1px solid var(--brand-200);
+    padding: 0.3rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.addBtn:hover {
+    background: var(--brand-100);
+    transform: translateY(-1px);
+}
+
+.delBtn {
+    background: #fee2e2;
+    color: #ef4444;
+    border: none;
+    padding: 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.delBtn:hover {
+    background: #fecaca;
+    transform: scale(1.05);
 }

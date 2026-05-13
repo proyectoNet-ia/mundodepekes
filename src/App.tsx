@@ -24,8 +24,8 @@ function App() {
   const [user, setUser] = React.useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
-  // Detectar si la URL es /portal (vista pública sin auth)
-  const isPortalRoute = window.location.pathname === '/portal';
+  // Detectar si la URL es /portal (vista pública sin auth) - más flexible con la diagonal
+  const isPortalRoute = window.location.pathname.startsWith('/portal');
 
   React.useEffect(() => {
     let isMounted = true;

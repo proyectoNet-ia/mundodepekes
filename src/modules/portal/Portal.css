@@ -887,9 +887,87 @@
   font-weight: 600;
 }
 
+/* ── Intent Cards ──────────────────────────────────────── */
+.portal-intent-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+  padding: 1.5rem;
+  background: white;
+  border: 2px solid var(--p-border);
+  border-radius: 20px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.portal-intent-card:hover {
+  border-color: var(--p-brand);
+  background: var(--p-brand-soft);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(111, 76, 255, 0.2);
+}
+
+.portal-intent-card.highlight {
+  border-color: var(--p-brand-light);
+  background: linear-gradient(to right, white, var(--p-brand-soft));
+}
+
+.intent-icon {
+  width: 56px;
+  height: 56px;
+  background: var(--p-brand-soft);
+  color: var(--p-brand);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.intent-icon .portal-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.intent-content {
+  flex: 1;
+}
+
+.intent-title {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--p-text-1);
+  margin-bottom: 2px;
+}
+
+.intent-desc {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--p-text-2);
+  line-height: 1.4;
+}
+
+.intent-arrow {
+  font-size: 1.25rem;
+  color: var(--p-brand);
+  opacity: 0.5;
+  transition: transform 0.3s;
+}
+
+.portal-intent-card:hover .intent-arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
 /* ── Responsive ────────────────────────────────────────── */
 @media (min-width: 600px) {
   .portal-main { padding: 2rem 1.5rem 4rem; }
   .portal-card { padding: 2.25rem 2rem; }
-  .portal-pkg-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .portal-pkg-chips { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 }

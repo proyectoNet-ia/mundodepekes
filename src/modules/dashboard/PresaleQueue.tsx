@@ -111,7 +111,14 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute }) => {
             <div key={presale.id} className={`${styles.card} ${expiring ? styles.cardExpiring : ''}`}>
               {/* Código + timer */}
               <div className={styles.cardTop}>
-                <span className={styles.code}>{code}</span>
+                <div className={styles.codeGroup}>
+                  <span className={styles.code}>{code}</span>
+                  {presale.notas === 'registration' ? (
+                    <span className={`${styles.badge} ${styles.badgeRegistration}`}>REGISTRO</span>
+                  ) : (
+                    <span className={`${styles.badge} ${styles.badgePresale}`}>PRE-VENTA</span>
+                  )}
+                </div>
                 <div className={`${styles.timer} ${expiring ? styles.timerExpiring : ''}`}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
                     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>

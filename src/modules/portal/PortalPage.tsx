@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { createPresale, getPublicPackages, type PresaleChild } from '../../lib/presaleService';
+import { createPresale, getPublicPackages, type PresaleChild } from '../../lib/presaleServicePublic';
+import { supabasePublic } from '../../lib/supabasePublic';
+
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faChild, faCheck, faPlus, faTrash, faClock, faPhone, faTicketAlt, faStar, faQrcode, faMagic, faUserPlus, faShoppingCart, faChevronRight, faExclamationTriangle, faCheckCircle, faBirthdayCake } from '@fortawesome/free-solid-svg-icons';
 import './Portal.css';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -17,7 +21,8 @@ interface PortalChild {
   paquete_id: string;
 }
 
-type Step = 'tutor' | 'verify' | 'children' | 'confirm' | 'success';
+type Step = 'intent' | 'tutor' | 'verify' | 'children' | 'confirm' | 'success';
+type PortalIntent = 'presale' | 'registration';
 
 const toTitleCase = (str: string) =>
   str.toLowerCase().split(' ').map((w, i) => {
@@ -36,30 +41,46 @@ const formatPhone = (raw: string) => {
 
 // ─── Ícono SVG simple sin dependencias ───────────────────────────────────────
 const Icon = ({ type }: { type: string }) => {
-  const icons: Record<string, React.ReactNode> = {
-    star:    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.54 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
-    child:   <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="4" r="2"/><path d="M19 13h-6.6V8h-1.8v5H4v2h7v7h2v-7h6v-2z"/></svg>,
-    check:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>,
-    plus:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>,
-    trash:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>,
-    clock:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-    phone:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.64A2 2 0 012 .18h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14.92z"/></svg>,
-    ticket:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 9a3 3 0 010-6h20a3 3 0 010 6v6a3 3 0 010 6H2a3 3 0 010-6V9z"/></svg>,
-    confetti:<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="5" r="1.5"/><circle cx="12" cy="3" r="1"/><circle cx="19" cy="6" r="1.5"/><path d="M3 12l4 4 8-8 4 4-4 4"/></svg>,
-    qr:      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><rect x="19" y="14" width="2" height="2"/><rect x="14" y="19" width="2" height="2"/><rect x="17" y="17" width="4" height="4"/></svg>,
+  const icons: Record<string, any> = {
+    star:     faStar,
+    child:    faChild,
+    check:    faCheck,
+    plus:     faPlus,
+    trash:    faTrash,
+    clock:    faClock,
+    phone:    faPhone,
+    ticket:   faTicketAlt,
+    sparkles: faMagic,
+    userPlus: faUserPlus,
+    cart:     faShoppingCart,
+    qr:       faQrcode,
+    warning:  faExclamationTriangle,
+    cake:     faBirthdayCake
   };
-  return <span className="portal-icon">{icons[type] || null}</span>;
+  const icon = icons[type] || faStar;
+  return <FontAwesomeIcon icon={icon} className="portal-fa-icon" />;
+};
+
+// ─── CAPTCHA ─────────────────────────────────────────────────────────────────
+const CAPTCHA_WORDS = ['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve'];
+const newCaptcha = () => {
+  const a = Math.floor(Math.random() * 9) + 1;
+  const b = Math.floor(Math.random() * 9) + 1;
+  return { a, b, result: a + b, aAsWord: Math.random() > 0.5 };
 };
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 export const PortalPage: React.FC = () => {
-  const [step, setStep] = useState<Step>('tutor');
+  const [step, setStep] = useState<Step>('intent');
+  const [intent, setIntent] = useState<PortalIntent>('presale');
   const [packages, setPackages] = useState<Package[]>([]);
   const [loadingPkgs, setLoadingPkgs] = useState(true);
 
   // Datos del tutor
   const [tutorNombre, setTutorNombre] = useState('');
   const [tutorTelefono, setTutorTelefono] = useState('');
+  const [tutorTelefonoConfirm, setTutorTelefonoConfirm] = useState('');
+  const [tutorPrefix, setTutorPrefix] = useState('+52');
 
   // Niños
   const [ninos, setNinos] = useState<PortalChild[]>([{ nombre: '', edad: 0, paquete_id: '' }]);
@@ -67,6 +88,7 @@ export const PortalPage: React.FC = () => {
   const [activeAreaPerNino, setActiveAreaPerNino] = useState<Record<number, string>>({});
 
   // Resultado
+  const [result, setResult] = useState<any>(null);
   const [confirmCode, setConfirmCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -80,15 +102,37 @@ export const PortalPage: React.FC = () => {
   const [isVLoading, setIsVLoading] = useState(false);
   const [sysInfo, setSysInfo] = useState<{logo: string | null, name: string}>({logo: null, name: 'Mundo de Pekes'});
 
+  // Captcha — inicializado con lazy initializer (solo se ejecuta UNA vez, incluso en StrictMode)
+  const [captcha, setCaptcha] = useState(newCaptcha);
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [isCaptchaValid, setIsCaptchaValid] = useState(false);
+
+  const generateCaptcha = () => {
+    setCaptcha(newCaptcha());
+    setCaptchaInput('');
+    setIsCaptchaValid(false);
+  };
+
   useEffect(() => {
     getPublicPackages()
       .then(setPackages)
       .catch(() => setError('No se pudieron cargar los paquetes. Intenta de nuevo.'))
       .finally(() => setLoadingPkgs(false));
 
-    import('../../lib/settingsService').then(({ getSystemSettings }) => {
-        getSystemSettings().then(s => setSysInfo({ logo: s.logo_url || null, name: s.nombre_negocio || 'Mundo de Pekes' }));
-    });
+    // Intentar cargar ajustes con el cliente público para evitar errores de sesión
+    const loadSettings = async () => {
+      try {
+        const { data } = await supabasePublic.from('config_sistema').select('valor').eq('clave', 'capacidades').maybeSingle();
+        if (data?.valor) {
+          const v = data.valor as any;
+          setSysInfo({ logo: v.logo_url || null, name: v.nombre_negocio || 'Mundo de Pekes' });
+        }
+      } catch (e) {
+        console.log('Usando ajustes por defecto.');
+      }
+    };
+    loadSettings();
+    // generateCaptcha() ya no se llama aquí — se inicializa en useState
   }, []);
 
   // Countdown timer
@@ -122,34 +166,63 @@ export const PortalPage: React.FC = () => {
     setNinos(ninos.map((n, i) => i === idx ? { ...n, [field]: value } : n));
   };
 
+
   const canGoToChildren = tutorNombre.trim().length >= 2 && tutorTelefono.replace(/\D/g, '').length === 10;
-  const canGoToConfirm = ninos.every(n => n.nombre.trim() && n.edad > 0 && n.paquete_id);
+  const fullTutorPhone = `${tutorPrefix}${tutorTelefono.replace(/\D/g, '')}`;
+  const canGoToConfirm = intent === 'registration' 
+    ? ninos.every(n => n.nombre.trim() && n.edad > 0)
+    : ninos.every(n => n.nombre.trim() && n.edad > 0 && n.paquete_id);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const ninosData: PresaleChild[] = ninos.map(n => {
+        const pkg = packages.find(p => p.id === n.paquete_id);
+        return {
+          nombre: n.nombre,
+          edad: n.edad,
+          paquete_id: n.paquete_id || '', 
+          paquete_nombre: pkg?.nombre || 'Solo Registro',
+          area: pkg?.area || 'N/A',
+          duracion_minutos: pkg?.duracion_minutos || 0,
+          precio: pkg?.precio || 0,
+        };
+      });
+
+      const res = await createPresale({
+        tutor_nombre: tutorNombre,
+        tutor_telefono: fullTutorPhone,
+        tutor_email: '',
+        ninos: ninosData,
+        total_estimado: intent === 'registration' ? 0 : ninosData.reduce((sum, n) => sum + n.precio, 0),
+        telefono_verificado: true,
+        tipo: intent // 'registration' o 'presale'
+      });
+
+      setResult(res);
+      if (res?.id) {
+        setConfirmCode('PEKES-' + res.id.substring(0, 6).toUpperCase());
+      }
+      if (res?.expires_at) {
+        setPresaleExpiry(new Date(res.expires_at));
+      }
+      setStep('success');
+    } catch (err: any) {
+      console.error('Error al enviar:', err);
+      setError(err.message || 'Ocurrió un error al enviar tu orden. Por favor intenta de nuevo.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSendCode = async () => {
-    setIsVLoading(true);
     setVError('');
-    try {
-      const { whatsappService } = await import('../../lib/whatsappService');
-      
-      // 1. Verificar si el número ya está validado históricamente
-      const alreadyVerified = await whatsappService.isAlreadyVerified(tutorTelefono);
-      if (alreadyVerified) {
-        setStep('children');
-        return;
-      }
-
-      // 2. Si no, enviar el código
-      const { success, error } = await whatsappService.sendVerificationCode(tutorTelefono);
-      if (success) {
-        setStep('verify');
-      } else {
-        setVError(error || 'No se pudo enviar el código. Revisa el número.');
-      }
-    } catch (err) {
-      setVError('Error de conexión al enviar el código.');
-    } finally {
-      setIsVLoading(false);
+    if (tutorTelefono !== tutorTelefonoConfirm) {
+      setVError('Los números de teléfono no coinciden. Por favor verifícalos.');
+      return;
     }
+    setStep('children');
   };
 
   const handleVerifyCode = async () => {
@@ -157,9 +230,9 @@ export const PortalPage: React.FC = () => {
     setVError('');
     try {
       const { whatsappService } = await import('../../lib/whatsappService');
-      const { success, error } = await whatsappService.verifyCode(tutorTelefono, vCode);
+      const { success, error } = await whatsappService.verifyCode(fullTutorPhone, vCode);
       if (success) {
-        setStep('children');
+        await handleSubmit();
       } else {
         setVError(error || 'Código incorrecto. Intenta de nuevo.');
       }
@@ -170,40 +243,6 @@ export const PortalPage: React.FC = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setError('');
-    try {
-      const ninosData: PresaleChild[] = ninos.map(n => {
-        const pkg = packages.find(p => p.id === n.paquete_id)!;
-        return {
-          nombre: n.nombre,
-          edad: n.edad,
-          paquete_id: n.paquete_id,
-          paquete_nombre: pkg.nombre,
-          area: pkg.area,
-          duracion_minutos: pkg.duracion_minutos,
-          precio: pkg.precio,
-        };
-      });
-
-      const presale = await createPresale({
-        tutor_nombre: tutorNombre,
-        tutor_telefono: tutorTelefono.replace(/\D/g, ''),
-        ninos: ninosData,
-        total_estimado: total,
-        telefono_verificado: true,
-      });
-
-      setConfirmCode('PEKES-' + presale.id.substring(0, 6).toUpperCase());
-      setPresaleExpiry(new Date(presale.expires_at));
-      setStep('success');
-    } catch (err: any) {
-      setError('Ocurrió un error al enviar tu orden. Por favor intenta de nuevo.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -236,6 +275,52 @@ export const PortalPage: React.FC = () => {
       </header>
 
       <main className="portal-main">
+        {step === 'intent' && (
+          <div className="portal-card portal-animate">
+            <div className="portal-card-header" style={{ textAlign: 'center', display: 'block' }}>
+              <div className="portal-card-icon" style={{ margin: '0 auto 1.5rem', background: 'linear-gradient(135deg, #fef3c7, #fde68a)', color: '#d97706' }}>
+                <Icon type="sparkles" />
+              </div>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 900 }}>¡Hola!</h2>
+              <p>Elige cómo quieres registrarte hoy</p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '2rem' }}>
+              <button 
+                className="portal-intent-card" 
+                onClick={() => { setIntent('registration'); setStep('tutor'); }}
+              >
+                <div className="intent-icon" style={{ background: '#e0f2fe', color: '#0369a1' }}>
+                  <Icon type="userPlus" />
+                </div>
+                <div className="intent-content">
+                  <span className="intent-title">Solo Registro</span>
+                  <span className="intent-desc">Captura datos de tus pekes y elige paquete en caja.</span>
+                </div>
+                <div className="intent-arrow">
+                    <FontAwesomeIcon icon={faChevronRight} />
+                </div>
+              </button>
+
+              <button 
+                className="portal-intent-card highlight" 
+                onClick={() => { setIntent('presale'); setStep('tutor'); }}
+              >
+                <div className="intent-icon" style={{ background: '#f5f3ff', color: '#6d28d9' }}>
+                  <Icon type="cart" />
+                </div>
+                <div className="intent-content">
+                  <span className="intent-title">Hacer Preventa</span>
+                  <span className="intent-desc">Elige paquetes desde aquí y ahorra tiempo al pagar.</span>
+                </div>
+                <div className="intent-arrow">
+                    <FontAwesomeIcon icon={faChevronRight} />
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* PASO 1: Datos del Tutor */}
         {step === 'tutor' && (
           <div className="portal-card portal-animate">
@@ -261,15 +346,35 @@ export const PortalPage: React.FC = () => {
               </div>
               <div className="portal-field">
                 <label>WhatsApp / Teléfono <span className="portal-req">*</span></label>
-                <input
-                  id="portal-tutor-phone"
-                  type="tel"
-                  placeholder="(000) 000-0000"
-                  value={formatPhone(tutorTelefono)}
-                  onChange={e => setTutorTelefono(e.target.value.replace(/\D/g, '').substring(0, 10))}
-                  inputMode="numeric"
-                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={tutorPrefix}
+                    onChange={e => setTutorPrefix(e.target.value)}
+                    placeholder="+52"
+                    style={{ width: '80px', textAlign: 'center', fontWeight: 'bold', border: '2px solid var(--p-border)', borderRadius: '12px' }}
+                  />
+                  <input
+                    id="portal-tutor-phone"
+                    type="tel"
+                    placeholder="(000) 000-0000"
+                    value={formatPhone(tutorTelefono)}
+                    onChange={e => setTutorTelefono(e.target.value.replace(/\D/g, '').substring(0, 10))}
+                    inputMode="numeric"
+                    style={{ flex: 1 }}
+                  />
+                </div>
                 <span className="portal-field-hint">Lo usamos para contactarte si es necesario</span>
+              </div>
+              <div className="portal-field">
+                <label>Confirmar Teléfono (10 dígitos)</label>
+                <input 
+                  id="portal-tutor-phone-confirm"
+                  type="tel" 
+                  placeholder="(000) 000-0000"
+                  value={formatPhone(tutorTelefonoConfirm)} 
+                  onChange={e => setTutorTelefonoConfirm(e.target.value.replace(/\D/g, '').substring(0, 10))}
+                />
               </div>
             </div>
 
@@ -278,12 +383,12 @@ export const PortalPage: React.FC = () => {
             </div>
 
             <button
-              id="portal-btn-to-verify"
+              id="portal-btn-to-children"
               className="portal-btn portal-btn-primary"
-              disabled={!canGoToChildren || isVLoading}
+              disabled={!tutorNombre || tutorTelefono.length < 10 || tutorTelefonoConfirm.length < 10}
               onClick={handleSendCode}
             >
-              {isVLoading ? <span className="portal-spinner-sm" /> : <>Verificar WhatsApp <span className="btn-arrow">→</span></>}
+              Continuar <span className="btn-arrow">→</span>
             </button>
             {vError && <div className="portal-error" style={{ marginTop: '1rem' }}>{vError}</div>}
           </div>
@@ -296,7 +401,7 @@ export const PortalPage: React.FC = () => {
               <div className="portal-card-icon"><Icon type="check" /></div>
               <div>
                 <h2>Verifica tu número</h2>
-                <p>Hemos enviado un código de 6 dígitos a <strong>{formatPhone(tutorTelefono)}</strong></p>
+                <p>Hemos enviado un código de 6 dígitos a <strong>{tutorPrefix} {formatPhone(tutorTelefono)}</strong></p>
               </div>
             </div>
 
@@ -415,73 +520,77 @@ export const PortalPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Selector de paquetes por área */}
-                      <div className="portal-pkg-section">
-                        <label>Elige el paquete</label>
+                      {/* Selector de paquetes (solo si es preventa) */}
+                      {intent === 'presale' && (
+                        <>
+                          <div className="portal-pkg-section">
+                            <label>Elige el paquete</label>
 
-                        {/* ── Area Tabs ── */}
-                        {(() => {
-                          const activeArea = activeAreaPerNino[idx] || areas[0] || '';
-                          const areaPkgs   = packages.filter(p => p.area === activeArea);
-                          const fmtDur = (m: number) =>
-                            m >= 60
-                              ? `${Math.floor(m / 60)}h${m % 60 ? `${m % 60}m` : ''}`
-                              : `${m}m`;
-                          return (
-                            <>
-                              <div className="portal-area-tabs">
-                                {areas.map(area => (
-                                  <button
-                                    key={area}
-                                    className={`portal-area-tab ${activeArea === area ? 'active' : ''}`}
-                                    onClick={() => setActiveAreaPerNino(prev => ({ ...prev, [idx]: area }))}
-                                    type="button"
-                                  >
-                                    {area}
-                                  </button>
-                                ))}
-                              </div>
+                            {/* ── Area Tabs ── */}
+                            {(() => {
+                              const activeArea = activeAreaPerNino[idx] || areas[0] || '';
+                              const areaPkgs   = packages.filter(p => p.area === activeArea);
+                              const fmtDur = (m: number) =>
+                                m >= 60
+                                  ? `${Math.floor(m / 60)}h${m % 60 ? `${m % 60}m` : ''}`
+                                  : `${m}m`;
+                              return (
+                                <>
+                                  <div className="portal-area-tabs">
+                                    {areas.map(area => (
+                                      <button
+                                        key={area}
+                                        className={`portal-area-tab ${activeArea === area ? 'active' : ''}`}
+                                        onClick={() => setActiveAreaPerNino(prev => ({ ...prev, [idx]: area }))}
+                                        type="button"
+                                      >
+                                        {area}
+                                      </button>
+                                    ))}
+                                  </div>
 
-                              {/* ── Package Chips ── */}
-                              <div className="portal-pkg-chips">
-                                {areaPkgs.map(pkg => {
-                                  const isSelected = nino.paquete_id === pkg.id;
-                                  return (
-                                    <button
-                                      key={pkg.id}
-                                      id={`portal-pkg-${idx}-${pkg.id}`}
-                                      className={`portal-pkg-chip ${isSelected ? 'selected' : ''}`}
-                                      onClick={() => updateNino(idx, 'paquete_id', pkg.id)}
-                                      type="button"
-                                    >
-                                      <span className="pkg-chip-left">
-                                        <span className="pkg-chip-check">
-                                          {isSelected && <Icon type="check" />}
-                                        </span>
-                                        <span className="pkg-chip-name">{pkg.nombre}</span>
-                                      </span>
-                                      <span className="pkg-chip-right">
-                                        <span className="pkg-chip-duration">{fmtDur(pkg.duracion_minutos)}</span>
-                                        <span className="pkg-chip-price">${pkg.precio.toLocaleString('es-MX')}</span>
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                                {areaPkgs.length === 0 && (
-                                  <p style={{ color: 'var(--p-text-2)', fontSize: '0.82rem', textAlign: 'center', padding: '0.75rem 0' }}>
-                                    Sin paquetes en esta área
-                                  </p>
-                                )}
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
+                                  {/* ── Package Chips ── */}
+                                  <div className="portal-pkg-chips">
+                                    {areaPkgs.map(pkg => {
+                                      const isSelected = nino.paquete_id === pkg.id;
+                                      return (
+                                        <button
+                                          key={pkg.id}
+                                          id={`portal-pkg-${idx}-${pkg.id}`}
+                                          className={`portal-pkg-chip ${isSelected ? 'selected' : ''}`}
+                                          onClick={() => updateNino(idx, 'paquete_id', pkg.id)}
+                                          type="button"
+                                        >
+                                          <span className="pkg-chip-left">
+                                            <span className="pkg-chip-check">
+                                              {isSelected && <Icon type="check" />}
+                                            </span>
+                                            <span className="pkg-chip-name">{pkg.nombre}</span>
+                                          </span>
+                                          <span className="pkg-chip-right">
+                                            <span className="pkg-chip-duration">{fmtDur(pkg.duracion_minutos)}</span>
+                                            <span className="pkg-chip-price">${pkg.precio.toLocaleString('es-MX')}</span>
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                    {areaPkgs.length === 0 && (
+                                      <p style={{ color: 'var(--p-text-2)', fontSize: '0.82rem', textAlign: 'center', padding: '0.75rem 0' }}>
+                                        Sin paquetes en esta área
+                                      </p>
+                                    )}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
 
-                      {selectedPkg && (
-                        <div className="portal-pkg-selected-badge">
-                          ✓ {selectedPkg.nombre} — {selectedPkg.duracion_minutos}min — <strong>${selectedPkg.precio.toLocaleString('es-MX')}</strong>
-                        </div>
+                          {selectedPkg && (
+                            <div className="portal-pkg-selected-badge">
+                              ✓ {selectedPkg.nombre} — {selectedPkg.duracion_minutos}min — <strong>${selectedPkg.precio.toLocaleString('es-MX')}</strong>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );
@@ -503,7 +612,7 @@ export const PortalPage: React.FC = () => {
                 disabled={!canGoToConfirm}
                 onClick={() => setStep('confirm')}
               >
-                Revisar Orden →
+                {intent === 'registration' ? 'Revisar Registro →' : 'Revisar Orden →'}
               </button>
             </div>
           </div>
@@ -515,7 +624,7 @@ export const PortalPage: React.FC = () => {
             <div className="portal-card-header">
               <div className="portal-card-icon"><Icon type="ticket" /></div>
               <div>
-                <h2>Resumen de tu Orden</h2>
+                <h2>{intent === 'registration' ? 'Resumen de Registro' : 'Resumen de tu Orden'}</h2>
                 <p>Verifica los datos antes de enviar</p>
               </div>
             </div>
@@ -524,7 +633,7 @@ export const PortalPage: React.FC = () => {
               <div className="portal-summary-section">
                 <h4>Tutor / Responsable</h4>
                 <div className="portal-summary-row"><span>Nombre</span><strong>{tutorNombre}</strong></div>
-                <div className="portal-summary-row"><span>Teléfono</span><strong>{formatPhone(tutorTelefono)}</strong></div>
+                <div className="portal-summary-row"><span>Teléfono</span><strong>{tutorPrefix} {formatPhone(tutorTelefono)}</strong></div>
 
               </div>
 
@@ -535,22 +644,57 @@ export const PortalPage: React.FC = () => {
                   return (
                     <div key={idx} className="portal-summary-child">
                       <div className="portal-summary-child-name">👦 {n.nombre}, {n.edad} años</div>
-                      <div className="portal-summary-child-pkg">
-                        {pkg?.nombre} · {pkg?.duracion_minutos}min · <strong>${pkg?.precio.toLocaleString('es-MX')}</strong>
-                      </div>
-                      <div className="portal-summary-child-area">{pkg?.area}</div>
+                      {intent === 'presale' && pkg && (
+                        <>
+                          <div className="portal-summary-child-pkg">
+                            {pkg.nombre} · {pkg.duracion_minutos}min · <strong>${pkg.precio.toLocaleString('es-MX')}</strong>
+                          </div>
+                          <div className="portal-summary-child-area">{pkg.area}</div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              <div className="portal-total-row">
-                <span>Total Estimado</span>
-                <strong className="portal-total-amount">${total.toLocaleString('es-MX')}</strong>
-              </div>
+              {intent === 'presale' && (
+                <div className="portal-total-row">
+                  <span>Total Estimado</span>
+                  <strong className="portal-total-amount">${total.toLocaleString('es-MX')}</strong>
+                </div>
+              )}
 
-              <div className="portal-expiry-note">
-                <Icon type="clock" /> Tu orden estará disponible en caja por <strong>30 minutos</strong> después de enviarse.
+              {intent === 'presale' && (
+                <div className="portal-expiry-note">
+                  <Icon type="clock" /> Tu orden estará disponible en caja por <strong>30 minutos</strong> después de enviarse.
+                </div>
+              )}
+
+              {/* CAPTCHA MEJORADO */}
+              <div className="portal-captcha-section">
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--p-text-1)', display: 'block', marginBottom: '0.5rem' }}>
+                  Validación de Seguridad (Humano)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f1f5f9', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--p-brand)', userSelect: 'none' }}>
+                    {captcha.aAsWord ? CAPTCHA_WORDS[captcha.a] : captcha.a} + {captcha.b} =
+                  </span>
+                  <input 
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={captchaInput}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setCaptchaInput(val);
+                      setIsCaptchaValid(parseInt(val) === captcha.result);
+                    }}
+                    placeholder="?"
+                    style={{ width: '60px', textAlign: 'center', border: '2px solid var(--p-border)', borderRadius: '8px', padding: '0.5rem', fontWeight: 'bold' }}
+                  />
+                  {isCaptchaValid && <span style={{ color: '#10b981', fontSize: '1.2rem' }}><Icon type="check" /></span>}
+                </div>
+                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.4rem', display: 'block' }}>Por favor resuelve la suma para finalizar</span>
               </div>
             </div>
 
@@ -561,10 +705,10 @@ export const PortalPage: React.FC = () => {
               <button
                 id="portal-btn-submit"
                 className="portal-btn portal-btn-primary portal-btn-submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isCaptchaValid}
                 onClick={handleSubmit}
               >
-                {isSubmitting ? <span className="portal-spinner-sm" /> : '⚡ Enviar Orden a Caja'}
+                {isSubmitting ? <span className="portal-spinner-sm" /> : (intent === 'registration' ? '⚡ Finalizar Registro' : '⚡ Enviar Orden a Caja')}
               </button>
             </div>
           </div>
@@ -574,13 +718,21 @@ export const PortalPage: React.FC = () => {
         {step === 'success' && (
           <div className="portal-card portal-success-card portal-animate">
             <div className="portal-success-icon">🎉</div>
-            <h2 className="portal-success-title">¡Tu orden está en camino!</h2>
-            <p className="portal-success-sub">Dirígete a caja con tu código de confirmación</p>
+            <h2 className="portal-success-title">{intent === 'registration' ? '¡Registro completado!' : '¡Tu orden está en camino!'}</h2>
+            <p className="portal-success-sub">
+              {intent === 'registration' 
+                ? 'Tus datos ya están en nuestro sistema. ¡Te esperamos!' 
+                : 'Dirígete a caja con tu código de confirmación'}
+            </p>
 
-            <div className="portal-code-box">
-              <span className="portal-code-label">Tu código</span>
-              <span className="portal-code" id="portal-confirm-code">{confirmCode}</span>
-            </div>
+            {result && (
+              <div className="portal-code-box">
+                <span className="portal-code-label">
+                  {intent === 'registration' ? 'Tu Código de Registro' : 'Tu Código de Preventa'}
+                </span>
+                <span className="portal-code">{result.id.substring(0, 6).toUpperCase()}</span>
+              </div>
+            )}
 
             <div className="portal-countdown-wrap">
               <Icon type="clock" />
