@@ -245,19 +245,38 @@ export class PrinterService {
         lines.push('EFECTIVO ESPERADO:'.padEnd(25) + `$ ${data.esperadoEfectivo.toFixed(2)}`.padStart(13));
         lines.push('EFECTIVO REAL:'.padEnd(25) + `$ ${data.realEfectivo.toFixed(2)}`.padStart(13));
         
+        // --- Bloque de diferencia de EFECTIVO ---
         const diffEfe = data.diferenciaEfectivo;
-        const diffEfeLabel = diffEfe === 0 ? 'OK' : diffEfe > 0 ? 'SOBRANTE' : 'FALTANTE';
-        lines.push('\x1B\x45\x01' + `DIF. EFECTIVO (${diffEfeLabel}):`.padEnd(25) + `$ ${diffEfe.toFixed(2)}`.padStart(13) + '\x1B\x45\x00');
+        lines.push('======================================');
+        if (diffEfe === 0) {
+            lines.push('\x1B\x45\x01' + '    [OK] EFECTIVO CUADRADO    ' + '\x1B\x45\x00');
+            lines.push('\x1B\x45\x01' + '  No hay diferencia en caja   ' + '\x1B\x45\x00');
+        } else if (diffEfe > 0) {
+            lines.push('\x1B\x45\x01' + '  [+] SOBRA EFECTIVO EN CAJA  ' + '\x1B\x45\x00');
+            lines.push('\x1B\x45\x01' + `   MONTO SOBRANTE: $ ${diffEfe.toFixed(2)}`.padEnd(38) + '\x1B\x45\x00');
+        } else {
+            lines.push('\x1B\x45\x01' + '  [!] FALTA EFECTIVO EN CAJA  ' + '\x1B\x45\x00');
+            lines.push('\x1B\x45\x01' + `   MONTO FALTANTE: $ ${Math.abs(diffEfe).toFixed(2)}`.padEnd(38) + '\x1B\x45\x00');
+        }
+        lines.push('======================================');
 
-        lines.push('--------------------------------------');
         lines.push('TARJETA ESPERADA:'.padEnd(25) + `$ ${data.esperadoTarjeta.toFixed(2)}`.padStart(13));
         lines.push('TARJETA REAL:'.padEnd(25) + `$ ${data.realTarjeta.toFixed(2)}`.padStart(13));
         
+        // --- Bloque de diferencia de TARJETA ---
         const diffTar = data.diferenciaTarjeta;
-        const diffTarLabel = diffTar === 0 ? 'OK' : diffTar > 0 ? 'SOBRANTE' : 'FALTANTE';
-        lines.push('\x1B\x45\x01' + `DIF. TARJETA (${diffTarLabel}):`.padEnd(25) + `$ ${diffTar.toFixed(2)}`.padStart(13) + '\x1B\x45\x00');
-        
-        lines.push('--------------------------------------');
+        lines.push('======================================');
+        if (diffTar === 0) {
+            lines.push('\x1B\x45\x01' + '    [OK] TARJETA CUADRADA     ' + '\x1B\x45\x00');
+            lines.push('\x1B\x45\x01' + '  No hay diferencia en tarjeta' + '\x1B\x45\x00');
+        } else if (diffTar > 0) {
+            lines.push('\x1B\x45\x01' + '  [+] SOBRA EN TARJETA        ' + '\x1B\x45\x00');
+            lines.push('\x1B\x45\x01' + `   MONTO SOBRANTE: $ ${diffTar.toFixed(2)}`.padEnd(38) + '\x1B\x45\x00');
+        } else {
+            lines.push('\x1B\x45\x01' + '  [!] FALTA EN TARJETA        ' + '\x1B\x45\x00');
+            lines.push('\x1B\x45\x01' + `   MONTO FALTANTE: $ ${Math.abs(diffTar).toFixed(2)}`.padEnd(38) + '\x1B\x45\x00');
+        }
+        lines.push('======================================');
         lines.push('\x1B\x61\x01');
         lines.push('FIRMA CAJERO:');
         lines.push('');
