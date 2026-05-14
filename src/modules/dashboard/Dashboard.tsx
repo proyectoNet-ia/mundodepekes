@@ -28,7 +28,8 @@ import {
   faLock,
   faReceipt,
   faEllipsisV,
-  faBirthdayCake
+  faBirthdayCake,
+  faSync
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useToast } from '../../components/Toast';
@@ -368,10 +369,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
           </div>
           
           <div className={styles.headerActions}>
+            <button 
+              className={styles.refreshBtn} 
+              onClick={refreshData} 
+              disabled={isRefreshing}
+              title="Actualizar registros del portal"
+            >
+              <FontAwesomeIcon icon={faSync} spin={isRefreshing} />
+              <span>{isRefreshing ? 'Actualizando...' : 'Refrescar'}</span>
+            </button>
             {/* Indicador de actualización en tiempo real */}
             <div className={styles.liveIndicator} title={`Actualizado: ${lastRefreshed.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}>
               <span className={`${styles.liveDot} ${isRefreshing ? styles.liveDotRefreshing : ''}`} />
-              <span className={styles.liveText}>{isRefreshing ? 'En Vivo' : 'En Vivo'}</span>
+              <span className={styles.liveText}>En Vivo</span>
             </div>
           </div>
         </div>

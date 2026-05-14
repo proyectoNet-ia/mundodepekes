@@ -27,7 +27,39 @@
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
+}
+
+.refreshBtn {
+  background: var(--brand-500);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 27, 72, 0.2);
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: var(--brand-600);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 27, 72, 0.3);
+}
+
+.refreshBtn:active {
+  transform: translateY(0);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #94a3b8;
 }
 
 .newEntryBtn {
