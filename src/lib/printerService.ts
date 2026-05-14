@@ -213,70 +213,79 @@ export class PrinterService {
 
     static formatArqueoTicket(data: ArqueoTicketData): string {
         const n = (s: string) => PrinterService.normalizeString(s);
-        
+        const W = 38;
+        const sep  = '='.repeat(W);
+        const line = '-'.repeat(W);
+        const center = (txt: string) => {
+            const pad = Math.max(0, W - txt.length);
+            return ' '.repeat(Math.floor(pad / 2)) + txt + ' '.repeat(Math.ceil(pad / 2));
+        };
+        const bold = (txt: string) => `\x1B\x45\x01${txt}\x1B\x45\x00`;
+
         let lines = [
             '\x1B\x40', '\x1B\x74\x11', '\x1B\x61\x01',
-            '\x1B\x45\x01ARQUEO DE CAJA\x1B\x45\x00',
-            '\x1B\x45\x01MUNDO DE PEKES\x1B\x45\x00',
-            '--------------------------------------',
+            bold('ARQUEO DE CAJA'),
+            bold('MUNDO DE PEKES'),
+            line,
         ];
 
         lines.push(`Cajero: ${n(data.staffEmail)}`);
         lines.push(`Apertura: ${data.fechaApertura}`);
         lines.push(`Cierre:   ${data.fechaCierre}`);
-        lines.push('--------------------------------------');
+        lines.push(line);
         lines.push('\x1B\x61\x00'); // Left
-        
+
         lines.push('RESUMEN DE VENTAS');
         lines.push('EFECTIVO:'.padEnd(25) + `$ ${data.ventasEfectivo.toFixed(2)}`.padStart(13));
-        lines.push('TARJETA:'.padEnd(25) + `$ ${data.ventasTarjeta.toFixed(2)}`.padStart(13));
-        lines.push('\x1B\x45\x01' + 'TOTAL VENTAS:'.padEnd(25) + `$ ${data.totalVentas.toFixed(2)}`.padStart(13) + '\x1B\x45\x00');
+        lines.push('TARJETA:'.padEnd(25)  + `$ ${data.ventasTarjeta.toFixed(2)}`.padStart(13));
+        lines.push(bold('TOTAL VENTAS:'.padEnd(25) + `$ ${data.totalVentas.toFixed(2)}`.padStart(13)));
 
         if (data.gastos.length > 0) {
             lines.push('GASTOS DEL TURNO:');
             data.gastos.forEach(g => {
-                lines.push(` - ${n(g.concepto).substring(0, 22).padEnd(23)} $ ${g.monto.toFixed(2)}`.padStart(13));
+                lines.push(` - ${n(g.concepto).substring(0, 22).padEnd(23)}$ ${g.monto.toFixed(2)}`.padStart(13));
             });
             lines.push('TOTAL GASTOS:'.padEnd(25) + `$ ${data.totalGastos.toFixed(2)}`.padStart(13));
         }
 
-        lines.push('--------------------------------------');
-        lines.push('FONDO INICIAL:'.padEnd(25) + `$ ${data.montoInicial.toFixed(2)}`.padStart(13));
+        lines.push(line);
+        lines.push('FONDO INICIAL:'.padEnd(25)    + `$ ${data.montoInicial.toFixed(2)}`.padStart(13));
         lines.push('EFECTIVO ESPERADO:'.padEnd(25) + `$ ${data.esperadoEfectivo.toFixed(2)}`.padStart(13));
-        lines.push('EFECTIVO REAL:'.padEnd(25) + `$ ${data.realEfectivo.toFixed(2)}`.padStart(13));
-        
-        // --- Bloque de diferencia de EFECTIVO ---
+        lines.push('EFECTIVO REAL:'.padEnd(25)     + `$ ${data.realEfectivo.toFixed(2)}`.padStart(13));
+
+        // ── Bloque diferencia EFECTIVO ──
         const diffEfe = data.diferenciaEfectivo;
-        lines.push('======================================');
+        lines.push(sep);
         if (diffEfe === 0) {
-            lines.push('\x1B\x45\x01' + '    [OK] EFECTIVO CUADRADO    ' + '\x1B\x45\x00');
-            lines.push('\x1B\x45\x01' + '  No hay diferencia en caja   ' + '\x1B\x45\x00');
+            lines.push(bold(center('** EFECTIVO CUADRADO **')));
+            lines.push(bold(center('Sin diferencia en caja')));
         } else if (diffEfe > 0) {
-            lines.push('\x1B\x45\x01' + '  [+] SOBRA EFECTIVO EN CAJA  ' + '\x1B\x45\x00');
-            lines.push('\x1B\x45\x01' + `   MONTO SOBRANTE: $ ${diffEfe.toFixed(2)}`.padEnd(38) + '\x1B\x45\x00');
+            lines.push(bold(center('++ SOBRA EFECTIVO EN CAJA ++')));
+            lines.push(bold(center(`SOBRANTE: $ ${diffEfe.toFixed(2)}`)));
         } else {
-            lines.push('\x1B\x45\x01' + '  [!] FALTA EFECTIVO EN CAJA  ' + '\x1B\x45\x00');
-            lines.push('\x1B\x45\x01' + `   MONTO FALTANTE: $ ${Math.abs(diffEfe).toFixed(2)}`.padEnd(38) + '\x1B\x45\x00');
+            lines.push(bold(center('!! FALTA EFECTIVO EN CAJA !!')));
+            lines.push(bold(center(`FALTANTE: $ ${Math.abs(diffEfe).toFixed(2)}`)));
         }
-        lines.push('======================================');
+        lines.push(sep);
 
         lines.push('TARJETA ESPERADA:'.padEnd(25) + `$ ${data.esperadoTarjeta.toFixed(2)}`.padStart(13));
-        lines.push('TARJETA REAL:'.padEnd(25) + `$ ${data.realTarjeta.toFixed(2)}`.padStart(13));
-        
-        // --- Bloque de diferencia de TARJETA ---
+        lines.push('TARJETA REAL:'.padEnd(25)     + `$ ${data.realTarjeta.toFixed(2)}`.padStart(13));
+
+        // ── Bloque diferencia TARJETA ──
         const diffTar = data.diferenciaTarjeta;
-        lines.push('======================================');
+        lines.push(sep);
         if (diffTar === 0) {
-            lines.push('\x1B\x45\x01' + '    [OK] TARJETA CUADRADA     ' + '\x1B\x45\x00');
-            lines.push('\x1B\x45\x01' + '  No hay diferencia en tarjeta' + '\x1B\x45\x00');
+            lines.push(bold(center('** TARJETA CUADRADA **')));
+            lines.push(bold(center('Sin diferencia en tarjeta')));
         } else if (diffTar > 0) {
-            lines.push('\x1B\x45\x01' + '  [+] SOBRA EN TARJETA        ' + '\x1B\x45\x00');
-            lines.push('\x1B\x45\x01' + `   MONTO SOBRANTE: $ ${diffTar.toFixed(2)}`.padEnd(38) + '\x1B\x45\x00');
+            lines.push(bold(center('++ SOBRA EN TARJETA ++')));
+            lines.push(bold(center(`SOBRANTE: $ ${diffTar.toFixed(2)}`)));
         } else {
-            lines.push('\x1B\x45\x01' + '  [!] FALTA EN TARJETA        ' + '\x1B\x45\x00');
-            lines.push('\x1B\x45\x01' + `   MONTO FALTANTE: $ ${Math.abs(diffTar).toFixed(2)}`.padEnd(38) + '\x1B\x45\x00');
+            lines.push(bold(center('!! FALTA EN TARJETA !!')));
+            lines.push(bold(center(`FALTANTE: $ ${Math.abs(diffTar).toFixed(2)}`)));
         }
-        lines.push('======================================');
+        lines.push(sep);
+
         lines.push('\x1B\x61\x01');
         lines.push('FIRMA CAJERO:');
         lines.push('');
