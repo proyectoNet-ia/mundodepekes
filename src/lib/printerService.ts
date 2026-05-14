@@ -305,8 +305,8 @@ export class PrinterService {
 ^LL2240
 ^FWB
 ^FO64,1760^A0B,45,45^FD${n(data.nino)}^FS
-^FO104,1760^A0B,30,30^FDID: ${data.idPeke}  ZONA: ${n(data.area)}^FS
-^FO160,1760^A0B,25,25^FDENTRA: ${data.horaEntrada}  SALE: ${data.horaSalida}  ${n(data.paquete)}^FS
+^FO104,1760^A0B,32,32^FDID: ${data.idPeke}  ZONA: ${n(data.area)}^FS
+^FO160,1760^A0B,27,27^FDENTRA: ${data.horaEntrada}  SALE: ${data.horaSalida}  ${n(data.paquete)}^FS
 ^XZ
         `.trim();
     }
