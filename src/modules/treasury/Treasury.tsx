@@ -93,15 +93,10 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     };
 
     const handleRequestCancel = (tx: any) => {
-        if (user?.role === 'admin') {
-            // Abrir modal de motivo directamente para admin
-            setCancelPayload({ txId: tx.id, managerName: user.email });
-            setCancelReasonText('');
-            setShowCancelReasonModal(true);
-        } else {
-            setAuthActionPayload({ type: 'cancel_ticket', data: tx });
-            setShowAuthModal(true);
-        }
+        // NIP eliminado: Abrir modal de motivo directamente para cualquier usuario
+        setCancelPayload({ txId: tx.id, managerName: user?.email || 'admin' });
+        setCancelReasonText('');
+        setShowCancelReasonModal(true);
     };
 
     const executeCancelTicket = async (txId: string, managerName: string) => {
