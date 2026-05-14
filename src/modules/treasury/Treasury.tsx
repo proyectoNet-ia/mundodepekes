@@ -328,35 +328,6 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     <div className={styles.cardHeader}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                             <h3>Arqueo de Turno</h3>
-                            <button 
-                                className={styles.testPrintMiniBtn}
-                                onClick={async () => {
-                                    const testData = {
-                                        folio: 'TEST-001',
-                                        fechaApertura: '01/01/2026 09:00',
-                                        fechaCierre: '01/01/2026 18:00',
-                                        staffEmail: user?.email || 'admin',
-                                        montoInicial: 1000,
-                                        ventasEfectivo: 5500,
-                                        ventasTarjeta: 2300,
-                                        gastos: [{ concepto: 'Garrafones Agua', monto: 150 }, { concepto: 'Papelería', monto: 80 }],
-                                        totalGastos: 230,
-                                        esperadoEfectivo: 6270,
-                                        realEfectivo: 6270,
-                                        esperadoTarjeta: 2300,
-                                        realTarjeta: 2300,
-                                        diferenciaEfectivo: 0,
-                                        diferenciaTarjeta: 0,
-                                        totalVentas: 7800
-                                    };
-                                    const raw = PrinterService.formatArqueoTicket(testData);
-                                    await PrinterService.printRaw(raw, 'TICKET');
-                                    showToast('Ticket de prueba enviado', 'info');
-                                }}
-                                title="Imprimir ticket de prueba"
-                            >
-                                <FontAwesomeIcon icon={faReceipt} /> PROBAR IMPRESORA
-                            </button>
                         </div>
                         <span className={styles.montoInicial}>Fondo: ${activeSession?.monto_inicial.toFixed(2)}</span>
                     </div>
