@@ -118,8 +118,10 @@ export class PrinterService {
         lines.push('\x1B\x61\x00'); // Left
 
         data.items.forEach((item) => {
-            const pekeIdLabel = item.idPeke ? ` [${item.idPeke}]` : '';
-            lines.push(`PEKE: ${n(item.nino).toUpperCase()}${pekeIdLabel}`);
+            lines.push(`PEKE: ${n(item.nino).toUpperCase()}`);
+            if (item.idPeke) {
+                lines.push(`ID PEKE: ${item.idPeke}`);
+            }
             const durationStr = item.duracion ? ` (${PrinterService.formatDuration(item.duracion)})` : '';
             lines.push(`PAQUETE: ${n(item.nombre)}${durationStr}`);
             lines.push('\x1B\x45\x01' + `PRECIO: $ ${item.precio.toFixed(2)}`.padStart(width) + '\x1B\x45\x00');
