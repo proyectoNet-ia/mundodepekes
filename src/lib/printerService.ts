@@ -266,16 +266,19 @@ export class PrinterService {
     }
 
     static formatZebraWristband(data: ZebraWristbandData): string {
-        const formattedDur = this.formatDuration(data.duracion);
         const n = (s: string) => PrinterService.normalizeString(s);
 
-        return `^XA^PW300^LL1200^LS0^CI28
-^FO240,20^FB1100,1,,R^A0R,60,60^FD${n(data.nino).toUpperCase()}^FS
-^FO190,20^FB1100,1,,R^A0R,30,30^FDTUTOR: ${n(data.tutor || '').toUpperCase()}^FS
-^FO155,20^FB1100,1,,R^A0R,28,28^FDID: ${data.folio} TEL: ${data.telefono || ''}^FS
-^FO125,20^FB1100,1,,R^A0R,25,25^FDENT: ${data.horaEntrada} SAL: ${data.horaSalida} PKG: ${formattedDur}^FS
-^FO95,20^FB1100,1,,R^A0R,25,25^FDZONA: ${n(data.area).toUpperCase()}^FS
-^XZ`.trim();
+        return `
+^XA
+^CI28
+^PW210
+^LL2240
+^FWB
+^FO64,1760^A0B,45,45^FD${n(data.nino)}^FS
+^FO104,1760^A0B,30,30^FDID: ${data.idPeke}  ZONA: ${n(data.area)}^FS
+^FO160,1760^A0B,25,25^FDENTRA: ${data.horaEntrada}  SALE: ${data.horaSalida}  ${n(data.paquete)}^FS
+^XZ
+        `.trim();
     }
 
     static async printRaw(content: string, deviceRole: 'TICKET' | 'WRISTBAND') {
