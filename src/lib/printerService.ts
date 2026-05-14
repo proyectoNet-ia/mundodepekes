@@ -301,12 +301,14 @@ export class PrinterService {
         return `
 ^XA
 ^CI28
-^PW210
+^PW260
 ^LL2240
 ^FWB
 ^FO64,1760^A0B,45,45^FD${n(data.nino)}^FS
-^FO104,1760^A0B,32,32^FDID: ${data.idPeke}  ZONA: ${n(data.area)}^FS
-^FO160,1760^A0B,27,27^FDENTRA: ${data.horaEntrada}  SALE: ${data.horaSalida}  ${n(data.paquete)}^FS
+^FO112,1760^A0B,35,35^FDID: ${data.idPeke}  ZONA: ${n(data.area)}^FS
+^FO150,1760^A0B,30,30^FDENTRA: ${data.horaEntrada}^FS
+^FO183,1760^A0B,30,30^FDSALE: ${data.horaSalida}^FS
+^FO216,1760^A0B,30,30^FD${n(data.paquete)}^FS
 ^XZ
         `.trim();
     }
