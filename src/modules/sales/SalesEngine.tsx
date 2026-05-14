@@ -835,7 +835,10 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
 
                           return (
                             <div key={idx} className={styles.childPackageSelection}>
-                              <h4>PAQUETE PARA {child.name}</h4>
+                              <div className={styles.packageHeaderGroup}>
+                                <span className={styles.packageLabel}>PAQUETE PARA</span>
+                                <h4 className={styles.childNameHighlight}>{child.name}</h4>
+                              </div>
                               <select 
                                 value={childPackages[idx] || ''} 
                                 onChange={(e) => setChildPackages({...childPackages, [idx]: e.target.value})}
