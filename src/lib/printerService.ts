@@ -211,7 +211,6 @@ export class PrinterService {
 
     static formatArqueoTicket(data: ArqueoTicketData): string {
         const n = (s: string) => PrinterService.normalizeString(s);
-        const width = 38; // Aprovechar mejor el ancho
         
         let lines = [
             '\x1B\x40', '\x1B\x74\x11', '\x1B\x61\x01',
