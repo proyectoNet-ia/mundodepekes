@@ -834,37 +834,24 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                           }, {} as Record<string, Package[]>);
 
                           return (
-                            <div key={idx} style={{ marginBottom: '3rem', paddingBottom: '2rem', borderBottom: '1px dashed #e2e8f0' }}>
-                              <h4 style={{ color: 'var(--brand-600)', fontWeight: 900, marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                PAQUETE PARA {child.name}
-                              </h4>
-                              
-                              {Object.entries(packagesByArea).map(([area, pkgs]) => (
-                                <div key={area} style={{ marginBottom: '2rem' }}>
-                                  <div className={styles.accCategoryHeader} style={{ marginBottom: '1.25rem' }}>
-                                    <div className={styles.accCategoryDot} />
-                                    <span>ÁREA: {area}</span>
-                                  </div>
-                                  <div className={styles.packageGrid}>
+                            <div key={idx} className={styles.childPackageSelection}>
+                              <h4>PAQUETE PARA {child.name}</h4>
+                              <select 
+                                value={childPackages[idx] || ''} 
+                                onChange={(e) => setChildPackages({...childPackages, [idx]: e.target.value})}
+                                className={styles.packageSelect}
+                              >
+                                <option value="">Seleccione un paquete...</option>
+                                {Object.entries(packagesByArea).map(([area, pkgs]) => (
+                                  <optgroup key={area} label={`ÁREA: ${area.toUpperCase()}`}>
                                     {pkgs.map(pkg => (
-                                      <div 
-                                        key={pkg.id} 
-                                        className={`${styles.packageCard} ${childPackages[idx] === pkg.id ? styles.packageSelected : ''}`} 
-                                        onClick={() => setChildPackages({...childPackages, [idx]: pkg.id})}
-                                      >
-                                        <div className={styles.pkgHeader}>
-                                          <strong style={{ fontSize: '1.1rem', color: '#1e293b' }}>{pkg.nombre}</strong>
-                                          <span className={styles.pkgPrice}>${pkg.precio}</span>
-                                        </div>
-                                        <div className={styles.pkgTime}>
-                                          <FontAwesomeIcon icon={faClock} style={{ marginRight: '0.4rem', color: 'var(--brand-400)' }} />
-                                          {formatDuration(pkg.duracion_minutos)}
-                                        </div>
-                                      </div>
+                                      <option key={pkg.id} value={pkg.id}>
+                                        {pkg.nombre} — ${pkg.precio} ({formatDuration(pkg.duracion_minutos)})
+                                      </option>
                                     ))}
-                                  </div>
-                                </div>
-                              ))}
+                                  </optgroup>
+                                ))}
+                              </select>
                             </div>
                           );
                         })

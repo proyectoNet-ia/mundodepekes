@@ -1540,3 +1540,67 @@
     border-color: #cbd5e1;
     color: #1e293b;
 }
+
+/* Package Selection Optimization */
+.childPackageSelection {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.childPackageSelection:hover {
+    border-color: var(--brand-300);
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.childPackageSelection h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    color: var(--brand-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 800;
+}
+
+.packageSelect {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1.5rem;
+}
+
+.packageSelect:focus {
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 4px rgba(0, 27, 72, 0.05);
+}
+
+.packageSelect optgroup {
+    font-weight: 800;
+    color: var(--brand-700);
+    background: #f1f5f9;
+    padding: 10px;
+}
+
+.packageSelect option {
+    font-weight: 500;
+    color: #334155;
+    background: white;
+    padding: 12px;
+}
