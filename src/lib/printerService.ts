@@ -74,7 +74,7 @@ export interface ArqueoTicketData {
     diferenciaEfectivo: number;
     diferenciaTarjeta: number;
     totalVentas: number;
-    productosVendidos?: { nombre: string; cantidad: number }[];
+    productosVendidos?: { nombre: string; cantidad: number; categoria?: string }[];
 }
 
 export class PrinterService {
@@ -280,11 +280,29 @@ export class PrinterService {
             lines.push(bold('PRODUCTOS VENDIDOS EN EL CORTE:'));
             lines.push('CANT  CONCEPTO');
             lines.push(line);
+            
+            let totalBebidas = 0;
+            let totalRopa = 0;
+            
             data.productosVendidos.forEach(p => {
                 const qtyStr = p.cantidad.toString().padEnd(6);
                 const prodName = n(p.nombre).substring(0, W - 6);
                 lines.push(`${qtyStr}${prodName}`);
+                
+                const cat = p.categoria ? String(p.categoria).toLowerCase() : '';
+                const name = p.nombre ? String(p.nombre).toLowerCase() : '';
+                
+                if (cat.includes('ropa') || cat.includes('calcet') || name.includes('calcet') || name.includes('sock') || name.includes('media')) {
+                    totalRopa += p.cantidad;
+                } else if (cat.includes('bebida') || cat.includes('refresco') || cat.includes('agua') || 
+                           name.includes('agua') || name.includes('refresco') || name.includes('powerade') || 
+                           name.includes('ciel') || name.includes('coca') || name.includes('sprite') || name.includes('fanta') || name.includes('jugo')) {
+                    totalBebidas += p.cantidad;
+                }
             });
+            lines.push(line);
+            lines.push(bold(`TOTAL BEBIDAS VENDIDAS: ${totalBebidas}`));
+            lines.push(bold(`TOTAL ROPA/CALCETINES:  ${totalRopa}`));
         }
 
         lines.push(line);

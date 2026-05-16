@@ -39,7 +39,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     const [expenseDesc, setExpenseDesc] = useState('');
     const [hasTicket, setHasTicket] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
-    const [authActionPayload, setAuthActionPayload] = useState<{type: 'expense' | 'cancel_ticket', data?: any} | null>(null);
+    const [authActionPayload] = useState<{type: 'expense' | 'cancel_ticket', data?: any} | null>(null);
     const [authorizer, setAuthorizer] = useState<UserProfile | null>(null);
     const [isSavingExpense, setIsSavingExpense] = useState(false);
 
@@ -384,16 +384,11 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                             className={styles.expenseActionBtn} 
                             style={{ flex: 1 }}
                             onClick={() => { 
-                                if (user?.role === 'admin') {
-                                    setAuthorizer(user);
-                                    setShowExpenseModal(true);
-                                } else {
-                                    setAuthActionPayload({type: 'expense'}); 
-                                    setShowAuthModal(true); 
-                                }
+                                setAuthorizer(user);
+                                setShowExpenseModal(true);
                             }}
                         >
-                            <FontAwesomeIcon icon={faShieldAlt} /> {user?.role === 'admin' ? 'REGISTRAR GASTO' : 'SOLICITAR GASTO'}
+                            <FontAwesomeIcon icon={faShieldAlt} /> REGISTRAR GASTO
                         </button>
                     </div>
 

@@ -374,8 +374,20 @@ export const getShiftProductsSoldSummary = async (fechaApertura: string): Promis
       }
 
       const nombre = mov.inventario?.nombre || 'Producto Desconocido';
-      const categoria = mov.inventario?.categoria || 'General';
+      const categoriaDb = mov.inventario?.categoria || 'General';
       const qty = Number(mov.cantidad) || 0;
+
+      let categoria = categoriaDb;
+      const c = (categoriaDb || '').toLowerCase();
+      const n = (nombre || '').toLowerCase();
+      
+      if (c.includes('ropa') || c.includes('calcet') || n.includes('calcet') || n.includes('sock') || n.includes('media')) {
+        categoria = 'Ropa';
+      } else if (c.includes('bebida') || c.includes('refresco') || c.includes('agua') || 
+                 n.includes('agua') || n.includes('refresco') || n.includes('powerade') || 
+                 n.includes('ciel') || n.includes('coca') || n.includes('sprite') || n.includes('fanta') || n.includes('jugo')) {
+        categoria = 'Bebidas';
+      }
 
       if (map[nombre]) {
         map[nombre].cantidad += qty;

@@ -157,7 +157,7 @@ export const registerCustomerOnly = async (data: { tutor_nombre: string, tutor_t
   
   // 1. Buscar o Crear el tutor
   let tutorId: string;
-  const { data: existing } = await supabasePublic
+  const { data: existing } = await supabase
     .from('clientes')
     .select('id')
     .ilike('telefono', `%${primaryPhone}%`)
@@ -166,9 +166,9 @@ export const registerCustomerOnly = async (data: { tutor_nombre: string, tutor_t
   if (existing) {
     tutorId = existing.id;
     // Opcional: Actualizar nombre si es diferente
-    await supabasePublic.from('clientes').update({ nombre: data.tutor_nombre }).eq('id', tutorId);
+    await supabase.from('clientes').update({ nombre: data.tutor_nombre }).eq('id', tutorId);
   } else {
-    const { data: newTutor, error: tError } = await supabasePublic
+    const { data: newTutor, error: tError } = await supabase
       .from('clientes')
       .insert({ nombre: data.tutor_nombre, telefono: data.tutor_telefono })
       .select()
@@ -187,10 +187,10 @@ export const registerCustomerOnly = async (data: { tutor_nombre: string, tutor_t
   const ninosToInsert = data.ninos.map(n => ({
     nombre: n.nombre,
     edad: n.edad,
-    tutor_id: tutorId
+    cliente_id: tutorId
   }));
 
-  const { error: nError } = await supabasePublic
+  const { error: nError } = await supabase
     .from('ninos')
     .insert(ninosToInsert);
 

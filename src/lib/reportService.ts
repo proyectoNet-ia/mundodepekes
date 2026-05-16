@@ -94,11 +94,22 @@ export class ReportService {
     /**
      * Reporte específico de Cierre de Caja con máximo detalle
      */
-    static async generateClosureReport(session: any, summary: any, type: 'PDF' | 'EXCEL') {
+    static async generateClosureReport(session: any, _summary: any, type: 'PDF' | 'EXCEL') {
+        const { data: dbSession, error: sError } = await supabase
+            .from('arqueos_caja')
+            .select('*')
+            .eq('id', session.id)
+            .single();
+
+        if (sError || !dbSession) {
+            console.error('Error fetching arqueo details:', sError);
+            throw new Error('No se pudo encontrar el arqueo en la base de datos.');
+        }
+
         const title = `Reporte de Cierre de Caja - Folio ${session.id.substring(0, 8)}`;
         const filename = `cierre_${session.id.substring(0, 8)}`;
-        const start = session.fecha_apertura;
-        const end = session.fecha_cierre || new Date().toISOString();
+        const start = dbSession.fecha_apertura;
+        const end = dbSession.fecha_cierre || new Date().toISOString();
 
         // 1. Obtener Transacciones Detalladas y Mix de Paquetes vinculadas al Arqueo
         const { data: trans } = await supabase
@@ -112,11 +123,26 @@ export class ReportService {
             .order('fecha', { ascending: true });
 
         const packageMix: Record<string, number> = {};
-        trans?.filter(t => t.estado === 'pagado').forEach(t => {
-            t.sesiones?.forEach((s: any) => {
-                const name = s.paquetes?.nombre || 'Boleto POS / Otros';
-                packageMix[name] = (packageMix[name] || 0) + 1;
-            });
+        let efectivo = 0;
+        let tarjeta = 0;
+        let cancelados_count = 0;
+        let cancelados_monto = 0;
+
+        trans?.forEach(t => {
+            if (t.estado === 'pagado') {
+                if (t.metodo_pago?.toLowerCase().includes('efectivo')) {
+                    efectivo += Number(t.total) || 0;
+                } else {
+                    tarjeta += Number(t.total) || 0;
+                }
+                t.sesiones?.forEach((s: any) => {
+                    const name = s.paquetes?.nombre || 'Boleto POS / Otros';
+                    packageMix[name] = (packageMix[name] || 0) + 1;
+                });
+            } else if (t.estado === 'cancelado') {
+                cancelados_count += 1;
+                cancelados_monto += Number(t.total) || 0;
+            }
         });
 
         // 3. Obtener Gastos del Turno
@@ -124,6 +150,8 @@ export class ReportService {
             .from('gastos_diarios')
             .select('*')
             .eq('arqueo_id', session.id);
+
+        const gastos = shiftExpenses?.reduce((acc, e) => acc + (Number(e.monto) || 0), 0) || 0;
 
         // 4. Obtener Productos Vendidos en el Corte
         let soldProducts: { nombre: string; cantidad: number; categoria?: string }[] = [];
@@ -134,13 +162,15 @@ export class ReportService {
                     cantidad,
                     tipo,
                     motivo,
+                    created_at,
                     inventario (
                         nombre,
                         categoria
                     )
                 `)
                 .eq('tipo', 'salida')
-                .gte('created_at', start);
+                .gte('created_at', start)
+                .lte('created_at', end);
 
             const map: Record<string, { cantidad: number; categoria?: string }> = {};
             movs?.forEach((mov: any) => {
@@ -149,8 +179,20 @@ export class ReportService {
                     return; 
                 }
                 const nombre = mov.inventario?.nombre || 'Producto Desconocido';
-                const categoria = mov.inventario?.categoria || 'General';
+                const categoriaDb = mov.inventario?.categoria || 'General';
                 const qty = Number(mov.cantidad) || 0;
+
+                let categoria = categoriaDb;
+                const c = (categoriaDb || '').toLowerCase();
+                const n = (nombre || '').toLowerCase();
+                
+                if (c.includes('ropa') || c.includes('calcet') || n.includes('calcet') || n.includes('sock') || n.includes('media')) {
+                    categoria = 'Ropa';
+                } else if (c.includes('bebida') || c.includes('refresco') || c.includes('agua') || 
+                           n.includes('agua') || n.includes('refresco') || n.includes('powerade') || 
+                           n.includes('ciel') || n.includes('coca') || n.includes('sprite') || n.includes('fanta') || n.includes('jugo')) {
+                    categoria = 'Bebidas';
+                }
 
                 if (map[nombre]) {
                     map[nombre].cantidad += qty;
@@ -187,20 +229,36 @@ export class ReportService {
             console.error('Error fetching sold products for report:', err);
         }
 
+        // Calcular totales de Bebidas y Ropa/Calcetines para incluirlos en el reporte
+        let totalBebidas = 0;
+        let totalRopa = 0;
+        soldProducts.forEach(p => {
+            const cat = (p.categoria || '').toLowerCase();
+            const name = (p.nombre || '').toLowerCase();
+            
+            if (cat.includes('ropa') || cat.includes('calcet') || name.includes('calcet') || name.includes('sock') || name.includes('media')) {
+                totalRopa += p.cantidad;
+            } else if (cat.includes('bebida') || cat.includes('refresco') || cat.includes('agua') || 
+                       name.includes('agua') || name.includes('refresco') || name.includes('powerade') || 
+                       name.includes('ciel') || name.includes('coca') || name.includes('sprite') || name.includes('fanta') || name.includes('jugo')) {
+                totalBebidas += p.cantidad;
+            }
+        });
+
         const summaryData: Record<string, any>[] = [
-            { concepto: 'Fondo Inicial', monto: `$ ${session.monto_inicial.toFixed(2)}` },
-            { concepto: 'Ventas en Efectivo (+)', monto: `$ ${summary.efectivo.toFixed(2)}` },
-            { concepto: 'SALDO NETO ESPERADO EN EFECTIVO', monto: `$ ${(session.monto_inicial + summary.efectivo - summary.gastos).toFixed(2)}` },
-            { concepto: 'Efectivo Real Contado', monto: `$ ${session.monto_final_real?.toFixed(2) || '---'}` },
-            { concepto: 'Diferencia Efectivo (+/-)', monto: `$ ${(session.monto_final_real - (session.monto_inicial + summary.efectivo - summary.gastos)).toFixed(2)}` },
+            { concepto: 'Fondo Inicial', monto: `$ ${(Number(dbSession.monto_inicial) || 0).toFixed(2)}` },
+            { concepto: 'Ventas en Efectivo (+)', monto: `$ ${efectivo.toFixed(2)}` },
+            { concepto: 'SALDO NETO ESPERADO EN EFECTIVO', monto: `$ ${(Number(dbSession.monto_inicial) + efectivo - gastos).toFixed(2)}` },
+            { concepto: 'Efectivo Real Contado', monto: `$ ${dbSession.monto_final_real != null ? Number(dbSession.monto_final_real).toFixed(2) : '---'}` },
+            { concepto: 'Diferencia Efectivo (+/-)', monto: `$ ${(dbSession.monto_final_real != null ? (Number(dbSession.monto_final_real) - (Number(dbSession.monto_inicial) + efectivo - gastos)) : 0).toFixed(2)}` },
             { concepto: '----------------------------', monto: '------------' },
-            { concepto: 'Ventas Tarjeta Esperadas', monto: `$ ${summary.tarjeta.toFixed(2)}` },
-            { concepto: 'Vouchers Tarjeta (Físico)', monto: `$ ${session.monto_final_tarjeta_real?.toFixed(2) || '---'}` },
-            { concepto: 'Diferencia Tarjeta (+/-)', monto: `$ ${(session.monto_final_tarjeta_real - summary.tarjeta).toFixed(2)}` },
+            { concepto: 'Ventas Tarjeta Esperadas', monto: `$ ${tarjeta.toFixed(2)}` },
+            { concepto: 'Vouchers Tarjeta (Físico)', monto: `$ ${dbSession.monto_final_tarjeta_real != null ? Number(dbSession.monto_final_tarjeta_real).toFixed(2) : '---'}` },
+            { concepto: 'Diferencia Tarjeta (+/-)', monto: `$ ${(dbSession.monto_final_tarjeta_real != null ? (Number(dbSession.monto_final_tarjeta_real) - tarjeta) : 0).toFixed(2)}` },
             { concepto: '----------------------------', monto: '------------' },
-            { concepto: 'Operaciones Anuladas (Cant)', monto: `${summary.cancelados_count} transacciones` },
-            { concepto: 'Monto Total Anulado (Ref)', monto: `$ ${summary.cancelados_monto.toFixed(2)}` },
-            { concepto: 'Observaciones', monto: session.observaciones || 'Sin notas' },
+            { concepto: 'Operaciones Anuladas (Cant)', monto: `${cancelados_count} transacciones` },
+            { concepto: 'Monto Total Anulado (Ref)', monto: `$ ${cancelados_monto.toFixed(2)}` },
+            { concepto: 'Observaciones', monto: dbSession.observaciones || 'Sin notas' },
         ];
 
         if (type === 'PDF') {
@@ -244,10 +302,18 @@ export class ReportService {
             // Tabla 2.2: Productos Vendidos
             const prodY = (doc as any).lastAutoTable.finalY + 15;
             doc.text('PRODUCTOS VENDIDOS EN EL CORTE', 14, prodY);
+            
+            const prodRows = soldProducts.map(p => [p.nombre, p.categoria || 'General', p.cantidad]);
+            if (prodRows.length > 0) {
+                prodRows.push(['------------------------------------------------', '--------------------', '-----']);
+                prodRows.push(['TOTAL BEBIDAS VENDIDAS', 'Resumen', totalBebidas]);
+                prodRows.push(['TOTAL ROPA / CALCETINES VENDIDOS', 'Resumen', totalRopa]);
+            }
+
             autoTable(doc, {
                 startY: prodY + 4,
                 head: [['Producto', 'Categoría', 'Cantidad']],
-                body: soldProducts.map(p => [p.nombre, p.categoria || 'General', p.cantidad]),
+                body: prodRows,
                 theme: 'grid',
                 headStyles: { fillColor: [79, 70, 229] }
             });
@@ -307,6 +373,11 @@ export class ReportService {
                 {header: 'Cantidad', key: 'q', width: 15}
             ];
             wsProd.addRows(soldProducts.map(p => ({n: p.nombre, c: p.categoria || 'General', q: p.cantidad})));
+            if (soldProducts.length > 0) {
+                wsProd.addRow({n: '------------------------------------------------', c: '--------------------', q: '-----'});
+                wsProd.addRow({n: 'TOTAL BEBIDAS VENDIDAS', c: 'Resumen', q: totalBebidas});
+                wsProd.addRow({n: 'TOTAL ROPA / CALCETINES VENDIDOS', c: 'Resumen', q: totalRopa});
+            }
 
             const wsExp = workbook.addWorksheet('Gastos Detallados');
             wsExp.columns = [
