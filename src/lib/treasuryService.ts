@@ -332,15 +332,15 @@ export const getLastSessions = async (limit = 5): Promise<CashSession[]> => {
     return data || [];
 };
 
-export interface ShiftProductsSummary {
-  calcetines: number;
-  agua: number;
-  refrescos: number;
+export interface ShiftProductItem {
+  nombre: string;
+  cantidad: number;
+  categoria?: string;
 }
 
-export const getShiftProductsSoldSummary = async (fechaApertura: string): Promise<ShiftProductsSummary> => {
+export const getShiftProductsSoldSummary = async (fechaApertura: string): Promise<ShiftProductItem[]> => {
   if (!navigator.onLine) {
-    return { calcetines: 0, agua: 0, refrescos: 0 };
+    return [];
   }
 
   try {
@@ -361,10 +361,10 @@ export const getShiftProductsSoldSummary = async (fechaApertura: string): Promis
 
     if (error) {
       console.error('Error fetching shift products sold summary:', error);
-      return { calcetines: 0, agua: 0, refrescos: 0 };
+      return [];
     }
 
-    const summary = { calcetines: 0, agua: 0, refrescos: 0 };
+    const map: Record<string, { cantidad: number; categoria?: string }> = {};
 
     data?.forEach((mov: any) => {
       const motivo = mov.motivo || '';
@@ -373,40 +373,24 @@ export const getShiftProductsSoldSummary = async (fechaApertura: string): Promis
         return; 
       }
 
-      const nombre = (mov.inventario?.nombre || '').toLowerCase();
-      const categoria = (mov.inventario?.categoria || '').toLowerCase();
+      const nombre = mov.inventario?.nombre || 'Producto Desconocido';
+      const categoria = mov.inventario?.categoria || 'General';
       const qty = Number(mov.cantidad) || 0;
 
-      if (
-        categoria.includes('calcet') || 
-        categoria.includes('accesor') && nombre.includes('calcet') || 
-        nombre.includes('calcet') || 
-        nombre.includes('sock') || 
-        nombre.includes('media')
-      ) {
-        summary.calcetines += qty;
-      } else if (
-        categoria.includes('agua') || 
-        nombre.includes('agua') || 
-        nombre.includes('ciel') || 
-        nombre.includes('bonafont') || 
-        nombre.includes('epura')
-      ) {
-        summary.agua += qty;
-      } else if (
-        categoria.includes('refresco') || 
-        categoria.includes('bebida') && (nombre.includes('coca') || nombre.includes('fanta') || nombre.includes('sprite') || nombre.includes('mundet') || nombre.includes('sidral') || nombre.includes('pepsi') || nombre.includes('lata') || nombre.includes('refresco') || nombre.includes('manzanita') || nombre.includes('jugo')) ||
-        nombre.includes('coca') || nombre.includes('fanta') || nombre.includes('sprite') || nombre.includes('mundet') || nombre.includes('sidral') || nombre.includes('pepsi') || nombre.includes('lata') || nombre.includes('refresco') || nombre.includes('manzanita')
-      ) {
-        if (!nombre.includes('agua')) {
-          summary.refrescos += qty;
-        }
+      if (map[nombre]) {
+        map[nombre].cantidad += qty;
+      } else {
+        map[nombre] = { cantidad: qty, categoria };
       }
     });
 
-    return summary;
+    return Object.entries(map).map(([nombre, details]) => ({
+      nombre,
+      cantidad: details.cantidad,
+      categoria: details.categoria
+    })).sort((a, b) => b.cantidad - a.cantidad);
   } catch (e) {
     console.error('Failed to calculate shift products summary:', e);
-    return { calcetines: 0, agua: 0, refrescos: 0 };
+    return [];
   }
 };

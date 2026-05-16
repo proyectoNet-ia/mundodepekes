@@ -53,6 +53,23 @@ const AREA_MAP: Record<string, string> = {
 
 const UI_ZONES = ['Mundo de Pekes', 'Trampolín Park', 'Área Mixta'];
 
+const getProductIconAndColor = (nombre: string) => {
+  const norm = nombre.toLowerCase();
+  if (norm.includes('calcet') || norm.includes('sock') || norm.includes('media')) {
+    return { icon: '🧦', color: '#6ee7b7' };
+  }
+  if (norm.includes('agua') || norm.includes('ciel') || norm.includes('bonafont') || norm.includes('epura')) {
+    return { icon: '💧', color: '#60a5fa' };
+  }
+  if (norm.includes('coca') || norm.includes('fanta') || norm.includes('sprite') || norm.includes('mundet') || norm.includes('sidral') || norm.includes('pepsi') || norm.includes('lata') || norm.includes('refresco')) {
+    return { icon: '🥤', color: '#fca5a5' };
+  }
+  if (norm.includes('papas') || norm.includes('churrum') || norm.includes('sabrita') || norm.includes('papar') || norm.includes('snack') || norm.includes('popcorn') || norm.includes('palomita') || norm.includes('chip') || norm.includes('m&m') || norm.includes('chocolate') || norm.includes('dulce')) {
+    return { icon: '🍿', color: '#fde047' };
+  }
+  return { icon: '📦', color: '#cbd5e1' };
+};
+
 interface DashboardProps {
   onReentry?: (child: ActiveSession | null) => void;
   onPresale?: (data: any) => void;
@@ -87,7 +104,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
   const [privateEvents, setPrivateEvents] = useState<any[]>([]);
   const [totalChildrenToday, setTotalChildrenToday] = useState<{ total: number; unique: number }>({ total: 0, unique: 0 });
-  const [shiftProducts, setShiftProducts] = useState({ calcetines: 0, agua: 0, refrescos: 0 });
+  const [shiftProducts, setShiftProducts] = useState<any[]>([]);
 
   // Estado del modal para agregar peke a un evento privado
   const [addToEventModal, setAddToEventModal] = useState<{ transaccionId: string; packageId: string; area: string; tutorId: string; eventEndTime: Date; packageName: string; } | null>(null);
@@ -117,7 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
           const prodSummary = await getShiftProductsSoldSummary(activeSession.fecha_apertura);
           setShiftProducts(prodSummary);
         } else {
-          setShiftProducts({ calcetines: 0, agua: 0, refrescos: 0 });
+          setShiftProducts([]);
         }
       } catch (err) {
         console.error('Error fetching shift products sold summary:', err);
@@ -533,41 +550,76 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
         </div>
 
         {/* ─── Bloque: Total Ingresos del Día ─── */}
-        <div className={styles.todayCounterBanner}>
-          <div className={styles.todayCounterIcon}>👦</div>
-          <div className={styles.todayCounterBody}>
-            <span className={styles.todayCounterLabel}>Ingresos del día</span>
-            <span className={styles.todayCounterValue}>{totalChildrenToday.total}</span>
-          </div>
-          <div className={styles.todayCounterStats}>
-            <div className={styles.todayCounterStatItem}>
-              <span className={styles.todayCounterStatNum}>{totalChildrenToday.unique}</span>
-              <span className={styles.todayCounterStatLabel}>niños únicos</span>
+        <div className={styles.todayCounterBanner} style={{ flexDirection: 'column', alignItems: 'stretch', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap', width: '100%' }}>
+            <div className={styles.todayCounterIcon}>👦</div>
+            <div className={styles.todayCounterBody}>
+              <span className={styles.todayCounterLabel}>Ingresos del día</span>
+              <span className={styles.todayCounterValue}>{totalChildrenToday.total}</span>
             </div>
-            <div className={styles.todayCounterDivider} />
-            <div className={styles.todayCounterStatItem}>
-              <span className={styles.todayCounterStatNum}>{totalChildrenToday.total - totalChildrenToday.unique}</span>
-              <span className={styles.todayCounterStatLabel}>reingresos</span>
-            </div>
-
-            {/* Separador de Productos */}
-            <div className={styles.todayCounterDivider} style={{ backgroundColor: 'rgba(255, 255, 255, 0.45)', width: '2px' }} />
-
-            <div className={styles.todayCounterStatItem} title="Calcetines vendidos durante este corte">
-              <span className={styles.todayCounterStatNum} style={{ color: '#6ee7b7' }}>🧦 {shiftProducts.calcetines}</span>
-              <span className={styles.todayCounterStatLabel}>Calcetines</span>
-            </div>
-            <div className={styles.todayCounterDivider} />
-            <div className={styles.todayCounterStatItem} title="Aguas vendidas durante este corte">
-              <span className={styles.todayCounterStatNum} style={{ color: '#60a5fa' }}>💧 {shiftProducts.agua}</span>
-              <span className={styles.todayCounterStatLabel}>Agua</span>
-            </div>
-            <div className={styles.todayCounterDivider} />
-            <div className={styles.todayCounterStatItem} title="Refrescos vendidos durante este corte">
-              <span className={styles.todayCounterStatNum} style={{ color: '#fca5a5' }}>🥤 {shiftProducts.refrescos}</span>
-              <span className={styles.todayCounterStatLabel}>Refrescos</span>
+            <div className={styles.todayCounterStats}>
+              <div className={styles.todayCounterStatItem}>
+                <span className={styles.todayCounterStatNum}>{totalChildrenToday.unique}</span>
+                <span className={styles.todayCounterStatLabel}>niños únicos</span>
+              </div>
+              <div className={styles.todayCounterDivider} />
+              <div className={styles.todayCounterStatItem}>
+                <span className={styles.todayCounterStatNum}>{totalChildrenToday.total - totalChildrenToday.unique}</span>
+                <span className={styles.todayCounterStatLabel}>reingresos</span>
+              </div>
             </div>
           </div>
+
+          {/* ─── Fila Secundaria: Productos vendidos en el corte ─── */}
+          {shiftProducts.length > 0 && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.6rem',
+              paddingTop: '0.8rem',
+              borderTop: '1px dashed rgba(255, 255, 255, 0.25)',
+              width: '100%'
+            }}>
+              <span style={{
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: 'rgba(255, 255, 255, 0.85)'
+              }}>
+                🛍️ Productos vendidos en el corte activo:
+              </span>
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.8rem 1.2rem',
+                alignItems: 'center'
+              }}>
+                {shiftProducts.map((prod, index) => {
+                  const ui = getProductIconAndColor(prod.nombre);
+                  return (
+                    <React.Fragment key={prod.nombre}>
+                      {index > 0 && (
+                        <div style={{
+                          width: '1px',
+                          height: '1.2rem',
+                          backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                        }} />
+                      )}
+                      <div className={styles.todayCounterStatItem} style={{ alignItems: 'flex-start' }}>
+                        <span className={styles.todayCounterStatNum} style={{ color: ui.color, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {ui.icon} {prod.cantidad}
+                        </span>
+                        <span className={styles.todayCounterStatLabel} style={{ textTransform: 'none', letterSpacing: 'normal', color: 'rgba(255,255,255,0.7)' }}>
+                          {prod.nombre}
+                        </span>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
       </header>
