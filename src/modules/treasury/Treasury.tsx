@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Treasury.module.css';
-import { getActiveSession, openCash, closeCash, getTransactionsSummary, recordExpense, getExpenses, type CashSession, type Expense, getShiftTransactions, cancelTransaction } from '../../lib/treasuryService';
+import { getActiveSession, openCash, closeCash, getTransactionsSummary, recordExpense, getExpenses, type CashSession, type Expense, getShiftTransactions, cancelTransaction, getShiftProductsSoldSummary } from '../../lib/treasuryService';
 import { ReportService } from '../../lib/reportService';
 import { useToast } from '../../components/Toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -208,6 +208,15 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
             
             // Imprimir Ticket Físico de Arqueo
             try {
+                let ticketProducts: any[] = [];
+                try {
+                    if (activeSession.fecha_apertura) {
+                        ticketProducts = await getShiftProductsSoldSummary(activeSession.fecha_apertura);
+                    }
+                } catch (err) {
+                    console.error('Error fetching products for closure ticket:', err);
+                }
+
                 const arqueoTicketData = {
                     folio: activeSession.id.substring(0, 8).toUpperCase(),
                     fechaApertura: new Date(activeSession.fecha_apertura).toLocaleString(),
@@ -224,7 +233,8 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     realTarjeta: realTarjeta,
                     diferenciaEfectivo: realEfectivo - (summary.efectivo + activeSession.monto_inicial - summary.gastos),
                     diferenciaTarjeta: realTarjeta - summary.tarjeta,
-                    totalVentas: summary.total
+                    totalVentas: summary.total,
+                    productosVendidos: ticketProducts
                 };
                 const ticketRaw = PrinterService.formatArqueoTicket(arqueoTicketData);
                 await PrinterService.printRaw(ticketRaw, 'TICKET');

@@ -125,6 +125,68 @@ export class ReportService {
             .select('*')
             .eq('arqueo_id', session.id);
 
+        // 4. Obtener Productos Vendidos en el Corte
+        let soldProducts: { nombre: string; cantidad: number; categoria?: string }[] = [];
+        try {
+            const { data: movs } = await supabase
+                .from('movimientos_inventario')
+                .select(`
+                    cantidad,
+                    tipo,
+                    motivo,
+                    inventario (
+                        nombre,
+                        categoria
+                    )
+                `)
+                .eq('tipo', 'salida')
+                .gte('created_at', start);
+
+            const map: Record<string, { cantidad: number; categoria?: string }> = {};
+            movs?.forEach((mov: any) => {
+                const motivo = mov.motivo || '';
+                if (!motivo.toLowerCase().includes('venta') && !motivo.toLowerCase().includes('pos')) {
+                    return; 
+                }
+                const nombre = mov.inventario?.nombre || 'Producto Desconocido';
+                const categoria = mov.inventario?.categoria || 'General';
+                const qty = Number(mov.cantidad) || 0;
+
+                if (map[nombre]) {
+                    map[nombre].cantidad += qty;
+                } else {
+                    map[nombre] = { cantidad: qty, categoria };
+                }
+            });
+
+            const getCategoryPriority = (catName: string, prodName: string) => {
+              const c = (catName || '').toLowerCase();
+              const p = (prodName || '').toLowerCase();
+              
+              if (c.includes('calcet') || p.includes('calcet') || p.includes('sock') || p.includes('media')) return 1;
+              if (c.includes('agua') || p.includes('agua') || p.includes('ciel') || p.includes('bonafont') || p.includes('epura')) return 2;
+              if (c.includes('refresco') || c.includes('bebida') || p.includes('coca') || p.includes('fanta') || p.includes('sprite') || p.includes('mundet') || p.includes('sidral') || p.includes('pepsi') || p.includes('lata') || p.includes('powerade') || p.includes('jugo')) return 3;
+              if (c.includes('papas') || c.includes('churrum') || c.includes('sabrita') || c.includes('snack') || c.includes('dulce') || p.includes('papas') || p.includes('sabrita') || p.includes('chocolate')) return 4;
+              return 5;
+            };
+
+            soldProducts = Object.entries(map).map(([nombre, details]) => ({
+                nombre,
+                cantidad: details.cantidad,
+                categoria: details.categoria || 'General'
+            })).sort((a, b) => {
+              const priorityA = getCategoryPriority(a.categoria, a.nombre);
+              const priorityB = getCategoryPriority(b.categoria, b.nombre);
+              
+              if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+              }
+              return a.nombre.localeCompare(b.nombre);
+            });
+        } catch (err) {
+            console.error('Error fetching sold products for report:', err);
+        }
+
         const summaryData: Record<string, any>[] = [
             { concepto: 'Fondo Inicial', monto: `$ ${session.monto_inicial.toFixed(2)}` },
             { concepto: 'Ventas en Efectivo (+)', monto: `$ ${summary.efectivo.toFixed(2)}` },
@@ -179,6 +241,17 @@ export class ReportService {
                 theme: 'grid',
             });
             
+            // Tabla 2.2: Productos Vendidos
+            const prodY = (doc as any).lastAutoTable.finalY + 15;
+            doc.text('PRODUCTOS VENDIDOS EN EL CORTE', 14, prodY);
+            autoTable(doc, {
+                startY: prodY + 4,
+                head: [['Producto', 'Categoría', 'Cantidad']],
+                body: soldProducts.map(p => [p.nombre, p.categoria || 'General', p.cantidad]),
+                theme: 'grid',
+                headStyles: { fillColor: [79, 70, 229] }
+            });
+            
             // Tabla 2.5: Detalle de Gastos
             const expenseY = (doc as any).lastAutoTable.finalY + 15;
             doc.text('DETALLE DE EGRESOS (GASTOS)', 14, expenseY);
@@ -226,6 +299,14 @@ export class ReportService {
             const wsMix = workbook.addWorksheet('Mix de Paquetes');
             wsMix.columns = [{header: 'Paquete', key: 'p', width: 30}, {header: 'Cantidad', key: 'q', width: 15}];
             wsMix.addRows(Object.entries(packageMix).map(([p, q]) => ({p, q})));
+
+            const wsProd = workbook.addWorksheet('Productos Vendidos');
+            wsProd.columns = [
+                {header: 'Producto', key: 'n', width: 30},
+                {header: 'Categoría', key: 'c', width: 25},
+                {header: 'Cantidad', key: 'q', width: 15}
+            ];
+            wsProd.addRows(soldProducts.map(p => ({n: p.nombre, c: p.categoria || 'General', q: p.cantidad})));
 
             const wsExp = workbook.addWorksheet('Gastos Detallados');
             wsExp.columns = [

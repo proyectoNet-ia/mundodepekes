@@ -384,11 +384,30 @@ export const getShiftProductsSoldSummary = async (fechaApertura: string): Promis
       }
     });
 
+    const getCategoryPriority = (catName: string, prodName: string) => {
+      const c = (catName || '').toLowerCase();
+      const p = (prodName || '').toLowerCase();
+      
+      if (c.includes('calcet') || p.includes('calcet') || p.includes('sock') || p.includes('media')) return 1;
+      if (c.includes('agua') || p.includes('agua') || p.includes('ciel') || p.includes('bonafont') || p.includes('epura')) return 2;
+      if (c.includes('refresco') || c.includes('bebida') || p.includes('coca') || p.includes('fanta') || p.includes('sprite') || p.includes('mundet') || p.includes('sidral') || p.includes('pepsi') || p.includes('lata') || p.includes('powerade') || p.includes('jugo')) return 3;
+      if (c.includes('papas') || c.includes('churrum') || c.includes('sabrita') || c.includes('snack') || c.includes('dulce') || p.includes('papas') || p.includes('sabrita') || p.includes('chocolate')) return 4;
+      return 5;
+    };
+
     return Object.entries(map).map(([nombre, details]) => ({
       nombre,
       cantidad: details.cantidad,
-      categoria: details.categoria
-    })).sort((a, b) => b.cantidad - a.cantidad);
+      categoria: details.categoria || 'General'
+    })).sort((a, b) => {
+      const priorityA = getCategoryPriority(a.categoria, a.nombre);
+      const priorityB = getCategoryPriority(b.categoria, b.nombre);
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      return a.nombre.localeCompare(b.nombre);
+    });
   } catch (e) {
     console.error('Failed to calculate shift products summary:', e);
     return [];

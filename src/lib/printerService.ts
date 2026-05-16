@@ -74,6 +74,7 @@ export interface ArqueoTicketData {
     diferenciaEfectivo: number;
     diferenciaTarjeta: number;
     totalVentas: number;
+    productosVendidos?: { nombre: string; cantidad: number }[];
 }
 
 export class PrinterService {
@@ -272,6 +273,18 @@ export class PrinterService {
                 lines.push(` - ${n(g.concepto).substring(0, 22).padEnd(23)}$ ${g.monto.toFixed(2)}`.padStart(13));
             });
             lines.push('TOTAL GASTOS:'.padEnd(25) + `$ ${data.totalGastos.toFixed(2)}`.padStart(13));
+        }
+
+        if (data.productosVendidos && data.productosVendidos.length > 0) {
+            lines.push(line);
+            lines.push(bold('PRODUCTOS VENDIDOS EN EL CORTE:'));
+            lines.push('CANT  CONCEPTO');
+            lines.push(line);
+            data.productosVendidos.forEach(p => {
+                const qtyStr = p.cantidad.toString().padEnd(6);
+                const prodName = n(p.nombre).substring(0, W - 6);
+                lines.push(`${qtyStr}${prodName}`);
+            });
         }
 
         lines.push(line);
