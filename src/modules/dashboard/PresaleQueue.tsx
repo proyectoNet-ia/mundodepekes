@@ -4,8 +4,11 @@ import {
   cancelPresale,
   expireOldPresales,
   subscribeToPresales,
+  confirmPresale,
+  registerCustomerOnly,
   type Presale,
 } from '../../lib/presaleService';
+import { useToast } from '../../components/Toast';
 import styles from './PresaleQueue.module.css';
 
 interface PresaleQueueProps {
@@ -43,6 +46,8 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute }) => {
   const [presales, setPresales] = useState<Presale[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [registeringId, setRegisteringId] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [, forceRender] = useState(0); // Tick cada 30s para actualizar timers
 
   const load = useCallback(async () => {
@@ -74,6 +79,33 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute }) => {
       setPresales(prev => prev.filter(p => p.id !== id));
     } finally {
       setCancelling(null);
+    }
+  };
+
+  const handleDirectRegister = async (presale: Presale) => {
+    setRegisteringId(presale.id);
+    try {
+      // 1. Registrar tutor y niños de forma permanente en la base de datos
+      await registerCustomerOnly({
+        tutor_nombre: presale.tutor_nombre,
+        tutor_telefono: presale.tutor_telefono,
+        ninos: presale.ninos.map(n => ({
+          nombre: n.nombre,
+          edad: n.edad
+        }))
+      });
+
+      // 2. Confirmar la preventa en BD
+      await confirmPresale(presale.id);
+
+      // 3. Remover de la lista local
+      setPresales(prev => prev.filter(p => p.id !== presale.id));
+      showToast('Registro guardado en base de datos con éxito.', 'success');
+    } catch (err: any) {
+      console.error('Error during direct registration:', err);
+      showToast('Error al registrar: ' + (err.message || err), 'error');
+    } finally {
+      setRegisteringId(null);
     }
   };
 
@@ -170,14 +202,40 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute }) => {
                   <button
                     className={styles.btnCancel}
                     onClick={() => handleCancel(presale.id)}
-                    disabled={cancelling === presale.id}
+                    disabled={cancelling === presale.id || registeringId === presale.id}
                     title="Cancelar orden"
                   >
                     {cancelling === presale.id ? '...' : 'Cancelar'}
                   </button>
+
+                  {(presale.notas === 'registration' || presale.total_estimado === 0) && (
+                    <button
+                      onClick={() => handleDirectRegister(presale)}
+                      disabled={registeringId === presale.id || cancelling === presale.id}
+                      style={{
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.45rem 0.9rem',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title="Registrar directamente en Base de Datos"
+                    >
+                      {registeringId === presale.id ? '...' : '📝 Registrar'}
+                    </button>
+                  )}
+
                   <button
                     className={styles.btnExecute}
                     onClick={() => handleExecute(presale)}
+                    disabled={registeringId === presale.id || cancelling === presale.id}
                     title="Abrir en Caja"
                   >
                     ⚡ Cobrar
