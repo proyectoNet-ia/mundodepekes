@@ -21,15 +21,29 @@ export interface SearchResult {
 export const omniSearch = async (term: string): Promise<SearchResult[]> => {
   if (!term) return [];
 
+  // 1. Preparar búsqueda por ID (UUID range hack)
+  const isHex = /^[0-9a-fA-F-]+$/.test(term);
+  let idFilter = '';
+  if (isHex && term.length >= 4) {
+      const cleanHex = term.replace(/-/g, '').toLowerCase();
+      if (cleanHex.length <= 32) {
+          const minId = cleanHex.padEnd(32, '0').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+          const maxId = cleanHex.padEnd(32, 'f').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+          idFilter = `,and(id.gte.${minId},id.lte.${maxId})`;
+      }
+  }
+
+  // 1. Búsqueda de Tutores (Nombre, Teléfono o ID)
   const { data: tutors, error: tError } = await supabase
     .from('clientes')
     .select('id, nombre, telefono, visitas_acumuladas, whatsapp_verificado, ninos(id, nombre, edad, observaciones, en_lista_negra)')
-    .or(`nombre.ilike.%${term}%,telefono.ilike.%${term}%`);
+    .or(`nombre.ilike.%${term}%,telefono.ilike.%${term}%${idFilter}`);
 
+  // 2. Búsqueda de Niños (Nombre o ID)
   const { data: children, error: cError } = await supabase
     .from('ninos')
     .select('id, nombre, en_lista_negra, observaciones, clientes(id, nombre, telefono, visitas_acumuladas, whatsapp_verificado, ninos(id, nombre, edad, observaciones, en_lista_negra))')
-    .ilike('nombre', `%${term}%`);
+    .or(`nombre.ilike.%${term}%${idFilter}`);
 
   if (tError || cError) {
     console.error('Search error:', tError || cError);
@@ -37,6 +51,8 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
   }
 
   const results: SearchResult[] = [];
+  
+  // Procesar Tutores
   tutors?.forEach(t => {
     results.push({
       id: t.id,
@@ -55,7 +71,11 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
     });
   });
 
-  children?.forEach((c: any) => {
+  // Los resultados ya vienen filtrados por ID en la consulta principal
+  const allChildren = children || [];
+  const uniqueChildren = Array.from(new Map(allChildren.map(c => [c.id, c])).values());
+
+  uniqueChildren.forEach((c: any) => {
     results.push({
       id: c.clientes?.id || '', // ID del tutor
       type: 'child',
@@ -82,7 +102,7 @@ export const omniSearch = async (term: string): Promise<SearchResult[]> => {
 
 export const registerFullEntry = async (data: {
   customer: { id?: string; name: string; phone: string; email?: string };
-  children: { id?: string; name: string; age: number; packageId: string; area: string; duration: number }[];
+  children: { id?: string; name: string; age: number; packageId: string; area: string; duration: number; previousEndTime?: string }[];
   accessories: { id: string; name: string; quantity: number }[];
   paymentMethod: string;
   voucherFolio?: string;
@@ -252,7 +272,26 @@ export const registerFullEntry = async (data: {
         }
         childId = (child as any).id;
       }
-      const startTime = originalTimestamp ? new Date(originalTimestamp) : new Date();
+      let startTime = originalTimestamp ? new Date(originalTimestamp) : new Date();
+      
+      // Lógica de Reingreso con Exceso de Tiempo:
+      // Si el niño ya tenía una sesión hoy, la nueva sesión debe empezar donde terminó la anterior
+      // para "cobrar" el tiempo excedido.
+      if (childInfo.previousEndTime) {
+          const prevEnd = new Date(childInfo.previousEndTime);
+          const now = new Date();
+          
+          // Solo aplicamos si la sesión previa es de HOY y no es ridículamente vieja (ej. más de 12 horas)
+          const isSameDay = prevEnd.toDateString() === now.toDateString();
+          const hoursDiff = (now.getTime() - prevEnd.getTime()) / (1000 * 60 * 60);
+
+          if (isSameDay && hoursDiff < 12) {
+              // Si prevEnd está en el pasado (excedido) o en el futuro (extensión),
+              // usamos prevEnd como el nuevo startTime.
+              startTime = prevEnd;
+          }
+      }
+
       const endTime = new Date(startTime.getTime() + childInfo.duration * 60000);
 
       // Guardar detalle para el retorno

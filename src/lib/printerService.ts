@@ -22,6 +22,8 @@ export interface EpsonTicketData {
     iva: number;
     total: number;
     paymentMethod?: string;
+    montoRecibido?: number;
+    cambio?: number;
     mensaje?: string;
 }
 
@@ -37,6 +39,8 @@ export interface GenericPOSTicketData {
     iva: number;
     total: number;
     paymentMethod: string;
+    montoRecibido?: number;
+    cambio?: number;
     staffEmail?: string;
 }
 
@@ -154,6 +158,17 @@ export class PrinterService {
         }
 
         lines.push('\x1B\x45\x01' + `TOTAL: $ ${data.total.toFixed(2)}`.padStart(width) + '\x1B\x45\x00');
+        if (data.paymentMethod) {
+            const methodLower = data.paymentMethod.toLowerCase();
+            if (methodLower === 'efectivo' || methodLower.includes('efe')) {
+                const recibido = data.montoRecibido !== undefined ? data.montoRecibido : data.total;
+                const cambio = data.cambio !== undefined ? data.cambio : 0;
+                lines.push(`EFECTIVO: $ ${recibido.toFixed(2)}`.padStart(width));
+                lines.push(`CAMBIO: $ ${cambio.toFixed(2)}`.padStart(width));
+            } else if (methodLower === 'tarjeta' || methodLower.includes('tarj')) {
+                lines.push(`PAGO CON TARJETA`.padStart(width));
+            }
+        }
         lines.push('');
         lines.push('\x1B\x61\x01'); // Center
         lines.push(n(data.mensaje || 'Gracias por jugar con nosotros'));
@@ -200,6 +215,17 @@ export class PrinterService {
 
         lines.push('--------------------------------');
         lines.push(`TOTAL: $ ${data.total.toFixed(2)}`.padStart(32));
+        if (data.paymentMethod) {
+            const methodLower = data.paymentMethod.toLowerCase();
+            if (methodLower === 'efectivo' || methodLower.includes('efe')) {
+                const recibido = data.montoRecibido !== undefined ? data.montoRecibido : data.total;
+                const cambio = data.cambio !== undefined ? data.cambio : 0;
+                lines.push(`EFECTIVO: $ ${recibido.toFixed(2)}`.padStart(32));
+                lines.push(`CAMBIO: $ ${cambio.toFixed(2)}`.padStart(32));
+            } else if (methodLower === 'tarjeta' || methodLower.includes('tarj')) {
+                lines.push(`PAGO CON TARJETA`.padStart(32));
+            }
+        }
         lines.push('');
         lines.push(`METODO PAGO: ${n(data.paymentMethod || 'EFECTIVO').toUpperCase()}`);
         lines.push(`FOLIO: ${data.folio}`);

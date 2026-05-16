@@ -269,6 +269,32 @@ export const consumeScheduledEvent = async (): Promise<void> => {
 };
 
 /**
+ * Obtiene el total de ingresos del día (incluyendo reingresos).
+ * Cuenta cada sesión individual, no niños únicos.
+ * Retorna: { total: número total de ingresos+reingresos, unique: niños únicos }
+ */
+export const getTotalChildrenToday = async (): Promise<{ total: number; unique: number }> => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const { data, error } = await supabase
+      .from('sesiones')
+      .select('nino_id')
+      .gte('hora_inicio', today.toISOString())
+      .in('estado', ['activo', 'finalizado']);
+
+    if (error) throw error;
+
+    const total = data.length;
+    const unique = new Set(data.map((s: any) => s.nino_id)).size;
+    return { total, unique };
+  } catch {
+    return { total: 0, unique: 0 };
+  }
+};
+
+/**
  * Desactiva un paquete (lo archiva) para que no aparezca en listados.
  */
 export const archivePackage = async (packageId: string): Promise<void> => {

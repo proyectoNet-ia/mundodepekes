@@ -4,7 +4,7 @@ import { omniSearch, registerFullEntry, type SearchResult } from '../../lib/sale
 import { getPackages, type Package } from '../../lib/packageService';
 import { stockService, type StockItem } from '../../lib/stockService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUserPlus, faChild, faCreditCard, faMoneyBillWave, faLock, faSpinner, faPhone, faTicketAlt, faClock, faBirthdayCake, faTrash, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUserPlus, faChild, faCreditCard, faMoneyBillWave, faLock, faSpinner, faPhone, faTicketAlt, faClock, faBirthdayCake, faTrash, faPlus, faExclamationTriangle, faEdit } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { getActiveSession, openCash } from '../../lib/treasuryService';
 import { PrinterService } from '../../lib/printerService';
@@ -470,7 +470,9 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                 subtotal: total / 1.16,
                 iva: total - (total / 1.16),
                 total: total,
-                paymentMethod: registration.transaction.metodo_pago
+                paymentMethod: registration.transaction.metodo_pago,
+                montoRecibido: method === 'efectivo' ? getNumericAmount(cashAmount) : total,
+                cambio: method === 'efectivo' ? Math.max(0, getNumericAmount(cashAmount) - total) : 0
             };
             // Configuración de impresión actual
             const settings = JSON.parse(localStorage.getItem('printer_settings') || '{}');
@@ -584,7 +586,13 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                 {searchResults.map(res => (
                                     <div key={`${res.id}-${res.type}-${res.childId || ''}`} className={styles.resultItem} onClick={() => handleSelectCustomer(res)}>
                                         <div className={styles.resInfo}>
-                                            <strong>{res.childName || res.name}</strong>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                <strong>{res.childName || res.name}</strong>
+                                                <span style={{ fontSize: '0.6rem', color: '#1e40af', background: '#dbeafe', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                                                    #{ (res.childId || res.id).substring(0,8).toUpperCase() }
+                                                </span>
+                                                {res.observaciones && <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 700 }} title={res.observaciones}><FontAwesomeIcon icon={faEdit} style={{ marginRight: '3px' }} /> OBS</span>}
+                                            </div>
                                             <span className={styles.phoneBadge}><FontAwesomeIcon icon={faPhone} /> {res.phone || 'Sin WhatsApp'}</span>
                                         </div>
                                         <div className={styles.resStats}>
@@ -768,16 +776,35 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                     <div className={styles.childToggleWrapper}>
                                         <input type="checkbox" checked={child.included} disabled={child.isAlreadyInside || child.enListaNegra} onChange={() => setChildren(children.map((c, i) => i === idx ? {...c, included: !c.included} : c))} />
                                     </div>
-                                    <div className={styles.inputWrapper} style={{ flex: 1 }}>
-                                        <label>Nombre del Peke</label>
-                                        <input type="text" value={child.name} onChange={(e) => { const n = [...children]; n[idx].name = toTitleCase(e.target.value); setChildren(n); }} placeholder="Luisito" disabled={child.included === false} />
-                                    </div>
-                                    {!isPrivateEvent && (
-                                        <div className={styles.inputWrapper} style={{ width: '80px' }}>
-                                            <label>Edad</label>
-                                            <input type="number" value={child.age || ''} onChange={(e) => { const n = [...children]; n[idx].age = Number(e.target.value); setChildren(n); }} placeholder="Edad" disabled={child.included === false} />
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+                                            <div className={styles.inputWrapper} style={{ flex: 1 }}>
+                                                <label>Nombre del Peke</label>
+                                                <input type="text" value={child.name} onChange={(e) => { const n = [...children]; n[idx].name = toTitleCase(e.target.value); setChildren(n); }} placeholder="Luisito" disabled={child.included === false} />
+                                            </div>
+                                            {!isPrivateEvent && (
+                                                <div className={styles.inputWrapper} style={{ width: '80px' }}>
+                                                    <label>Edad</label>
+                                                    <input type="number" value={child.age || ''} onChange={(e) => { const n = [...children]; n[idx].age = Number(e.target.value); setChildren(n); }} placeholder="Edad" disabled={child.included === false} />
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                        {(child.enListaNegra || child.observations) && (
+                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                                {child.enListaNegra && (
+                                                    <span style={{ background: '#fee2e2', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 900, border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <FontAwesomeIcon icon={faLock} /> LISTA NEGRA
+                                                    </span>
+                                                )}
+                                                {child.observations && (
+                                                    <div style={{ background: '#fffbeb', color: '#92400e', padding: '6px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, border: '1px solid #fde68a', flex: 1, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                                        <FontAwesomeIcon icon={faExclamationTriangle} style={{ marginTop: '2px' }} />
+                                                        <span><strong>Observaciones:</strong> {child.observations}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>

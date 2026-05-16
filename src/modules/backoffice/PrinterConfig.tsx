@@ -142,6 +142,8 @@ export const PrinterConfig: React.FC = () => {
                 iva: 0,
                 total: 150,
                 paymentMethod: 'EFECTIVO',
+                montoRecibido: 200,
+                cambio: 50,
                 mensaje: '✓ Impresión de prueba correcta'
             };
             const original = PrinterService.formatEpsonTicket(testData as any, false);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Dashboard.module.css';
 import { PrinterService } from '../../lib/printerService';
-import { getActiveSessions, finishSession, subscribeToSessions, updateChildInfo, getActivePrivateEvents, addChildToPrivateEvent, getScheduledPrivateEventsCount, archivePackage, type ActiveSession } from '../../lib/sessionService';
+import { getActiveSessions, finishSession, subscribeToSessions, updateChildInfo, getActivePrivateEvents, addChildToPrivateEvent, getScheduledPrivateEventsCount, archivePackage, getTotalChildrenToday, type ActiveSession } from '../../lib/sessionService';
 import { getSystemSettings } from '../../lib/settingsService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -85,6 +85,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
   const [privateEvents, setPrivateEvents] = useState<any[]>([]);
+  const [totalChildrenToday, setTotalChildrenToday] = useState<{ total: number; unique: number }>({ total: 0, unique: 0 });
 
   // Estado del modal para agregar peke a un evento privado
   const [addToEventModal, setAddToEventModal] = useState<{ transaccionId: string; packageId: string; area: string; tutorId: string; eventEndTime: Date; packageName: string; } | null>(null);
@@ -93,16 +94,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   const refreshData = async () => {
     setIsRefreshing(true);
     try {
-      const [active, settings, privEvents, sCount] = await Promise.all([
+      const [active, settings, privEvents, sCount, todayCount] = await Promise.all([
         getActiveSessions(),
         getSystemSettings(),
         getActivePrivateEvents(),
-        getScheduledPrivateEventsCount()
+        getScheduledPrivateEventsCount(),
+        getTotalChildrenToday()
       ]);
       setSessions(active);
       setLimits(settings);
       setPrivateEvents(privEvents);
       setScheduledCount(sCount);
+      setTotalChildrenToday(todayCount);
       setLastRefreshed(new Date());
 
       // Auto-archivado de paquetes de eventos terminados y vacíos
@@ -513,6 +516,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                 </div>
             </div>
         </div>
+
+        {/* ─── Bloque: Total Ingresos del Día ─── */}
+        <div className={styles.todayCounterBanner}>
+          <div className={styles.todayCounterIcon}>👦</div>
+          <div className={styles.todayCounterBody}>
+            <span className={styles.todayCounterLabel}>Ingresos del día</span>
+            <span className={styles.todayCounterValue}>{totalChildrenToday.total}</span>
+          </div>
+          <div className={styles.todayCounterStats}>
+            <div className={styles.todayCounterStatItem}>
+              <span className={styles.todayCounterStatNum}>{totalChildrenToday.unique}</span>
+              <span className={styles.todayCounterStatLabel}>niños únicos</span>
+            </div>
+            <div className={styles.todayCounterDivider} />
+            <div className={styles.todayCounterStatItem}>
+              <span className={styles.todayCounterStatNum}>{totalChildrenToday.total - totalChildrenToday.unique}</span>
+              <span className={styles.todayCounterStatLabel}>reingresos</span>
+            </div>
+          </div>
+        </div>
+
       </header>
 
       {/* Cola de Preventas del Portal Público */}
@@ -533,6 +557,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
           }
         }}
       />
+
+      {/* 🚨 SECCIÓN DE TIEMPOS EXCEDIDOS */}
+      {expiredSessions.length > 0 && (
+        <section className={styles.expiredBannerSection}>
+           <div className={styles.expiredBannerHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <FontAwesomeIcon icon={faTriangleExclamation} className={styles.expiredBannerIcon} />
+                <div>
+                  <h2 className={styles.expiredBannerTitle}>Pekes con Tiempo Excedido ({expiredSessions.length})</h2>
+                  <span className={styles.expiredBannerSubtitle}>Se recomienda dar salida o contactar al tutor inmediatamente.</span>
+                </div>
+              </div>
+           </div>
+           <div className={styles.expiredBannerGrid}>
+              {expiredSessions.map(session => (
+                <div key={session.id} className={styles.expiredMiniCard}>
+                   <div className={styles.expiredMiniInfo}>
+                      <span className={styles.expiredMiniName}>{session.childName}</span>
+                      <div className={styles.expiredMiniMeta}>
+                        <span className={styles.expiredMiniTime}>
+                          Excedido: <strong>{Math.abs(Math.round((currentTime.getTime() - session.rawEndTime.getTime()) / 60000))}m</strong>
+                        </span>
+                        <span className={styles.expiredMiniArea}>{session.area}</span>
+                      </div>
+                   </div>
+                   <div className={styles.expiredMiniActions}>
+                      <button onClick={() => setContactChild(session)} className={styles.miniActionBtn} title="Contactar">
+                        <FontAwesomeIcon icon={faPhone} />
+                      </button>
+                      <button onClick={() => setCheckoutChild(session)} className={`${styles.miniActionBtn} ${styles.miniActionCheckout}`} title="Dar Salida">
+                        <FontAwesomeIcon icon={faArrowRightFromBracket} />
+                      </button>
+                   </div>
+                </div>
+              ))}
+           </div>
+        </section>
+      )}
 
       <section className={styles.zonesGrid}>
         {UI_ZONES.map(uiArea => (
@@ -559,7 +621,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                   .filter(s => {
                     const query = normalizeText(searchQuery);
                     return normalizeText(s.childName).includes(query) || 
-                           normalizeText(s.tutorContact).includes(query);
+                           normalizeText(s.tutorContact).includes(query) ||
+                           normalizeText(s.id).includes(query) ||
+                           (s.childId && normalizeText(s.childId).includes(query));
                   })
                   .sort((a, b) => {
                     const metricsA = getSessionMetrics(a);
@@ -597,7 +661,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                 <span className={`${styles.kidName} ${session.enListaNegra ? styles.blacklistedName : ''}`}>
                                     {session.enListaNegra && <FontAwesomeIcon icon={faUserSlash} className={styles.blacklistIcon} title="Lista Negra" />}
-                                    {session.childName}
+                                    {session.childName} 
+                                    <small style={{ fontSize: '0.6rem', color: 'var(--brand-600)', background: 'var(--brand-50)', padding: '1px 4px', borderRadius: '4px', marginLeft: '6px', fontWeight: 800 }}>
+                                        #{ (session.childId || session.id).substring(0,8).toUpperCase() }
+                                    </small>
                                     {session.area === 'Mixto' && <span className={styles.mixedBadge}>MIX</span>}
                                 </span>
                                 
@@ -1169,6 +1236,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                       total: viewPurchase.transaccionTotal || 0,
                       subtotal: (viewPurchase.transaccionTotal || 0) / 1.16,
                       iva: (viewPurchase.transaccionTotal || 0) - ((viewPurchase.transaccionTotal || 0) / 1.16),
+                      paymentMethod: viewPurchase.metodoPago,
                       mensaje: "*** REIMPRESION DE TICKET ***"
                     };
                     const original = PrinterService.formatEpsonTicket(ticketData as any, false);

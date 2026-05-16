@@ -296,6 +296,106 @@
   gap: 1.5rem;
 }
 
+/* ─── Bloque: Total Ingresos del Día ─── */
+.todayCounterBanner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
+  border-radius: var(--radius-xl);
+  padding: 1rem 1.5rem;
+  box-shadow: 0 4px 20px rgba(30, 58, 138, 0.3);
+  animation: fadeIn 0.4s ease;
+  flex-wrap: wrap;
+}
+
+.todayCounterIcon {
+  font-size: 2.2rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
+  flex-shrink: 0;
+}
+
+.todayCounterBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 120px;
+}
+
+.todayCounterLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.todayCounterValue {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.todayCounterStats {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.todayCounterStatItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.todayCounterStatNum {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.todayCounterStatLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.todayCounterDivider {
+  width: 1px;
+  height: 2.5rem;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 1px;
+}
+
+@media (max-width: 600px) {
+  .todayCounterBanner {
+    gap: 1rem;
+    padding: 0.9rem 1.1rem;
+  }
+  .todayCounterValue {
+    font-size: 2rem;
+  }
+  .todayCounterStats {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 1.2rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255,255,255,0.2);
+  }
+}
+
 .statCard {
   background: var(--bg-secondary);
   padding: 1.5rem;
@@ -1053,4 +1153,132 @@
 
 .actionPill svg {
   font-size: 1.1rem;
+}
+.expiredBannerSection {
+  background: #fef2f2;
+  border: 2px solid #fecaca;
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.05);
+  animation: slideUp 0.4s ease-out;
+}
+
+.expiredBannerHeader {
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #fee2e2;
+  padding-bottom: 1rem;
+}
+
+.expiredBannerIcon {
+  color: #dc2626;
+  font-size: 1.8rem;
+}
+
+.expiredBannerTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #991b1b;
+}
+
+.expiredBannerSubtitle {
+  font-size: 0.8rem;
+  color: #b91c1c;
+  opacity: 0.8;
+}
+
+.expiredBannerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.expiredMiniCard {
+  background: white;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.expiredMiniCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1);
+  border-color: #f87171;
+}
+
+.expiredMiniInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.expiredMiniName {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.expiredMiniMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.expiredMiniTime {
+  font-size: 0.8rem;
+  color: #dc2626;
+}
+
+.expiredMiniArea {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.expiredMiniActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.miniActionBtn {
+  background: #f1f5f9;
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.miniActionBtn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.miniActionCheckout {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.miniActionCheckout:hover {
+  background: #dc2626;
+  color: white;
+}
+
+@media (max-width: 640px) {
+  .expiredBannerGrid {
+    grid-template-columns: 1fr;
+  }
 }

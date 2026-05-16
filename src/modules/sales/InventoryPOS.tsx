@@ -214,7 +214,9 @@ export const InventoryPOS: React.FC<InventoryPOSProps> = ({ onCancel }) => {
                         total,
                         subtotal: total / 1.16,
                         iva: total - (total / 1.16),
-                        paymentMethod: result.transaction.metodo_pago
+                        paymentMethod: result.transaction.metodo_pago,
+                        montoRecibido: paymentMethod === 'efectivo' ? getNumericAmount(cashAmount) : total,
+                        cambio: paymentMethod === 'efectivo' ? Math.max(0, getNumericAmount(cashAmount) - total) : 0
                     };
                     const original = PrinterService.formatGenericPOSTicket(ticketData, false);
                     const copia = PrinterService.formatGenericPOSTicket(ticketData, true);

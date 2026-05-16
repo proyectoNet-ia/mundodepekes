@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 
 // Capitaliza nombres propios respetando preposiciones en español
@@ -30,6 +30,7 @@ interface RecordData {
     details: string;
     visits?: number;
     isBlacklisted?: boolean;
+    observations?: string;
     tutorName?: string;
     tutorPhone?: string;
 }
@@ -65,11 +66,11 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     // Edit states
     const [editItem, setEditItem]   = useState<RecordData | null>(null);
     const [editName, setEditName]   = useState('');
+    const [editObservations, setEditObservations] = useState('');
+    const [editBlacklisted, setEditBlacklisted]   = useState(false);
     const [editPhones, setEditPhones] = useState<string[]>([]);
     const [editPrefixes, setEditPrefixes] = useState<string[]>([]);
     const [isSaving, setIsSaving]   = useState(false);
-
-    // PIN modal (removed unused)
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -85,11 +86,25 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
             let results: RecordData[] = [];
             
             if (filter === 'all' || filter === 'tutors') {
+                const isHex = /^[0-9a-fA-F-]+$/.test(debouncedSearch);
+                let idFilter = '';
+                if (isHex && debouncedSearch.length >= 4) {
+                    const cleanHex = debouncedSearch.replace(/-/g, '').toLowerCase();
+                    if (cleanHex.length <= 32) {
+                        const minId = cleanHex.padEnd(32, '0').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+                        const maxId = cleanHex.padEnd(32, 'f').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+                        idFilter = `,and(id.gte.${minId},id.lte.${maxId})`;
+                    }
+                }
+
                 let q = supabase.from('clientes').select('*', { count: 'exact' });
-                if (isSearching) q = q.ilike('nombre', `%${debouncedSearch}%`);
+                if (isSearching) {
+                    q = q.or(`nombre.ilike.%${debouncedSearch}%,id.filter.ilike.%${debouncedSearch}%${idFilter}`);
+                }
                 
                 const { data: clients, count } = await q.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1).order('nombre');
-                if (clients) {
+                
+                if (clients && clients.length > 0) {
                     results = [...results, ...clients.map(c => ({
                         id: c.id,
                         name: c.nombre,
@@ -104,11 +119,25 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
             }
 
             if (filter === 'all' || filter === 'children') {
+                const isHex = /^[0-9a-fA-F-]+$/.test(debouncedSearch);
+                let idFilter = '';
+                if (isHex && debouncedSearch.length >= 4) {
+                    const cleanHex = debouncedSearch.replace(/-/g, '').toLowerCase();
+                    if (cleanHex.length <= 32) {
+                        const minId = cleanHex.padEnd(32, '0').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+                        const maxId = cleanHex.padEnd(32, 'f').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+                        idFilter = `,and(id.gte.${minId},id.lte.${maxId})`;
+                    }
+                }
+
                 let q = supabase.from('ninos').select('*, clientes(nombre, telefono)', { count: 'exact' });
-                if (isSearching) q = q.ilike('nombre', `%${debouncedSearch}%`);
+                if (isSearching) {
+                    q = q.or(`nombre.ilike.%${debouncedSearch}%${idFilter}`);
+                }
                 
                 const { data: children, count } = await q.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1).order('nombre');
-                if (children) {
+                
+                if (children && children.length > 0) {
                     results = [...results, ...children.map(c => ({
                         id: c.id,
                         name: c.nombre,
@@ -116,7 +145,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                         subtext: `Niño(a) · ${c.edad} años`,
                         details: `Tutor: ${c.clientes?.nombre || 'Desconocido'}`,
                         isBlacklisted: !!c.en_lista_negra,
-                        tutorPhone: c.clientes?.telefono
+                        tutorPhone: c.clientes?.telefono,
+                        observations: c.observaciones
                     }))];
                     if (filter === 'children') setTotal(count || 0);
                 }
@@ -136,6 +166,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const handleEditClick = (item: RecordData) => {
         setEditItem(item);
         setEditName(item.name);
+        setEditObservations(item.observations || '');
+        setEditBlacklisted(!!item.isBlacklisted);
         
         if (item.type === 'tutor') {
             const rawPhones = item.tutorPhone ? item.tutorPhone.split(',').map(p => p.trim()) : [];
@@ -175,7 +207,11 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
         setIsSaving(true);
         try {
             if (editItem.type === 'child') {
-                await supabase.from('ninos').update({ nombre: editName }).eq('id', editItem.id);
+                await supabase.from('ninos').update({ 
+                    nombre: editName,
+                    observaciones: editObservations,
+                    en_lista_negra: editBlacklisted
+                }).eq('id', editItem.id);
             } else {
                 const fullPhones = editPhones.map((p, idx) => {
                     if (!p) return null;
@@ -259,13 +295,31 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                         <div className={`${styles.avatar} ${item.type === 'child' ? styles.childAvatar : styles.tutorAvatar}`}>
                                             <FontAwesomeIcon icon={item.type === 'child' ? faChild : faUser} />
                                         </div>
-                                        <span className={styles.mainName}>{item.name}</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span className={styles.mainName}>{item.name}</span>
+                                            <span style={{ fontSize: '0.65rem', color: 'var(--brand-600)', fontWeight: 800, background: 'var(--brand-50)', padding: '2px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginTop: '4px' }}>
+                                                ID: {item.id.substring(0,8).toUpperCase()}
+                                            </span>
+                                            {item.observations && (
+                                                <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '6px', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', maxWidth: '300px' }}>
+                                                    <FontAwesomeIcon icon={faEdit} style={{ marginRight: '6px', fontSize: '0.65rem', color: '#94a3b8' }} />
+                                                    {item.observations}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </td>
                                 <td data-label="Tipo">
-                                    <span className={`${styles.badge} ${item.type === 'child' ? styles.childBadge : styles.tutorBadge}`}>
-                                        {item.type === 'child' ? 'Niño' : 'Tutor'}
-                                    </span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <span className={`${styles.badge} ${item.type === 'child' ? styles.childBadge : styles.tutorBadge}`}>
+                                            {item.type === 'child' ? 'Niño' : 'Tutor'}
+                                        </span>
+                                        {item.isBlacklisted && (
+                                            <span style={{ background: '#fee2e2', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 800, textAlign: 'center', border: '1px solid #fecaca' }}>
+                                                LISTA NEGRA
+                                            </span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td data-label="Detalles" className={styles.detailsCell}>{item.details}</td>
                                 <td data-label="Acciones">
@@ -318,16 +372,67 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                             <h3>Editar {editItem.type === 'child' ? 'Niño' : 'Tutor'}</h3>
                             <button onClick={() => setEditItem(null)} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
                         </div>
-                        <div className={styles.editModalBody}>
-                            <div className={styles.field}>
-                                <label>Nombre Completo</label>
+                        <div className={styles.editModalBody} style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                            <div className={styles.field} style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Nombre Completo</label>
                                 <input className={styles.editInput} value={editName} onChange={e => setEditName(toTitleCase(e.target.value))} />
                             </div>
+
+                            {editItem.type === 'child' && (
+                                <>
+                                    <div className={styles.field} style={{ marginBottom: '1.5rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem' }}>Observaciones / Notas Médicas</label>
+                                        <textarea 
+                                            className={styles.editInput} 
+                                            style={{ minHeight: '100px', resize: 'vertical' }}
+                                            value={editObservations} 
+                                            onChange={e => setEditObservations(e.target.value)}
+                                            placeholder="Ej: Alérgico al chocolate, problemas respiratorios..."
+                                        />
+                                    </div>
+                                    
+                                    <div className={styles.field} style={{ marginBottom: '1.5rem', background: editBlacklisted ? '#fff1f2' : '#f8fafc', padding: '1rem', borderRadius: '12px', border: editBlacklisted ? '1px solid #fecaca' : '1px solid #e2e8f0', transition: 'all 0.3s ease' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: editBlacklisted ? '#e11d48' : '#475569' }}>
+                                                    <FontAwesomeIcon icon={faUserSlash} style={{ marginRight: '8px' }} />
+                                                    Estatus: Lista Negra
+                                                </label>
+                                                <small style={{ color: '#64748b' }}>Impedir el acceso de este niño al sistema.</small>
+                                            </div>
+                                            <div 
+                                                onClick={() => setEditBlacklisted(!editBlacklisted)}
+                                                style={{ 
+                                                    width: '50px', 
+                                                    height: '26px', 
+                                                    background: editBlacklisted ? '#e11d48' : '#cbd5e1', 
+                                                    borderRadius: '13px', 
+                                                    position: 'relative', 
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.3s ease'
+                                                }}
+                                            >
+                                                <div style={{ 
+                                                    width: '20px', 
+                                                    height: '20px', 
+                                                    background: 'white', 
+                                                    borderRadius: '50%', 
+                                                    position: 'absolute', 
+                                                    top: '3px', 
+                                                    left: editBlacklisted ? '27px' : '3px',
+                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                                }} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                             
                             {editItem.type === 'tutor' && (
                                 <div className={styles.phonesSection}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'center' }}>
-                                        <label>Teléfonos de Contacto</label>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Teléfonos de Contacto</label>
                                         <button onClick={() => { setEditPhones([...editPhones, '']); setEditPrefixes([...editPrefixes, '+52']); }} className={styles.addBtn}>
                                             <FontAwesomeIcon icon={faPlus} /> Añadir
                                         </button>
