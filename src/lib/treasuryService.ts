@@ -331,3 +331,82 @@ export const getLastSessions = async (limit = 5): Promise<CashSession[]> => {
     if (error) throw error;
     return data || [];
 };
+
+export interface ShiftProductsSummary {
+  calcetines: number;
+  agua: number;
+  refrescos: number;
+}
+
+export const getShiftProductsSoldSummary = async (fechaApertura: string): Promise<ShiftProductsSummary> => {
+  if (!navigator.onLine) {
+    return { calcetines: 0, agua: 0, refrescos: 0 };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('movimientos_inventario')
+      .select(`
+        cantidad,
+        tipo,
+        motivo,
+        created_at,
+        inventario (
+          nombre,
+          categoria
+        )
+      `)
+      .eq('tipo', 'salida')
+      .gte('created_at', fechaApertura);
+
+    if (error) {
+      console.error('Error fetching shift products sold summary:', error);
+      return { calcetines: 0, agua: 0, refrescos: 0 };
+    }
+
+    const summary = { calcetines: 0, agua: 0, refrescos: 0 };
+
+    data?.forEach((mov: any) => {
+      const motivo = mov.motivo || '';
+      // Aceptamos cualquier salida por venta (ya sea POS o venta general)
+      if (!motivo.toLowerCase().includes('venta') && !motivo.toLowerCase().includes('pos')) {
+        return; 
+      }
+
+      const nombre = (mov.inventario?.nombre || '').toLowerCase();
+      const categoria = (mov.inventario?.categoria || '').toLowerCase();
+      const qty = Number(mov.cantidad) || 0;
+
+      if (
+        categoria.includes('calcet') || 
+        categoria.includes('accesor') && nombre.includes('calcet') || 
+        nombre.includes('calcet') || 
+        nombre.includes('sock') || 
+        nombre.includes('media')
+      ) {
+        summary.calcetines += qty;
+      } else if (
+        categoria.includes('agua') || 
+        nombre.includes('agua') || 
+        nombre.includes('ciel') || 
+        nombre.includes('bonafont') || 
+        nombre.includes('epura')
+      ) {
+        summary.agua += qty;
+      } else if (
+        categoria.includes('refresco') || 
+        categoria.includes('bebida') && (nombre.includes('coca') || nombre.includes('fanta') || nombre.includes('sprite') || nombre.includes('mundet') || nombre.includes('sidral') || nombre.includes('pepsi') || nombre.includes('lata') || nombre.includes('refresco') || nombre.includes('manzanita') || nombre.includes('jugo')) ||
+        nombre.includes('coca') || nombre.includes('fanta') || nombre.includes('sprite') || nombre.includes('mundet') || nombre.includes('sidral') || nombre.includes('pepsi') || nombre.includes('lata') || nombre.includes('refresco') || nombre.includes('manzanita')
+      ) {
+        if (!nombre.includes('agua')) {
+          summary.refrescos += qty;
+        }
+      }
+    });
+
+    return summary;
+  } catch (e) {
+    console.error('Failed to calculate shift products summary:', e);
+    return { calcetines: 0, agua: 0, refrescos: 0 };
+  }
+};

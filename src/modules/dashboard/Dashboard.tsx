@@ -37,6 +37,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { syncService } from '../../lib/syncService';
 import { PresaleQueue } from './PresaleQueue';
 import { confirmPresale } from '../../lib/presaleService';
+import { getActiveSession, getShiftProductsSoldSummary } from '../../lib/treasuryService';
 
 const AREA_MAP: Record<string, string> = {
   'Mundo de Pekes': 'Mundo de Pekes',
@@ -86,6 +87,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
   const [privateEvents, setPrivateEvents] = useState<any[]>([]);
   const [totalChildrenToday, setTotalChildrenToday] = useState<{ total: number; unique: number }>({ total: 0, unique: 0 });
+  const [shiftProducts, setShiftProducts] = useState({ calcetines: 0, agua: 0, refrescos: 0 });
 
   // Estado del modal para agregar peke a un evento privado
   const [addToEventModal, setAddToEventModal] = useState<{ transaccionId: string; packageId: string; area: string; tutorId: string; eventEndTime: Date; packageName: string; } | null>(null);
@@ -107,6 +109,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
       setScheduledCount(sCount);
       setTotalChildrenToday(todayCount);
       setLastRefreshed(new Date());
+
+      // Obtener productos vendidos durante el corte activo
+      try {
+        const activeSession = await getActiveSession();
+        if (activeSession && activeSession.fecha_apertura) {
+          const prodSummary = await getShiftProductsSoldSummary(activeSession.fecha_apertura);
+          setShiftProducts(prodSummary);
+        } else {
+          setShiftProducts({ calcetines: 0, agua: 0, refrescos: 0 });
+        }
+      } catch (err) {
+        console.error('Error fetching shift products sold summary:', err);
+      }
 
       // Auto-archivado de paquetes de eventos terminados y vacíos
       const now = new Date();
@@ -533,6 +548,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
             <div className={styles.todayCounterStatItem}>
               <span className={styles.todayCounterStatNum}>{totalChildrenToday.total - totalChildrenToday.unique}</span>
               <span className={styles.todayCounterStatLabel}>reingresos</span>
+            </div>
+
+            {/* Separador de Productos */}
+            <div className={styles.todayCounterDivider} style={{ backgroundColor: 'rgba(255, 255, 255, 0.45)', width: '2px' }} />
+
+            <div className={styles.todayCounterStatItem} title="Calcetines vendidos durante este corte">
+              <span className={styles.todayCounterStatNum} style={{ color: '#6ee7b7' }}>🧦 {shiftProducts.calcetines}</span>
+              <span className={styles.todayCounterStatLabel}>Calcetines</span>
+            </div>
+            <div className={styles.todayCounterDivider} />
+            <div className={styles.todayCounterStatItem} title="Aguas vendidas durante este corte">
+              <span className={styles.todayCounterStatNum} style={{ color: '#60a5fa' }}>💧 {shiftProducts.agua}</span>
+              <span className={styles.todayCounterStatLabel}>Agua</span>
+            </div>
+            <div className={styles.todayCounterDivider} />
+            <div className={styles.todayCounterStatItem} title="Refrescos vendidos durante este corte">
+              <span className={styles.todayCounterStatNum} style={{ color: '#fca5a5' }}>🥤 {shiftProducts.refrescos}</span>
+              <span className={styles.todayCounterStatLabel}>Refrescos</span>
             </div>
           </div>
         </div>
