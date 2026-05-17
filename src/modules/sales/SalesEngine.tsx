@@ -94,6 +94,7 @@ interface ChildData {
   id?: string;
   isAlreadyInside?: boolean;
   enListaNegra?: boolean;
+  previousEndTime?: string;
 }
 
 interface SelectedAcc {
@@ -219,7 +220,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
               id: reentryData.childId,
               name: reentryData.childName || reentryData.nombre || '', 
               age: reentryData.edad || 0,
-              included: true
+              included: true,
+              previousEndTime: reentryData.rawEndTime ? (typeof reentryData.rawEndTime === 'string' ? reentryData.rawEndTime : reentryData.rawEndTime.toISOString()) : undefined
             }]);
             setCurrentStep('PAQUETE');
           }
@@ -432,10 +434,10 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
         const registration = await registerFullEntry({
             customer: { id: customer.id, name: customer.name, phone: allPhones, email: customer.email },
             children: isPrivateEvent 
-                ? activeChildren.map(c => ({ id: c.id, name: c.name, age: c.age, packageId: privatePackageId, area: privatePkg?.area || 'Mundo de Pekes', duration: privatePkg?.duracion_minutos || 60 }))
+                ? activeChildren.map(c => ({ id: c.id, name: c.name, age: c.age, packageId: privatePackageId, area: privatePkg?.area || 'Mundo de Pekes', duration: privatePkg?.duracion_minutos || 60, previousEndTime: c.previousEndTime }))
                 : activeChildren.map((c, i) => {
                     const selPkg = availablePackages.find(p => p.id === childPackages[i]);
-                    return { id: c.id, name: c.name, age: c.age, packageId: childPackages[i], area: selPkg?.area || 'Mundo de Pekes', duration: selPkg?.duracion_minutos || 60 };
+                    return { id: c.id, name: c.name, age: c.age, packageId: childPackages[i], area: selPkg?.area || 'Mundo de Pekes', duration: selPkg?.duracion_minutos || 60, previousEndTime: c.previousEndTime };
                 }),
             accessories: selectedAccessories.map(a => ({ id: a.id, name: a.name, quantity: a.qty })),
             paymentMethod: method, voucherFolio, total, isReentry: !!reentryData, 
