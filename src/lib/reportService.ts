@@ -52,7 +52,8 @@ export class ReportService {
             }
 
             console.log(`[ReportService] Guardando archivo: ${filename}.pdf`);
-            doc.save(`${filename}.pdf`);
+            const blob = doc.output('blob');
+            saveAs(blob, `${filename}.pdf`);
             console.log(`[ReportService] PDF generado exitosamente.`);
         } catch (error) {
             console.error('[ReportService] Error fatal generando PDF:', error);
@@ -353,7 +354,8 @@ export class ReportService {
                 alternateRowStyles: { fillColor: [240, 249, 255] }
             });
 
-            doc.save(`${filename}.pdf`);
+            const blob = doc.output('blob');
+            saveAs(blob, `${filename}.pdf`);
         } else {
             // Excel detallado con 3 hojas
             const workbook = new ExcelJS.Workbook();
@@ -518,7 +520,8 @@ export class ReportService {
                     alternateRowStyles: { fillColor: [240, 249, 255] }
                 });
 
-                doc.save(`${filename}.pdf`);
+                const blob = doc.output('blob');
+                saveAs(blob, `${filename}.pdf`);
             } else {
                 // Excel con dos hojas
                 const workbook = new ExcelJS.Workbook();
