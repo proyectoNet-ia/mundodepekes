@@ -152,6 +152,29 @@ export const PortalPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [presaleExpiry]);
 
+  // Temporizador para regresar a la pantalla de inicio ('intent') automáticamente tras 30 segundos en la pantalla de éxito
+  useEffect(() => {
+    if (step !== 'success') return;
+    
+    const timeout = setTimeout(() => {
+      setStep('intent');
+      setTutorNombre('');
+      setTutorTelefono('');
+      setTutorTelefonoConfirm('');
+      setSecondaryPhones([]);
+      setSecondaryPrefixes([]);
+      setNinos([{ nombre: '', edad: 0, paquete_id: '' }]);
+      setConfirmCode('');
+      setPresaleExpiry(null);
+      setVCode('');
+      setVError('');
+      setCaptchaInput('');
+      setIsCaptchaValid(false);
+    }, 30000); // 30 segundos
+
+    return () => clearTimeout(timeout);
+  }, [step]);
+
   const areas = Array.from(new Set(packages.map(p => p.area)));
 
   const total = ninos.reduce((sum, n) => {
@@ -851,13 +874,22 @@ export const PortalPage: React.FC = () => {
               id="portal-btn-new-order"
               className="portal-btn portal-btn-ghost"
               onClick={() => {
-                setStep('tutor');
-                setTutorNombre(''); setTutorTelefono('');
+                setStep('intent');
+                setTutorNombre('');
+                setTutorTelefono('');
+                setTutorTelefonoConfirm('');
+                setSecondaryPhones([]);
+                setSecondaryPrefixes([]);
                 setNinos([{ nombre: '', edad: 0, paquete_id: '' }]);
-                setConfirmCode(''); setPresaleExpiry(null);
+                setConfirmCode('');
+                setPresaleExpiry(null);
+                setVCode('');
+                setVError('');
+                setCaptchaInput('');
+                setIsCaptchaValid(false);
               }}
             >
-              Nueva Orden
+              Nueva Orden / Volver al Inicio
             </button>
           </div>
         )}
