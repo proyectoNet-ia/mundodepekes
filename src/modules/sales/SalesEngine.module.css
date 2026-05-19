@@ -560,7 +560,7 @@
 /* ── Accessories Grid (Desktop) ── */
 .accessoryGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 0.875rem;
 }
 
@@ -1662,4 +1662,26 @@
 
 .variantSelect:focus {
     border-color: var(--brand-500);
+}
+
+.wideStepContent {
+    max-width: 1000px !important;
+}
+
+.accSideBySideRow {
+    display: flex;
+    gap: 1.5rem;
+    width: 100%;
+    margin-top: 1.5rem;
+}
+
+.accColumnHalf {
+    flex: 1;
+    min-width: 0;
+}
+
+.accessoryGridCompact {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.6rem;
 }

@@ -655,7 +655,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
         </div>
 
         <main className={styles.engineMain}>
-            <div className={styles.stepContent}>
+            <div className={`${styles.stepContent} ${currentStep === 'ACCESORIOS' ? styles.wideStepContent : ''}`}>
                 {currentStep === 'BUSQUEDA' && (
                     <div className={styles.fadeSlide}>
                         <div className={styles.stepHeader}>
@@ -1072,151 +1072,196 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                     'refrescos': 5
                                 };
 
-                                return Object.entries(groupedByCategory)
-                                    .filter(([_, groups]) => groups.length > 0)
+                                const renderGroupItem = (group: any, category: string) => {
+                                    const hasMultiple = group.variants.length > 1;
+                                    
+                                    // ORDENAR TALLAS: XL - L - M - S - XS
+                                    if (hasMultiple) {
+                                        const sizeWeight: Record<string, number> = {
+                                            'xl': 1,
+                                            'l': 2,
+                                            'm': 3,
+                                            's': 4,
+                                            'xs': 5
+                                        };
+                                        group.variants.sort((vA: any, vB: any) => {
+                                            const wA = sizeWeight[vA.variantName.toLowerCase()] || 99;
+                                            const wB = sizeWeight[vB.variantName.toLowerCase()] || 99;
+                                            return wA - wB;
+                                        });
+                                    }
+
+                                    const variantKey = `${category}-${group.baseName}`;
+                                    const currentVariantId = selectedVariants[variantKey] || group.variants[0].id;
+                                    const activeVariant = group.variants.find((v: any) => v.id === currentVariantId) || group.variants[0];
+                                    
+                                    const sel = selectedAccessories.find(a => a.id === activeVariant.id);
+                                    const qty = sel?.qty || 0;
+
+                                    const totalQtyInGroup = group.variants.reduce((sum: number, v: any) => {
+                                        const s = selectedAccessories.find(a => a.id === v.id);
+                                        return sum + (s?.qty || 0);
+                                    }, 0);
+
+                                    const isFree = Number(activeVariant.rawItem.precio_venta) === 0;
+
+                                    return (
+                                        <div 
+                                            key={group.baseName} 
+                                            className={`${styles.accessoryCard} ${totalQtyInGroup > 0 ? styles.accessorySelected : ''} ${isFree ? styles.accessoryFree : ''}`}
+                                            onClick={(e) => handleAccChange(e, activeVariant.rawItem, 1)}
+                                        >
+                                            {totalQtyInGroup > 0 && (
+                                                <div className={styles.accSelectedBadge}>
+                                                    ✓ {totalQtyInGroup}
+                                                </div>
+                                            )}
+                                            <div className={styles.accCardBody}>
+                                                {isFree && <span className={styles.accFreeBadge}>⚠️ Cortesía</span>}
+                                                <span className={styles.accName}>{group.baseName}</span>
+                                                <span className={styles.accPrice}>
+                                                    ${activeVariant.rawItem.precio_venta}
+                                                </span>
+
+                                                {/* Si tiene variantes de talla (ej. Calcetines XS, S, M...), mostrar bloques de botones */}
+                                                {hasMultiple && (
+                                                    <div 
+                                                        onClick={(e) => e.stopPropagation()} 
+                                                        style={{ 
+                                                            display: 'flex', 
+                                                            flexWrap: 'wrap', 
+                                                            gap: '4px', 
+                                                            marginTop: '0.5rem', 
+                                                            marginBottom: '0.2rem',
+                                                            width: '100%'
+                                                        }}
+                                                    >
+                                                        {group.variants.map((v: any) => {
+                                                            const isSelectedSize = v.id === currentVariantId;
+                                                            const vSel = selectedAccessories.find(a => a.id === v.id);
+                                                            const vQty = vSel?.qty || 0;
+                                                            return (
+                                                                <button
+                                                                    key={v.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSelectedVariants({
+                                                                            ...selectedVariants,
+                                                                            [variantKey]: v.id
+                                                                        });
+                                                                    }}
+                                                                    style={{
+                                                                        flex: '1 1 auto',
+                                                                        minWidth: '32px',
+                                                                        padding: '4px',
+                                                                        borderRadius: '6px',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: 800,
+                                                                        border: isSelectedSize ? '2px solid var(--brand-500)' : '1px solid #cbd5e1',
+                                                                        backgroundColor: isSelectedSize ? 'var(--brand-500)' : '#ffffff',
+                                                                        color: isSelectedSize ? '#ffffff' : '#475569',
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        flexDirection: 'column',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        transition: 'all 0.2s',
+                                                                        boxShadow: isSelectedSize ? '0 2px 4px rgba(0,27,72,0.15)' : 'none'
+                                                                    }}
+                                                                >
+                                                                    <span>{v.variantName}</span>
+                                                                    {vQty > 0 && (
+                                                                        <span style={{ 
+                                                                            fontSize: '0.62rem', 
+                                                                            color: isSelectedSize ? '#ffffff' : 'var(--brand-600)', 
+                                                                            fontWeight: 900, 
+                                                                            marginTop: '1px' 
+                                                                        }}>
+                                                                            ({vQty})
+                                                                        </span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className={styles.accCardFooter}>
+                                                <span className={`${activeVariant.cantidad <= (activeVariant.minimo_alert || 5) ? styles.accStockLow : styles.accStock}`}>
+                                                    {activeVariant.cantidad} disp.
+                                                </span>
+                                                <div className={styles.qtyControlWidget} onClick={(e) => e.stopPropagation()}>
+                                                    <button 
+                                                        className={styles.qtyBtn} 
+                                                        onClick={(e) => handleAccChange(e, activeVariant.rawItem, -1)} 
+                                                        disabled={qty === 0}
+                                                    >
+                                                        -
+                                                    </button>
+                                                    <span className={styles.qtyValue}>{qty}</span>
+                                                    <button 
+                                                        className={styles.qtyBtn} 
+                                                        onClick={(e) => handleAccChange(e, activeVariant.rawItem, 1)} 
+                                                        disabled={qty >= activeVariant.cantidad}
+                                                    >
+                                                        +
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                };
+
+                                const specialCats = ['bebidas alternativa', 'refrescos'];
+
+                                const standardCategories = Object.entries(groupedByCategory)
+                                    .filter(([cat, groups]) => groups.length > 0 && !specialCats.includes(cat.toLowerCase()))
                                     .sort(([catA], [catB]) => {
                                         const orderA = categoryOrder[catA.toLowerCase()] || 99;
                                         const orderB = categoryOrder[catB.toLowerCase()] || 99;
                                         return orderA - orderB;
-                                    })
-                                    .map(([category, groups]) => (
-                                        <div key={category} className={styles.accCategorySection}>
-                                            <div className={styles.accCategoryHeader}>
-                                                <span style={{ fontSize: '1.25rem', marginRight: '6px' }}>{getCategoryIcon(category)}</span>
-                                                <span>{category}</span>
-                                                <span className={styles.accCategoryCount}>{groups.length} productos</span>
+                                    });
+
+                                const sideBySideCategories = Object.entries(groupedByCategory)
+                                    .filter(([cat, groups]) => groups.length > 0 && specialCats.includes(cat.toLowerCase()))
+                                    .sort(([catA], [catB]) => {
+                                        return catA.toLowerCase().localeCompare(catB.toLowerCase());
+                                    });
+
+                                return (
+                                    <>
+                                        {standardCategories.map(([category, groups]) => (
+                                            <div key={category} className={styles.accCategorySection}>
+                                                <div className={styles.accCategoryHeader}>
+                                                    <span style={{ fontSize: '1.25rem', marginRight: '6px' }}>{getCategoryIcon(category)}</span>
+                                                    <span>{category}</span>
+                                                    <span className={styles.accCategoryCount}>{groups.length} productos</span>
+                                                </div>
+                                                <div className={styles.accessoryGrid}>
+                                                    {groups.map(group => renderGroupItem(group, category))}
+                                                </div>
                                             </div>
-                                            <div className={styles.accessoryGrid}>
-                                            {groups.map(group => {
-                                                // Si tiene múltiples variantes, la variante seleccionada en el estado o la primera por defecto
-                                                const hasMultiple = group.variants.length > 1;
-                                                const variantKey = `${category}-${group.baseName}`;
-                                                const currentVariantId = selectedVariants[variantKey] || group.variants[0].id;
-                                                const activeVariant = group.variants.find(v => v.id === currentVariantId) || group.variants[0];
-                                                
-                                                // Buscar cantidad seleccionada en la variante activa
-                                                const sel = selectedAccessories.find(a => a.id === activeVariant.id);
-                                                const qty = sel?.qty || 0;
+                                        ))}
 
-                                                // Sumar todas las variantes seleccionadas de este grupo para mostrar un resumen/badge
-                                                const totalQtyInGroup = group.variants.reduce((sum, v) => {
-                                                    const s = selectedAccessories.find(a => a.id === v.id);
-                                                    return sum + (s?.qty || 0);
-                                                }, 0);
-
-                                                // ¿Alguna variante tiene precio $0? Si es así, toda la tarjeta es de cortesía/sin costo
-                                                const isFree = Number(activeVariant.rawItem.precio_venta) === 0;
-
-                                                return (
-                                                    <div 
-                                                        key={group.baseName} 
-                                                        className={`${styles.accessoryCard} ${totalQtyInGroup > 0 ? styles.accessorySelected : ''} ${isFree ? styles.accessoryFree : ''}`}
-                                                        onClick={(e) => handleAccChange(e, activeVariant.rawItem, 1)}
-                                                    >
-                                                        {totalQtyInGroup > 0 && (
-                                                            <div className={styles.accSelectedBadge}>
-                                                                ✓ {totalQtyInGroup}
-                                                            </div>
-                                                        )}
-                                                        <div className={styles.accCardBody}>
-                                                            {isFree && <span className={styles.accFreeBadge}>⚠️ Cortesía</span>}
-                                                            <span className={styles.accName}>{group.baseName}</span>
-                                                            <span className={styles.accPrice}>
-                                                                ${activeVariant.rawItem.precio_venta}
-                                                            </span>
-
-                                                            {/* Si tiene variantes de talla (ej. Calcetines XS, S, M...), mostrar bloques de botones */}
-                                                            {hasMultiple && (
-                                                                <div 
-                                                                    onClick={(e) => e.stopPropagation()} 
-                                                                    style={{ 
-                                                                        display: 'flex', 
-                                                                        flexWrap: 'wrap', 
-                                                                        gap: '4px', 
-                                                                        marginTop: '0.5rem', 
-                                                                        marginBottom: '0.2rem',
-                                                                        width: '100%'
-                                                                    }}
-                                                                >
-                                                                    {group.variants.map(v => {
-                                                                        const isSelectedSize = v.id === currentVariantId;
-                                                                        const vSel = selectedAccessories.find(a => a.id === v.id);
-                                                                        const vQty = vSel?.qty || 0;
-                                                                        return (
-                                                                            <button
-                                                                                key={v.id}
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    setSelectedVariants({
-                                                                                        ...selectedVariants,
-                                                                                        [variantKey]: v.id
-                                                                                    });
-                                                                                }}
-                                                                                style={{
-                                                                                    flex: '1 1 auto',
-                                                                                    minWidth: '32px',
-                                                                                    padding: '4px',
-                                                                                    borderRadius: '6px',
-                                                                                    fontSize: '0.75rem',
-                                                                                    fontWeight: 800,
-                                                                                    border: isSelectedSize ? '2px solid var(--brand-500)' : '1px solid #cbd5e1',
-                                                                                    backgroundColor: isSelectedSize ? 'var(--brand-500)' : '#ffffff',
-                                                                                    color: isSelectedSize ? '#ffffff' : '#475569',
-                                                                                    cursor: 'pointer',
-                                                                                    display: 'flex',
-                                                                                    flexDirection: 'column',
-                                                                                    alignItems: 'center',
-                                                                                    justifyContent: 'center',
-                                                                                    transition: 'all 0.2s',
-                                                                                    boxShadow: isSelectedSize ? '0 2px 4px rgba(0,27,72,0.15)' : 'none'
-                                                                                }}
-                                                                            >
-                                                                                <span>{v.variantName}</span>
-                                                                                {vQty > 0 && (
-                                                                                    <span style={{ 
-                                                                                        fontSize: '0.62rem', 
-                                                                                        color: isSelectedSize ? '#ffffff' : 'var(--brand-600)', 
-                                                                                        fontWeight: 900, 
-                                                                                        marginTop: '1px' 
-                                                                                    }}>
-                                                                                        ({vQty})
-                                                                                    </span>
-                                                                                )}
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            )}
+                                        {sideBySideCategories.length > 0 && (
+                                            <div className={styles.accSideBySideRow}>
+                                                {sideBySideCategories.map(([category, groups]) => (
+                                                    <div key={category} className={styles.accColumnHalf}>
+                                                        <div className={styles.accCategoryHeader}>
+                                                            <span style={{ fontSize: '1.25rem', marginRight: '6px' }}>{getCategoryIcon(category)}</span>
+                                                            <span>{category}</span>
+                                                            <span className={styles.accCategoryCount}>{groups.length} prod.</span>
                                                         </div>
-
-                                                        <div className={styles.accCardFooter}>
-                                                            <span className={`${activeVariant.cantidad <= (activeVariant.minimo_alert || 5) ? styles.accStockLow : styles.accStock}`}>
-                                                                {activeVariant.cantidad} disp.
-                                                            </span>
-                                                            <div className={styles.qtyControlWidget} onClick={(e) => e.stopPropagation()}>
-                                                                <button 
-                                                                    className={styles.qtyBtn} 
-                                                                    onClick={(e) => handleAccChange(e, activeVariant.rawItem, -1)} 
-                                                                    disabled={qty === 0}
-                                                                >
-                                                                    -
-                                                                </button>
-                                                                <span className={styles.qtyValue}>{qty}</span>
-                                                                <button 
-                                                                    className={styles.qtyBtn} 
-                                                                    onClick={(e) => handleAccChange(e, activeVariant.rawItem, 1)} 
-                                                                    disabled={qty >= activeVariant.cantidad}
-                                                                >
-                                                                    +
-                                                                </button>
-                                                            </div>
+                                                        <div className={styles.accessoryGridCompact}>
+                                                            {groups.map(group => renderGroupItem(group, category))}
                                                         </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ));
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                );
                             })()
                         )}
 
