@@ -58,6 +58,44 @@ const formatPhone = (phone: string) => {
     return `(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}`;
 };
 
+const formatDisplayPhone = (rawPhone: string): string => {
+    if (!rawPhone) return '';
+    if (rawPhone.includes(',')) {
+        return rawPhone
+            .split(',')
+            .map(p => formatDisplayPhone(p.trim()))
+            .filter(Boolean)
+            .join(', ');
+    }
+
+    const digits = rawPhone.replace(/\D/g, '');
+    if (!digits) return rawPhone;
+
+    // Caso de doble LADA de México (ej. 52523521645089 -> 14 dígitos)
+    if (digits.startsWith('5252') && digits.length === 14) {
+        const phone = digits.substring(4);
+        return `+52 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+    }
+
+    // Caso de LADA México normal (ej. 523521253235 -> 12 dígitos)
+    if (digits.startsWith('52') && digits.length === 12) {
+        const phone = digits.substring(2);
+        return `+52 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+    }
+
+    // Caso de LADA US normal (ej. 13521253235 -> 11 dígitos)
+    if (digits.startsWith('1') && digits.length === 11) {
+        const phone = digits.substring(1);
+        return `+1 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+    }
+
+    if (digits.length === 10) {
+        return `(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}`;
+    }
+
+    return rawPhone;
+};
+
 /** Extrae el prefijo de lada de un número almacenado, ej: '+528001234567' → '+52' */
 const extractPrefix = (phone: string): string => {
     if (!phone) return '+52';
@@ -631,7 +669,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                                 </span>
                                                 {res.observaciones && <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 700 }} title={res.observaciones}><FontAwesomeIcon icon={faEdit} style={{ marginRight: '3px' }} /> OBS</span>}
                                             </div>
-                                            <span className={styles.phoneBadge}><FontAwesomeIcon icon={faPhone} /> {res.phone || 'Sin WhatsApp'}</span>
+                                            <span className={styles.phoneBadge}><FontAwesomeIcon icon={faPhone} /> {res.phone ? formatDisplayPhone(res.phone) : 'Sin WhatsApp'}</span>
                                         </div>
                                         <div className={styles.resStats}>
                                             <span className={styles.visits}>{res.visitsCount} Visitas</span>
@@ -769,7 +807,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                 <div className={styles.formHeaderIcon} style={{ background: '#25D366' }}><FontAwesomeIcon icon={faWhatsapp} /></div>
                                 <div>
                                     <h3>Confirmar WhatsApp</h3>
-                                    <p>Se envió un código a <strong>{customer.phone}</strong></p>
+                                    <p>Se envió un código a <strong>{mainPrefix} {formatPhone(customer.phone)}</strong></p>
                                 </div>
                             </div>
                             <div style={{ padding: '2rem 0', textAlign: 'center' }}>
