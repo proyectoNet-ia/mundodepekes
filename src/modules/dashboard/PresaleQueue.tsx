@@ -21,6 +21,8 @@ interface PresaleQueueProps {
     presaleId: string;
     total: number;
   }) => void;
+  /** Trigger manual de actualización */
+  refreshTrigger?: number;
 }
 
 const timeAgo = (dateStr: string) => {
@@ -42,7 +44,7 @@ const isExpiring = (expiresAt: string) => {
   return new Date(expiresAt).getTime() - Date.now() < 10 * 60 * 1000;
 };
 
-export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute }) => {
+export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute, refreshTrigger }) => {
   const [presales, setPresales] = useState<Presale[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -71,6 +73,12 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute }) => {
       clearInterval(ticker);
     };
   }, [load]);
+
+  useEffect(() => {
+    if (refreshTrigger !== undefined) {
+      load();
+    }
+  }, [refreshTrigger, load]);
 
   const handleCancel = async (id: string) => {
     setCancelling(id);

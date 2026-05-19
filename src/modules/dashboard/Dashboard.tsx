@@ -105,6 +105,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   const [privateEvents, setPrivateEvents] = useState<any[]>([]);
   const [totalChildrenToday, setTotalChildrenToday] = useState<{ total: number; unique: number }>({ total: 0, unique: 0 });
   const [shiftProducts, setShiftProducts] = useState<any[]>([]);
+  const [presaleRefreshTrigger, setPresaleRefreshTrigger] = useState(0);
 
   // Estado del modal para agregar peke a un evento privado
   const [addToEventModal, setAddToEventModal] = useState<{ transaccionId: string; packageId: string; area: string; tutorId: string; eventEndTime: Date; packageName: string; } | null>(null);
@@ -149,6 +150,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
               archivePackage(event.paquete_id);
           }
       });
+      setPresaleRefreshTrigger(prev => prev + 1);
     } finally {
       setIsRefreshing(false);
     }
@@ -626,6 +628,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
 
       {/* Cola de Preventas del Portal Público */}
       <PresaleQueue
+        refreshTrigger={presaleRefreshTrigger}
         onExecute={async (presaleData) => {
           // Marcar preventa como confirmada en BD
           try { await confirmPresale(presaleData.presaleId); } catch {}
