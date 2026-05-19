@@ -459,7 +459,7 @@ export const PortalPage: React.FC = () => {
                     type="tel"
                     id="portal-tutor-phone-confirm"
                     className="portal-input"
-                    value={tutorTelefonoConfirm}
+                    value={formatPhone(tutorTelefonoConfirm)}
                     onChange={(e) => setTutorTelefonoConfirm(e.target.value.replace(/\D/g, '').substring(0, 10))}
                     placeholder="Escríbelo de nuevo"
                   />
@@ -507,7 +507,7 @@ export const PortalPage: React.FC = () => {
                       className="portal-input"
                       style={{ flex: 1, margin: 0 }}
                       placeholder="Teléfono extra"
-                      value={phone}
+                      value={formatPhone(phone)}
                       onChange={(e) => {
                         const newPhones = [...secondaryPhones];
                         newPhones[idx] = e.target.value.replace(/\D/g, '').substring(0, 10);
