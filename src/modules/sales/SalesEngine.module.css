@@ -1618,3 +1618,46 @@
     background: white;
     padding: 12px;
 }
+
+.accessoryFree {
+    background: #fffbeb !important;
+    border-color: #fb923c !important;
+    border-style: dashed !important;
+}
+
+.accessoryFree:hover {
+    border-color: #ea580c !important;
+}
+
+.accFreeBadge {
+    background: #ea580c;
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 900;
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    align-self: flex-start;
+    display: inline-block;
+    margin-bottom: 0.2rem;
+}
+
+.variantSelect {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #475569;
+    background-color: #f8fafc;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    margin-top: 0.25rem;
+}
+
+.variantSelect:focus {
+    border-color: var(--brand-500);
+}

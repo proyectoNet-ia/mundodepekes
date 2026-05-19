@@ -176,6 +176,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
   const [lastTransaction, setLastTransaction] = useState<any>(null);
   const [availableAccessories, setAvailableAccessories] = useState<StockItem[]>([]);
   const [selectedAccessories, setSelectedAccessories] = useState<SelectedAcc[]>([]);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [isCashOpen, setIsCashOpen] = useState<boolean | null>(null);
   const [cashAmount, setCashAmount] = useState<string>('');
   const [voucherFolio, setVoucherFolio] = useState('');
@@ -1003,51 +1004,166 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                 <p>No hay productos disponibles en inventario actualmente.</p>
                             </div>
                         ) : (
-                            Object.entries(
-                                availableAccessories.reduce((acc, item) => {
+                            (() => {
+                                // 1. Agrupar productos de la misma categoría por su "baseName" (nombre base antes del guión)
+                                const groupedByCategory: Record<string, {
+                                    baseName: string;
+                                    categoria: string;
+                                    precio_venta: number;
+                                    variants: {
+                                        id: string;
+                                        fullName: string;
+                                        variantName: string;
+                                        cantidad: number;
+                                        minimo_alert?: number;
+                                        rawItem: StockItem;
+                                    }[];
+                                }[]> = {};
+
+                                availableAccessories.forEach(item => {
                                     const cat = item.categoria || 'Generales';
-                                    if (!acc[cat]) acc[cat] = [];
-                                    acc[cat].push(item);
-                                    return acc;
-                                }, {} as Record<string, StockItem[]>)
-                            ).map(([category, items]) => (
-                                <div key={category} className={styles.accCategorySection}>
-                                    <div className={styles.accCategoryHeader}>
-                                        <div className={styles.accCategoryDot} />
-                                        <span>{category}</span>
-                                        <span className={styles.accCategoryCount}>{items.length} productos</span>
-                                    </div>
-                                    <div className={styles.accessoryGrid}>
-                                        {items.map(acc => {
-                                            const sel = selectedAccessories.find(a => a.id === acc.id);
-                                            const qty = sel?.qty || 0;
-                                            return (
-                                                <div 
-                                                    key={acc.id} 
-                                                    className={`${styles.accessoryCard} ${qty > 0 ? styles.accessorySelected : ''}`}
-                                                    onClick={(e) => handleAccChange(e, acc, 1)}
-                                                >
-                                                    {qty > 0 && <div className={styles.accSelectedBadge}>✓ {qty}</div>}
-                                                    <div className={styles.accCardBody}>
-                                                        <span className={styles.accName}>{acc.nombre}</span>
-                                                        <span className={styles.accPrice}>${acc.precio_venta}</span>
-                                                    </div>
-                                                    <div className={styles.accCardFooter}>
-                                                        <span className={`${acc.cantidad <= (acc.minimo_alert || 5) ? styles.accStockLow : styles.accStock}`}>
-                                                            {acc.cantidad} disp.
-                                                        </span>
-                                                        <div className={styles.qtyControlWidget} onClick={(e) => e.stopPropagation()}>
-                                                            <button className={styles.qtyBtn} onClick={(e) => handleAccChange(e, acc, -1)} disabled={qty === 0}>-</button>
-                                                            <span className={styles.qtyValue}>{qty}</span>
-                                                            <button className={styles.qtyBtn} onClick={(e) => handleAccChange(e, acc, 1)} disabled={qty >= acc.cantidad}>+</button>
+                                    const parts = item.nombre.split(/ - |-/);
+                                    const baseName = parts[0].trim();
+                                    const variantName = parts.length > 1 ? parts[1].trim() : '';
+
+                                    if (!groupedByCategory[cat]) {
+                                        groupedByCategory[cat] = [];
+                                    }
+
+                                    let group = groupedByCategory[cat].find(g => g.baseName === baseName);
+                                    if (!group) {
+                                        group = {
+                                            baseName,
+                                            categoria: cat,
+                                            precio_venta: item.precio_venta,
+                                            variants: []
+                                        };
+                                        groupedByCategory[cat].push(group);
+                                    }
+
+                                    group.variants.push({
+                                        id: item.id,
+                                        fullName: item.nombre,
+                                        variantName,
+                                        cantidad: item.cantidad || 0,
+                                        minimo_alert: item.minimo_alert,
+                                        rawItem: item
+                                    });
+                                });
+
+                                return Object.entries(groupedByCategory).map(([category, groups]) => (
+                                    <div key={category} className={styles.accCategorySection}>
+                                        <div className={styles.accCategoryHeader}>
+                                            <div className={styles.accCategoryDot} />
+                                            <span>{category}</span>
+                                            <span className={styles.accCategoryCount}>{groups.length} productos</span>
+                                        </div>
+                                        <div className={styles.accessoryGrid}>
+                                            {groups.map(group => {
+                                                // Si tiene múltiples variantes, la variante seleccionada en el estado o la primera por defecto
+                                                const hasMultiple = group.variants.length > 1;
+                                                const variantKey = `${category}-${group.baseName}`;
+                                                const currentVariantId = selectedVariants[variantKey] || group.variants[0].id;
+                                                const activeVariant = group.variants.find(v => v.id === currentVariantId) || group.variants[0];
+                                                
+                                                // Buscar cantidad seleccionada en la variante activa
+                                                const sel = selectedAccessories.find(a => a.id === activeVariant.id);
+                                                const qty = sel?.qty || 0;
+
+                                                // Sumar todas las variantes seleccionadas de este grupo para mostrar un resumen/badge
+                                                const totalQtyInGroup = group.variants.reduce((sum, v) => {
+                                                    const s = selectedAccessories.find(a => a.id === v.id);
+                                                    return sum + (s?.qty || 0);
+                                                }, 0);
+
+                                                // ¿Alguna variante tiene precio $0? Si es así, toda la tarjeta es de cortesía/sin costo
+                                                const isFree = Number(activeVariant.rawItem.precio_venta) === 0;
+
+                                                return (
+                                                    <div 
+                                                        key={group.baseName} 
+                                                        className={`${styles.accessoryCard} ${totalQtyInGroup > 0 ? styles.accessorySelected : ''} ${isFree ? styles.accessoryFree : ''}`}
+                                                        onClick={(e) => handleAccChange(e, activeVariant.rawItem, 1)}
+                                                    >
+                                                        {totalQtyInGroup > 0 && (
+                                                            <div className={styles.accSelectedBadge}>
+                                                                ✓ {totalQtyInGroup}
+                                                            </div>
+                                                        )}
+                                                        <div className={styles.accCardBody}>
+                                                            {isFree && <span className={styles.accFreeBadge}>⚠️ Cortesía</span>}
+                                                            <span className={styles.accName}>{group.baseName}</span>
+                                                            <span className={styles.accPrice}>
+                                                                ${activeVariant.rawItem.precio_venta}
+                                                            </span>
+
+                                                            {/* Si tiene variantes de talla (ej. Calcetines XS, S, M...), mostrar dropdown */}
+                                                            {hasMultiple && (
+                                                                <select
+                                                                    value={currentVariantId}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    onChange={(e) => {
+                                                                        setSelectedVariants({
+                                                                            ...selectedVariants,
+                                                                            [variantKey]: e.target.value
+                                                                        });
+                                                                    }}
+                                                                    className={styles.variantSelect}
+                                                                >
+                                                                    {group.variants.map(v => (
+                                                                        <option key={v.id} value={v.id}>
+                                                                            Talla: {v.variantName} (${v.rawItem.precio_venta})
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {/* Lista de variantes ya agregadas de esta tarjeta (ej. "Talla S x1, Talla M x2") */}
+                                                        {hasMultiple && totalQtyInGroup > 0 && (
+                                                            <div style={{ fontSize: '0.7rem', color: 'var(--brand-600)', background: 'rgba(0, 27, 72, 0.04)', padding: '4px 8px', borderRadius: '6px', marginTop: '0.2rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                <span style={{ fontWeight: 800, textTransform: 'uppercase', fontSize: '0.6rem', color: '#64748b' }}>Selección:</span>
+                                                                {group.variants.map(v => {
+                                                                    const s = selectedAccessories.find(a => a.id === v.id);
+                                                                    if (!s || s.qty <= 0) return null;
+                                                                    return (
+                                                                        <span key={v.id} style={{ fontWeight: 700 }}>
+                                                                            • {v.variantName}: {s.qty} pza{s.qty > 1 ? 's' : ''}
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+
+                                                        <div className={styles.accCardFooter}>
+                                                            <span className={`${activeVariant.cantidad <= (activeVariant.minimo_alert || 5) ? styles.accStockLow : styles.accStock}`}>
+                                                                {activeVariant.cantidad} disp.
+                                                            </span>
+                                                            <div className={styles.qtyControlWidget} onClick={(e) => e.stopPropagation()}>
+                                                                <button 
+                                                                    className={styles.qtyBtn} 
+                                                                    onClick={(e) => handleAccChange(e, activeVariant.rawItem, -1)} 
+                                                                    disabled={qty === 0}
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <span className={styles.qtyValue}>{qty}</span>
+                                                                <button 
+                                                                    className={styles.qtyBtn} 
+                                                                    onClick={(e) => handleAccChange(e, activeVariant.rawItem, 1)} 
+                                                                    disabled={qty >= activeVariant.cantidad}
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
-                            ))
+                                ));
+                            })()
                         )}
 
                         <div className={styles.navigationButtons}>
