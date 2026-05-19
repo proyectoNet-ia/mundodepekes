@@ -344,7 +344,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                     </thead>
                     <tbody>
                         {data.map(item => (
-                            <tr key={`${item.type}-${item.id}`}>
+                            <tr key={`${item.type}-${item.id}`} className={item.type === 'child' ? styles.childRow : styles.tutorRow}>
                                 <td data-label="Nombre">
                                     <div className={styles.nameCell}>
                                         <div className={`${styles.avatar} ${item.type === 'child' ? styles.childAvatar : styles.tutorAvatar}`}>
