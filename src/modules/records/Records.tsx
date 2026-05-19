@@ -34,6 +34,7 @@ interface RecordData {
     observations?: string;
     tutorName?: string;
     tutorPhone?: string;
+    allKidsActive?: boolean;
 }
 
 interface RecordsProps {
@@ -157,7 +158,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                     }
                 }
 
-                let q = supabase.from('clientes').select('*', { count: 'exact' });
+                let q = supabase.from('clientes').select('*, ninos(id)', { count: 'exact' });
                 if (isSearching) {
                     q = q.or(`nombre.ilike.%${debouncedSearch}%,id.filter.ilike.%${debouncedSearch}%${idFilter}`);
                 }
@@ -165,15 +166,20 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                 const { data: clients, count } = await q.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1).order('nombre');
                 
                 if (clients && clients.length > 0) {
-                    results = [...results, ...clients.map(c => ({
-                        id: c.id,
-                        name: c.nombre,
-                        type: 'tutor' as const,
-                        subtext: 'Tutor / Responsable',
-                        details: c.telefono || 'Sin teléfono',
-                        tutorPhone: c.telefono,
-                        isBlacklisted: false
-                    }))];
+                    results = [...results, ...clients.map(c => {
+                        const totalKids = c.ninos ? c.ninos.length : 0;
+                        const allKidsActive = totalKids > 0 && c.ninos.every((n: any) => activeChildIds.has(n.id));
+                        return {
+                            id: c.id,
+                            name: c.nombre,
+                            type: 'tutor' as const,
+                            subtext: 'Tutor / Responsable',
+                            details: c.telefono || 'Sin teléfono',
+                            tutorPhone: c.telefono,
+                            isBlacklisted: false,
+                            allKidsActive: allKidsActive
+                        };
+                    })];
                     if (filter === 'tutors') setTotal(count || 0);
                 }
             }
