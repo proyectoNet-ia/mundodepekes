@@ -116,6 +116,18 @@ const formatPrefix = (val: string): string => {
     return clean.substring(0, 3);
 };
 
+const getCategoryIcon = (category: string): string => {
+    const cat = category.toLowerCase();
+    if (cat.includes('calcet') || cat.includes('sock')) return '🧦';
+    if (cat.includes('agua')) return '💧';
+    if (cat.includes('refres') || cat.includes('soda') || cat.includes('coca') || cat.includes('pepsi')) return '🥤';
+    if (cat.includes('bebida') || cat.includes('drink')) return '🍹';
+    if (cat.includes('snack') || cat.includes('botan') || cat.includes('papas') || cat.includes('alimento')) return '🍿';
+    if (cat.includes('dulce') || cat.includes('candy')) return '🍬';
+    if (cat.includes('juguet') || cat.includes('toy')) return '🧸';
+    return '📦';
+};
+
 
 const formatDuration = (mins: number) => {
     if (mins === 0) return 'Tiempo Ilimitado';
@@ -1020,7 +1032,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                     }[];
                                 }[]> = {};
 
-                                availableAccessories.forEach(item => {
+                                const paidAccessories = availableAccessories.filter(item => Number(item.precio_venta) > 0);
+                                paidAccessories.forEach(item => {
                                     const cat = item.categoria || 'Generales';
                                     const parts = item.nombre.split(/ - |-/);
                                     const baseName = parts[0].trim();
@@ -1051,14 +1064,16 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                     });
                                 });
 
-                                return Object.entries(groupedByCategory).map(([category, groups]) => (
-                                    <div key={category} className={styles.accCategorySection}>
-                                        <div className={styles.accCategoryHeader}>
-                                            <div className={styles.accCategoryDot} />
-                                            <span>{category}</span>
-                                            <span className={styles.accCategoryCount}>{groups.length} productos</span>
-                                        </div>
-                                        <div className={styles.accessoryGrid}>
+                                return Object.entries(groupedByCategory)
+                                    .filter(([_, groups]) => groups.length > 0)
+                                    .map(([category, groups]) => (
+                                        <div key={category} className={styles.accCategorySection}>
+                                            <div className={styles.accCategoryHeader}>
+                                                <span style={{ fontSize: '1.25rem', marginRight: '6px' }}>{getCategoryIcon(category)}</span>
+                                                <span>{category}</span>
+                                                <span className={styles.accCategoryCount}>{groups.length} productos</span>
+                                            </div>
+                                            <div className={styles.accessoryGrid}>
                                             {groups.map(group => {
                                                 // Si tiene múltiples variantes, la variante seleccionada en el estado o la primera por defecto
                                                 const hasMultiple = group.variants.length > 1;
