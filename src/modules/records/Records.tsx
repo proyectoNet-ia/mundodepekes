@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
+import { getActiveSessions } from '../../lib/sessionService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 
 // Capitaliza nombres propios respetando preposiciones en español
@@ -121,6 +122,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [editPhones, setEditPhones] = useState<string[]>([]);
     const [editPrefixes, setEditPrefixes] = useState<string[]>([]);
     const [isSaving, setIsSaving]   = useState(false);
+    const [activeChildIds, setActiveChildIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -132,6 +134,14 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
 
     const fetchData = useCallback(async () => {
         try {
+            // Obtener sesiones activas para deshabilitar botón de ingreso si el peke ya está en sala
+            try {
+                const activeSess = await getActiveSessions();
+                setActiveChildIds(new Set(activeSess.map(s => s.childId)));
+            } catch (err) {
+                console.error('Error fetching active sessions in records:', err);
+            }
+
             const isSearching = debouncedSearch.trim().length > 0;
             let results: RecordData[] = [];
             
@@ -382,11 +392,13 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                 <td data-label="Acciones">
                                     <div className={styles.actionGroup}>
                                         <button 
-                                            className={`btn ${item.isBlacklisted ? 'btn-danger' : 'btn-primary'}`}
+                                            className={`btn ${item.isBlacklisted ? 'btn-danger' : (item.type === 'child' && activeChildIds.has(item.id)) ? 'btn-success' : 'btn-primary'}`}
                                             style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px' }}
                                             onClick={() => item.type === 'child' ? (onEntry && onEntry(item)) : handleTutorEntry(item)}
+                                            disabled={item.type === 'child' && activeChildIds.has(item.id)}
                                         >
-                                            <FontAwesomeIcon icon={item.isBlacklisted ? faLock : faTicket} /> Ingreso
+                                            <FontAwesomeIcon icon={item.isBlacklisted ? faLock : (item.type === 'child' && activeChildIds.has(item.id)) ? faCheckCircle : faTicket} />
+                                            {item.type === 'child' && activeChildIds.has(item.id) ? ' En Sala' : ' Ingreso'}
                                         </button>
                                         <div style={{ position: 'relative' }}>
                                             <button className={styles.actionBtn} onClick={(e) => toggleMenu(e, item.id)}>
