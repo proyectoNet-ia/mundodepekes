@@ -19,7 +19,27 @@ interface PortalChild {
   nombre: string;
   edad: number;
   paquete_id: string;
+  accesorios?: { id: string; nombre: string; precio: number; cantidad: number }[];
 }
+
+interface PortalAccessory {
+  id: string;
+  nombre: string;
+  precio: number;
+  emoji: string;
+}
+
+const PORTAL_ACCESSORIES: PortalAccessory[] = [
+  { id: 'b7e57660-1c25-40c8-ae1d-98bcb906004d', nombre: 'Calcetín - Talla XS', precio: 45, emoji: '🧦' },
+  { id: '12a6c64e-4b4e-4ba5-a0f1-42a90a01d80f', nombre: 'Calcetín - Talla S', precio: 45, emoji: '🧦' },
+  { id: '6ae30411-46cd-44cc-8433-701e06f32316', nombre: 'Calcetín - Talla M', precio: 45, emoji: '🧦' },
+  { id: 'a35e7607-6c9c-4673-b8c6-d052be6465e8', nombre: 'Calcetín - Talla L', precio: 45, emoji: '🧦' },
+  { id: '43d63ff9-f793-41da-90a0-7b157f70096d', nombre: 'Calcetín - Talla XL', precio: 45, emoji: '🧦' },
+  { id: '684f2549-c1b4-4882-8c42-0afc9b87800a', nombre: 'Agua Chica', precio: 8, emoji: '💧' },
+  { id: '61503214-92fc-42e2-baa9-3e4a3d181f6c', nombre: 'Agua Grande', precio: 15, emoji: '🍼' },
+  { id: 'aaf3ef32-fe61-49e4-a6d6-4ea0b19109d9', nombre: 'Powerade', precio: 35, emoji: '⚡' },
+  { id: 'd2d53a71-f044-4409-836a-00f13e5b9199', nombre: 'Refresco', precio: 25, emoji: '🥤' }
+];
 
 type Step = 'intent' | 'tutor' | 'verify' | 'children' | 'confirm' | 'success';
 type PortalIntent = 'presale' | 'registration';
@@ -37,6 +57,17 @@ const formatPhone = (raw: string) => {
   if (d.length <= 3) return d;
   if (d.length <= 6) return `(${d.slice(0,3)}) ${d.slice(3)}`;
   return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+};
+
+const formatPrefix = (val: string): string => {
+  if (!val) return '';
+  let clean = val.replace(/[^\d+]/g, '');
+  if (!clean.startsWith('+')) {
+    clean = '+' + clean.replace(/\+/g, '');
+  } else {
+    clean = '+' + clean.slice(1).replace(/\+/g, '');
+  }
+  return clean.substring(0, 3);
 };
 
 // ─── Ícono SVG simple sin dependencias ───────────────────────────────────────
@@ -104,18 +135,16 @@ export const PortalPage: React.FC = () => {
   const isVLoading = false; // State setter removed
   const [sysInfo, setSysInfo] = useState<{logo: string | null, name: string}>({logo: null, name: 'Mundo de Pekes'});
 
-  // Captcha — inicializado con lazy initializer (solo se ejecuta UNA vez, incluso en StrictMode)
-  const [captcha] = useState(newCaptcha);
+  // Captcha
+  const [captcha, setCaptcha] = useState(newCaptcha);
   const [captchaInput, setCaptchaInput] = useState('');
   const [isCaptchaValid, setIsCaptchaValid] = useState(false);
 
-  /*
   const generateCaptcha = () => {
     setCaptcha(newCaptcha());
     setCaptchaInput('');
     setIsCaptchaValid(false);
   };
-  */
 
   useEffect(() => {
     getPublicPackages()
@@ -163,13 +192,12 @@ export const PortalPage: React.FC = () => {
       setTutorTelefonoConfirm('');
       setSecondaryPhones([]);
       setSecondaryPrefixes([]);
-      setNinos([{ nombre: '', edad: 0, paquete_id: '' }]);
+      setNinos([{ nombre: '', edad: 0, paquete_id: '', accesorios: [] }]);
       setConfirmCode('');
       setPresaleExpiry(null);
       setVCode('');
       setVError('');
-      setCaptchaInput('');
-      setIsCaptchaValid(false);
+      generateCaptcha();
     }, 30000); // 30 segundos
 
     return () => clearTimeout(timeout);
@@ -177,19 +205,43 @@ export const PortalPage: React.FC = () => {
 
   const areas = Array.from(new Set(packages.map(p => p.area)));
 
+  const updateChildAccessoryQty = (childIdx: number, accessoryId: string, delta: number) => {
+    setNinos(prev => prev.map((nino, idx) => {
+      if (idx !== childIdx) return nino;
+      const currentAccs = nino.accesorios || [];
+      const existing = currentAccs.find(a => a.id === accessoryId);
+      let nextAccs = [...currentAccs];
+      if (existing) {
+        const nextQty = Math.max(0, existing.cantidad + delta);
+        if (nextQty === 0) {
+          nextAccs = nextAccs.filter(a => a.id !== accessoryId);
+        } else {
+          nextAccs = nextAccs.map(a => a.id === accessoryId ? { ...a, cantidad: nextQty } : a);
+        }
+      } else if (delta > 0) {
+        const template = PORTAL_ACCESSORIES.find(p => p.id === accessoryId);
+        if (template) {
+          nextAccs.push({ id: template.id, nombre: template.nombre, precio: template.precio, cantidad: delta });
+        }
+      }
+      return { ...nino, accesorios: nextAccs };
+    }));
+  };
+
   const total = ninos.reduce((sum, n) => {
     const pkg = packages.find(p => p.id === n.paquete_id);
-    return sum + (pkg?.precio || 0);
+    const accTotal = (n.accesorios || []).reduce((accSum, a) => accSum + (a.precio * a.cantidad), 0);
+    return sum + (pkg?.precio || 0) + accTotal;
   }, 0);
 
   const addNino = () => {
     if (ninos.length >= 4) return;
-    setNinos([...ninos, { nombre: '', edad: 0, paquete_id: '' }]);
+    setNinos([...ninos, { nombre: '', edad: 0, paquete_id: '', accesorios: [] }]);
   };
 
   const removeNino = (idx: number) => setNinos(ninos.filter((_, i) => i !== idx));
 
-  const updateNino = (idx: number, field: keyof PortalChild, value: string | number) => {
+  const updateNino = (idx: number, field: keyof PortalChild, value: any) => {
     setNinos(ninos.map((n, i) => i === idx ? { ...n, [field]: value } : n));
   };
 
@@ -214,7 +266,8 @@ export const PortalPage: React.FC = () => {
           area: pkg?.area || 'N/A',
           duracion_minutos: pkg?.duracion_minutos || 0,
           precio: pkg?.precio || 0,
-        };
+          accesorios: n.accesorios || []
+        } as any;
       });
 
       const extraPhonesFormatted = secondaryPhones
@@ -228,7 +281,7 @@ export const PortalPage: React.FC = () => {
         tutor_telefono: allPhones,
         tutor_email: '',
         ninos: ninosData,
-        total_estimado: intent === 'registration' ? 0 : ninosData.reduce((sum, n) => sum + n.precio, 0),
+        total_estimado: intent === 'registration' ? 0 : total,
         telefono_verificado: true,
         tipo: intent // 'registration' o 'presale'
       });
@@ -321,7 +374,7 @@ export const PortalPage: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '2rem' }}>
               <button 
                 className="portal-intent-card" 
-                onClick={() => { setIntent('registration'); setStep('tutor'); }}
+                onClick={() => { setIntent('registration'); setStep('tutor'); generateCaptcha(); }}
               >
                 <div className="intent-icon" style={{ background: '#e0f2fe', color: '#0369a1' }}>
                   <Icon type="userPlus" />
@@ -337,7 +390,7 @@ export const PortalPage: React.FC = () => {
 
               <button 
                 className="portal-intent-card highlight" 
-                onClick={() => { setIntent('presale'); setStep('tutor'); }}
+                onClick={() => { setIntent('presale'); setStep('tutor'); generateCaptcha(); }}
               >
                 <div className="intent-icon" style={{ background: '#f5f3ff', color: '#6d28d9' }}>
                   <Icon type="cart" />
@@ -383,7 +436,8 @@ export const PortalPage: React.FC = () => {
                   <input
                     type="text"
                     value={tutorPrefix}
-                    onChange={e => setTutorPrefix(e.target.value)}
+                    onChange={e => setTutorPrefix(formatPrefix(e.target.value))}
+                    maxLength={3}
                     placeholder="+52"
                     style={{ width: '80px', textAlign: 'center', fontWeight: 'bold', border: '2px solid var(--p-border)', borderRadius: '12px' }}
                   />
@@ -491,14 +545,35 @@ export const PortalPage: React.FC = () => {
               🔒 Tus datos están protegidos y solo se usan para tu registro de entrada.
             </div>
 
-            <button
-              id="portal-btn-to-children"
-              className="portal-btn portal-btn-primary"
-              disabled={!tutorNombre || tutorTelefono.length < 10 || tutorTelefonoConfirm.length < 10}
-              onClick={handleSendCode}
-            >
-              Continuar <span className="btn-arrow">→</span>
-            </button>
+            <div className="portal-nav-row">
+              <button
+                type="button"
+                className="portal-btn portal-btn-ghost"
+                onClick={() => {
+                  setStep('intent');
+                  setTutorNombre('');
+                  setTutorPrefix('+52');
+                  setTutorTelefono('');
+                  setTutorTelefonoConfirm('');
+                  setSecondaryPhones([]);
+                  setSecondaryPrefixes([]);
+                  setVError('');
+                  generateCaptcha();
+                }}
+                style={{ flex: 1 }}
+              >
+                Cancelar
+              </button>
+              <button
+                id="portal-btn-to-children"
+                className="portal-btn portal-btn-primary"
+                disabled={!tutorNombre || tutorTelefono.length < 10 || tutorTelefonoConfirm.length < 10}
+                onClick={handleSendCode}
+                style={{ flex: 1.5 }}
+              >
+                Continuar <span className="btn-arrow">→</span>
+              </button>
+            </div>
             {vError && <div className="portal-error" style={{ marginTop: '1rem' }}>{vError}</div>}
           </div>
         )}
@@ -699,6 +774,151 @@ export const PortalPage: React.FC = () => {
                               ✓ {selectedPkg.nombre} — {selectedPkg.duracion_minutos}min — <strong>${selectedPkg.precio.toLocaleString('es-MX')}</strong>
                             </div>
                           )}
+
+                          {selectedPkg && (
+                            <div className="portal-acc-section" style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px dashed var(--p-border, #e5e7eb)' }}>
+                              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.50rem' }}>
+                                🎒 Accesorios adicionales (Opcional)
+                              </label>
+                              
+                              <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                                <select
+                                  value=""
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val) {
+                                      updateChildAccessoryQty(idx, val, 1);
+                                      e.target.value = ""; // Reset dropdown
+                                    }
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.85rem 1.2rem',
+                                    fontSize: '0.9rem',
+                                    fontWeight: 700,
+                                    border: '2px solid var(--p-border, #e5e7eb)',
+                                    borderRadius: 'var(--p-radius-sm, 12px)',
+                                    background: '#fafafa',
+                                    color: 'var(--p-text, #1f2937)',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    appearance: 'none',
+                                    backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234b5563' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundPosition: 'right 1rem center',
+                                    backgroundSize: '1em'
+                                  }}
+                                >
+                                  <option value="" disabled>➕ Seleccionar accesorio o talla...</option>
+                                  {PORTAL_ACCESSORIES.map(acc => {
+                                    const isAdded = (nino.accesorios || []).some(a => a.id === acc.id);
+                                    if (isAdded) return null;
+                                    return (
+                                      <option key={acc.id} value={acc.id}>
+                                        {acc.emoji} {acc.nombre} — ${acc.precio} MXN
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+
+                              {(nino.accesorios || []).length > 0 && (
+                                <div className="portal-acc-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  {(nino.accesorios || []).map(acc => {
+                                    const template = PORTAL_ACCESSORIES.find(p => p.id === acc.id);
+                                    return (
+                                      <div key={acc.id} className="portal-acc-row" style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        background: 'var(--p-brand-soft, #faf8ff)',
+                                        border: '2px solid var(--p-brand, #7c3aed)',
+                                        borderRadius: 'var(--p-radius-sm, 12px)',
+                                        padding: '0.6rem 0.85rem',
+                                        transition: 'all 0.18s'
+                                      }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                          <span style={{ fontSize: '1.2rem' }}>{template?.emoji || '🎒'}</span>
+                                          <div>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--p-text, #1f2937)' }}>{acc.nombre}</div>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--p-brand, #7c3aed)' }}>${acc.precio} MXN</div>
+                                          </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateChildAccessoryQty(idx, acc.id, -1)}
+                                            style={{
+                                              width: '28px',
+                                              height: '28px',
+                                              borderRadius: '8px',
+                                              border: '2px solid var(--p-border, #e5e7eb)',
+                                              background: '#f9fafb',
+                                              color: 'var(--p-text, #1f2937)',
+                                              fontWeight: 'bold',
+                                              cursor: 'pointer',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              transition: 'all 0.15s'
+                                            }}
+                                          >
+                                            -
+                                          </button>
+                                          <span style={{
+                                            fontSize: '0.9rem',
+                                            fontWeight: 800,
+                                            minWidth: '20px',
+                                            textAlign: 'center',
+                                            color: 'var(--p-brand, #7c3aed)'
+                                          }}>
+                                            {acc.cantidad}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateChildAccessoryQty(idx, acc.id, 1)}
+                                            style={{
+                                              width: '28px',
+                                              height: '28px',
+                                              borderRadius: '8px',
+                                              border: '2px solid var(--p-border, #e5e7eb)',
+                                              background: '#f9fafb',
+                                              color: 'var(--p-text, #1f2937)',
+                                              fontWeight: 'bold',
+                                              cursor: 'pointer',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              transition: 'all 0.15s'
+                                            }}
+                                          >
+                                            +
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateChildAccessoryQty(idx, acc.id, -acc.cantidad)}
+                                            style={{
+                                              background: 'none',
+                                              border: 'none',
+                                              cursor: 'pointer',
+                                              color: '#ef4444',
+                                              fontSize: '1rem',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              paddingLeft: '0.25rem'
+                                            }}
+                                            title="Eliminar"
+                                          >
+                                            <Icon type="trash" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -759,6 +979,16 @@ export const PortalPage: React.FC = () => {
                             {pkg.nombre} · {pkg.duracion_minutos}min · <strong>${pkg.precio.toLocaleString('es-MX')}</strong>
                           </div>
                           <div className="portal-summary-child-area">{pkg.area}</div>
+                          {n.accesorios && n.accesorios.length > 0 && (
+                            <div className="portal-summary-child-accs" style={{ marginTop: '0.4rem', paddingLeft: '0.8rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              {n.accesorios.map((a, aIdx) => (
+                                <div key={aIdx} style={{ fontSize: '0.8rem', color: '#4b5563', display: 'flex', justifyContent: 'space-between' }}>
+                                  <span>🎒 {a.cantidad}x {a.nombre}</span>
+                                  <strong>${(a.precio * a.cantidad).toLocaleString('es-MX')}</strong>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -880,13 +1110,12 @@ export const PortalPage: React.FC = () => {
                 setTutorTelefonoConfirm('');
                 setSecondaryPhones([]);
                 setSecondaryPrefixes([]);
-                setNinos([{ nombre: '', edad: 0, paquete_id: '' }]);
+                setNinos([{ nombre: '', edad: 0, paquete_id: '', accesorios: [] }]);
                 setConfirmCode('');
                 setPresaleExpiry(null);
                 setVCode('');
                 setVError('');
-                setCaptchaInput('');
-                setIsCaptchaValid(false);
+                generateCaptcha();
               }}
             >
               Nueva Orden / Volver al Inicio

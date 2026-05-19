@@ -50,6 +50,18 @@ const formatPhone = (phone: string) => {
     return phone;
 };
 
+const formatPrefix = (val: string): string => {
+    if (!val) return '';
+    let clean = val.replace(/[^\d+]/g, '');
+    if (!clean.startsWith('+')) {
+        clean = '+' + clean.replace(/\+/g, '');
+    } else {
+        clean = '+' + clean.slice(1).replace(/\+/g, '');
+    }
+    return clean.substring(0, 3);
+};
+
+
 export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const { showToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
@@ -444,7 +456,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                                 <input 
                                                     type="text" 
                                                     value={editPrefixes[idx] || '+52'} 
-                                                    onChange={e => { const up = [...editPrefixes]; up[idx] = e.target.value; setEditPrefixes(up); }} 
+                                                    onChange={e => { const up = [...editPrefixes]; up[idx] = formatPrefix(e.target.value); setEditPrefixes(up); }} 
+                                                    maxLength={3}
                                                     style={{ width: '100%', textAlign: 'center', fontWeight: 'bold', border: '2px solid var(--brand-100)', borderRadius: '8px', padding: '6px' }}
                                                 />
                                             </div>

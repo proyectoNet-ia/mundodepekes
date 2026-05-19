@@ -67,6 +67,18 @@ const extractPrefix = (phone: string): string => {
     return '+52'; // Default México
 };
 
+const formatPrefix = (val: string): string => {
+    if (!val) return '';
+    let clean = val.replace(/[^\d+]/g, '');
+    if (!clean.startsWith('+')) {
+        clean = '+' + clean.replace(/\+/g, '');
+    } else {
+        clean = '+' + clean.slice(1).replace(/\+/g, '');
+    }
+    return clean.substring(0, 3);
+};
+
+
 const formatDuration = (mins: number) => {
     if (mins === 0) return 'Tiempo Ilimitado';
     if (mins >= 60) {
@@ -203,6 +215,30 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
               if (n.paquete_id) pkgMap[i] = n.paquete_id;
             });
             setChildPackages(pkgMap);
+
+            // Cargar accesorios pre-seleccionados desde la preventa pública
+            const preloadedAccs: SelectedAcc[] = [];
+            reentryData.presaleChildren.forEach((n: any) => {
+              if (n.accesorios && Array.isArray(n.accesorios)) {
+                n.accesorios.forEach((acc: any) => {
+                  const existing = preloadedAccs.find(a => a.id === acc.id);
+                  if (existing) {
+                    existing.qty += acc.cantidad || 0;
+                  } else {
+                    preloadedAccs.push({
+                      id: acc.id,
+                      name: acc.nombre,
+                      price: acc.precio,
+                      qty: acc.cantidad || 0
+                    });
+                  }
+                });
+              }
+            });
+            if (preloadedAccs.length > 0) {
+              setSelectedAccessories(preloadedAccs);
+            }
+
             setCurrentStep('PAQUETE');
           } else if (reentryData.registeredChildren) {
             // Caso: Venimos de "Registros" seleccionando un Tutor
@@ -626,7 +662,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                         <input 
                                             type="text" 
                                             value={mainPrefix} 
-                                            onChange={(e) => setMainPrefix(e.target.value)} 
+                                            onChange={(e) => setMainPrefix(formatPrefix(e.target.value))} 
+                                            maxLength={3}
                                             placeholder="+52"
                                             style={{ width: '80px', textAlign: 'center', fontWeight: 800, color: 'var(--brand-600)', background: 'var(--brand-50)', border: '2px solid var(--brand-200)', borderRadius: '12px' }}
                                         />
@@ -681,9 +718,10 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                                     value={secondaryPrefixes[idx] || '+52'} 
                                                     onChange={(e) => {
                                                         const updated = [...secondaryPrefixes];
-                                                        updated[idx] = e.target.value;
+                                                        updated[idx] = formatPrefix(e.target.value);
                                                         setSecondaryPrefixes(updated);
                                                     }}
+                                                    maxLength={3}
                                                     placeholder="+52"
                                                     style={{ width: '60px', textAlign: 'center', borderRadius: '12px', border: '2px solid #e2e8f0', fontWeight: 700, fontSize: '0.9rem' }}
                                                 />

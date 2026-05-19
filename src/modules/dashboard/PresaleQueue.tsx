@@ -177,7 +177,7 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute }) => {
               {/* Niños */}
               <div className={styles.children}>
                 {presale.ninos.map((n, i) => (
-                  <div key={i} className={styles.childRow}>
+                  <div key={i} className={styles.childRow} style={{ flexWrap: 'wrap' }}>
                     <span className={styles.childIcon}>🧒</span>
                     <div className={styles.childInfo}>
                       <strong>{n.nombre}</strong>{' '}
@@ -188,6 +188,16 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute }) => {
                       <span className={styles.pkgArea}>{n.area}</span>
                     </div>
                     <span className={styles.childPrice}>${n.precio.toLocaleString('es-MX')}</span>
+                    {/* Render accessories if any */}
+                    {(n as any).accesorios && (n as any).accesorios.length > 0 && (
+                      <div style={{ width: '100%', paddingLeft: '1.8rem', marginTop: '0.3rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                        {(n as any).accesorios.map((a: any, aIdx: number) => (
+                          <span key={aIdx} style={{ fontSize: '0.72rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            🎒 {a.cantidad}x {a.nombre}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
