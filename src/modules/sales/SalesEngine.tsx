@@ -188,7 +188,6 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
   const [lastTransaction, setLastTransaction] = useState<any>(null);
   const [availableAccessories, setAvailableAccessories] = useState<StockItem[]>([]);
   const [selectedAccessories, setSelectedAccessories] = useState<SelectedAcc[]>([]);
-  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [isCashOpen, setIsCashOpen] = useState<boolean | null>(null);
   const [cashAmount, setCashAmount] = useState<string>('');
   const [voucherFolio, setVoucherFolio] = useState('');
@@ -1017,51 +1016,16 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                             </div>
                         ) : (
                             (() => {
-                                // 1. Agrupar productos de la misma categoría por su "baseName" (nombre base antes del guión)
-                                const groupedByCategory: Record<string, {
-                                    baseName: string;
-                                    categoria: string;
-                                    precio_venta: number;
-                                    variants: {
-                                        id: string;
-                                        fullName: string;
-                                        variantName: string;
-                                        cantidad: number;
-                                        minimo_alert?: number;
-                                        rawItem: StockItem;
-                                    }[];
-                                }[]> = {};
+                                // 1. Agrupar productos de la misma categoría
+                                const groupedByCategory: Record<string, StockItem[]> = {};
 
                                 const paidAccessories = availableAccessories.filter(item => Number(item.precio_venta) > 0);
                                 paidAccessories.forEach(item => {
                                     const cat = item.categoria || 'Generales';
-                                    const parts = item.nombre.split(/ - |-/);
-                                    const baseName = parts[0].trim();
-                                    const variantName = parts.length > 1 ? parts[1].trim() : '';
-
                                     if (!groupedByCategory[cat]) {
                                         groupedByCategory[cat] = [];
                                     }
-
-                                    let group = groupedByCategory[cat].find(g => g.baseName === baseName);
-                                    if (!group) {
-                                        group = {
-                                            baseName,
-                                            categoria: cat,
-                                            precio_venta: item.precio_venta,
-                                            variants: []
-                                        };
-                                        groupedByCategory[cat].push(group);
-                                    }
-
-                                    group.variants.push({
-                                        id: item.id,
-                                        fullName: item.nombre,
-                                        variantName,
-                                        cantidad: item.cantidad || 0,
-                                        minimo_alert: item.minimo_alert,
-                                        rawItem: item
-                                    });
+                                    groupedByCategory[cat].push(item);
                                 });
 
                                 const categoryOrder: Record<string, number> = {
@@ -1072,129 +1036,38 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                     'refrescos': 5
                                 };
 
-                                const renderGroupItem = (group: any, category: string) => {
-                                    const hasMultiple = group.variants.length > 1;
-                                    
-                                    // ORDENAR TALLAS: XL - L - M - S - XS
-                                    if (hasMultiple) {
-                                        const sizeWeight: Record<string, number> = {
-                                            'xl': 1,
-                                            'l': 2,
-                                            'm': 3,
-                                            's': 4,
-                                            'xs': 5
-                                        };
-                                        group.variants.sort((vA: any, vB: any) => {
-                                            const wA = sizeWeight[vA.variantName.toLowerCase()] || 99;
-                                            const wB = sizeWeight[vB.variantName.toLowerCase()] || 99;
-                                            return wA - wB;
-                                        });
-                                    }
-
-                                    const variantKey = `${category}-${group.baseName}`;
-                                    const currentVariantId = selectedVariants[variantKey] || group.variants[0].id;
-                                    const activeVariant = group.variants.find((v: any) => v.id === currentVariantId) || group.variants[0];
-                                    
-                                    const sel = selectedAccessories.find(a => a.id === activeVariant.id);
+                                const renderProductCard = (item: StockItem) => {
+                                    const sel = selectedAccessories.find(a => a.id === item.id);
                                     const qty = sel?.qty || 0;
-
-                                    const totalQtyInGroup = group.variants.reduce((sum: number, v: any) => {
-                                        const s = selectedAccessories.find(a => a.id === v.id);
-                                        return sum + (s?.qty || 0);
-                                    }, 0);
-
-                                    const isFree = Number(activeVariant.rawItem.precio_venta) === 0;
+                                    const isFree = Number(item.precio_venta) === 0;
 
                                     return (
                                         <div 
-                                            key={group.baseName} 
-                                            className={`${styles.accessoryCard} ${totalQtyInGroup > 0 ? styles.accessorySelected : ''} ${isFree ? styles.accessoryFree : ''}`}
-                                            onClick={(e) => handleAccChange(e, activeVariant.rawItem, 1)}
+                                            key={item.id} 
+                                            className={`${styles.accessoryCard} ${qty > 0 ? styles.accessorySelected : ''} ${isFree ? styles.accessoryFree : ''}`}
+                                            onClick={(e) => handleAccChange(e, item, 1)}
                                         >
-                                            {totalQtyInGroup > 0 && (
+                                            {qty > 0 && (
                                                 <div className={styles.accSelectedBadge}>
-                                                    ✓ {totalQtyInGroup}
+                                                    ✓ {qty}
                                                 </div>
                                             )}
                                             <div className={styles.accCardBody}>
                                                 {isFree && <span className={styles.accFreeBadge}>⚠️ Cortesía</span>}
-                                                <span className={styles.accName}>{group.baseName}</span>
+                                                <span className={styles.accName}>{item.nombre}</span>
                                                 <span className={styles.accPrice}>
-                                                    ${activeVariant.rawItem.precio_venta}
+                                                    ${item.precio_venta}
                                                 </span>
-
-                                                {/* Si tiene variantes de talla (ej. Calcetines XS, S, M...), mostrar bloques de botones */}
-                                                {hasMultiple && (
-                                                    <div 
-                                                        onClick={(e) => e.stopPropagation()} 
-                                                        style={{ 
-                                                            display: 'flex', 
-                                                            flexWrap: 'wrap', 
-                                                            gap: '4px', 
-                                                            marginTop: '0.5rem', 
-                                                            marginBottom: '0.2rem',
-                                                            width: '100%'
-                                                        }}
-                                                    >
-                                                        {group.variants.map((v: any) => {
-                                                            const isSelectedSize = v.id === currentVariantId;
-                                                            const vSel = selectedAccessories.find(a => a.id === v.id);
-                                                            const vQty = vSel?.qty || 0;
-                                                            return (
-                                                                <button
-                                                                    key={v.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setSelectedVariants({
-                                                                            ...selectedVariants,
-                                                                            [variantKey]: v.id
-                                                                        });
-                                                                    }}
-                                                                    style={{
-                                                                        flex: '1 1 auto',
-                                                                        minWidth: '32px',
-                                                                        padding: '4px',
-                                                                        borderRadius: '6px',
-                                                                        fontSize: '0.75rem',
-                                                                        fontWeight: 800,
-                                                                        border: isSelectedSize ? '2px solid var(--brand-500)' : '1px solid #cbd5e1',
-                                                                        backgroundColor: isSelectedSize ? 'var(--brand-500)' : '#ffffff',
-                                                                        color: isSelectedSize ? '#ffffff' : '#475569',
-                                                                        cursor: 'pointer',
-                                                                        display: 'flex',
-                                                                        flexDirection: 'column',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                        transition: 'all 0.2s',
-                                                                        boxShadow: isSelectedSize ? '0 2px 4px rgba(0,27,72,0.15)' : 'none'
-                                                                    }}
-                                                                >
-                                                                    <span>{v.variantName}</span>
-                                                                    {vQty > 0 && (
-                                                                        <span style={{ 
-                                                                            fontSize: '0.62rem', 
-                                                                            color: isSelectedSize ? '#ffffff' : 'var(--brand-600)', 
-                                                                            fontWeight: 900, 
-                                                                            marginTop: '1px' 
-                                                                        }}>
-                                                                            ({vQty})
-                                                                        </span>
-                                                                    )}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
                                             </div>
 
                                             <div className={styles.accCardFooter}>
-                                                <span className={`${activeVariant.cantidad <= (activeVariant.minimo_alert || 5) ? styles.accStockLow : styles.accStock}`}>
-                                                    {activeVariant.cantidad} disp.
+                                                <span className={`${item.cantidad <= (item.minimo_alert || 5) ? styles.accStockLow : styles.accStock}`}>
+                                                    {item.cantidad || 0} disp.
                                                 </span>
                                                 <div className={styles.qtyControlWidget} onClick={(e) => e.stopPropagation()}>
                                                     <button 
                                                         className={styles.qtyBtn} 
-                                                        onClick={(e) => handleAccChange(e, activeVariant.rawItem, -1)} 
+                                                        onClick={(e) => handleAccChange(e, item, -1)} 
                                                         disabled={qty === 0}
                                                     >
                                                         -
@@ -1202,8 +1075,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                                     <span className={styles.qtyValue}>{qty}</span>
                                                     <button 
                                                         className={styles.qtyBtn} 
-                                                        onClick={(e) => handleAccChange(e, activeVariant.rawItem, 1)} 
-                                                        disabled={qty >= activeVariant.cantidad}
+                                                        onClick={(e) => handleAccChange(e, item, 1)} 
+                                                        disabled={qty >= (item.cantidad || 0)}
                                                     >
                                                         +
                                                     </button>
@@ -1214,6 +1087,32 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                 };
 
                                 const specialCats = ['bebidas alternativa', 'refrescos'];
+
+                                const sizeWeight: Record<string, number> = {
+                                    'xl': 1,
+                                    'l': 2,
+                                    'm': 3,
+                                    's': 4,
+                                    'xs': 5
+                                };
+
+                                const getProductSizeWeight = (name: string): number => {
+                                    const parts = name.split(/ - |-/);
+                                    if (parts.length > 1) {
+                                        const suffix = parts[parts.length - 1].trim().toLowerCase();
+                                        return sizeWeight[suffix] || 99;
+                                    }
+                                    return 99;
+                                };
+
+                                const sortProducts = (items: StockItem[]) => {
+                                    return [...items].sort((a, b) => {
+                                        const wA = getProductSizeWeight(a.nombre);
+                                        const wB = getProductSizeWeight(b.nombre);
+                                        if (wA !== wB) return wA - wB;
+                                        return a.nombre.localeCompare(b.nombre);
+                                    });
+                                };
 
                                 const standardCategories = Object.entries(groupedByCategory)
                                     .filter(([cat, groups]) => groups.length > 0 && !specialCats.includes(cat.toLowerCase()))
@@ -1239,7 +1138,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                                     <span className={styles.accCategoryCount}>{groups.length} productos</span>
                                                 </div>
                                                 <div className={styles.accessoryGrid}>
-                                                    {groups.map(group => renderGroupItem(group, category))}
+                                                    {sortProducts(groups).map(item => renderProductCard(item))}
                                                 </div>
                                             </div>
                                         ))}
@@ -1254,7 +1153,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                                             <span className={styles.accCategoryCount}>{groups.length} prod.</span>
                                                         </div>
                                                         <div className={styles.accessoryGridCompact}>
-                                                            {groups.map(group => renderGroupItem(group, category))}
+                                                            {sortProducts(groups).map(item => renderProductCard(item))}
                                                         </div>
                                                     </div>
                                                 ))}
