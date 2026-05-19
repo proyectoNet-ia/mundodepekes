@@ -53,6 +53,44 @@ const AREA_MAP: Record<string, string> = {
 
 const UI_ZONES = ['Mundo de Pekes', 'Trampolín Park', 'Área Mixta'];
 
+const formatDisplayPhone = (rawPhone: string): string => {
+  if (!rawPhone) return '';
+  if (rawPhone.includes(',')) {
+    return rawPhone
+      .split(',')
+      .map(p => formatDisplayPhone(p.trim()))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  const digits = rawPhone.replace(/\D/g, '');
+  if (!digits) return rawPhone;
+
+  // Caso de doble LADA de México (ej. 52523521645089 -> 14 dígitos)
+  if (digits.startsWith('5252') && digits.length === 14) {
+    const phone = digits.substring(4);
+    return `+52 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+  }
+
+  // Caso de LADA México normal (ej. 523521253235 -> 12 dígitos)
+  if (digits.startsWith('52') && digits.length === 12) {
+    const phone = digits.substring(2);
+    return `+52 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+  }
+
+  // Caso de LADA US normal (ej. 13521253235 -> 11 dígitos)
+  if (digits.startsWith('1') && digits.length === 11) {
+    const phone = digits.substring(1);
+    return `+1 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+  }
+
+  if (digits.length === 10) {
+    return `(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}`;
+  }
+
+  return rawPhone;
+};
+
 const getProductIconAndColor = (nombre: string) => {
   const norm = nombre.toLowerCase();
   if (norm.includes('calcet') || norm.includes('sock') || norm.includes('media')) {
@@ -934,7 +972,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                         </span>
                         {(event as any).tutorPhone && (
                           <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 800 }}>
-                            <FontAwesomeIcon icon={faWhatsapp} style={{ marginRight: '4px' }} /> {(event as any).tutorPhone}
+                            <FontAwesomeIcon icon={faWhatsapp} style={{ marginRight: '4px' }} /> {formatDisplayPhone((event as any).tutorPhone)}
                           </span>
                         )}
                         <span style={{ fontSize: '0.8rem', background: '#fef3c7', padding: '2px 8px', borderRadius: '6px', color: '#92400e', fontWeight: 800, border: '1px solid #fde68a' }}>

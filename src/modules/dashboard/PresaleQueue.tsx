@@ -44,6 +44,44 @@ const isExpiring = (expiresAt: string) => {
   return new Date(expiresAt).getTime() - Date.now() < 10 * 60 * 1000;
 };
 
+const formatDisplayPhone = (rawPhone: string): string => {
+  if (!rawPhone) return '';
+  if (rawPhone.includes(',')) {
+    return rawPhone
+      .split(',')
+      .map(p => formatDisplayPhone(p.trim()))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  const digits = rawPhone.replace(/\D/g, '');
+  if (!digits) return rawPhone;
+
+  // Caso de doble LADA de México (ej. 52523521645089 -> 14 dígitos)
+  if (digits.startsWith('5252') && digits.length === 14) {
+    const phone = digits.substring(4);
+    return `+52 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+  }
+
+  // Caso de LADA México normal (ej. 523521253235 -> 12 dígitos)
+  if (digits.startsWith('52') && digits.length === 12) {
+    const phone = digits.substring(2);
+    return `+52 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+  }
+
+  // Caso de LADA US normal (ej. 13521253235 -> 11 dígitos)
+  if (digits.startsWith('1') && digits.length === 11) {
+    const phone = digits.substring(1);
+    return `+1 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+  }
+
+  if (digits.length === 10) {
+    return `(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}`;
+  }
+
+  return rawPhone;
+};
+
 export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute, refreshTrigger }) => {
   const [presales, setPresales] = useState<Presale[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,7 +210,7 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute, refreshTr
               <div className={styles.tutor}>
                 <strong>{presale.tutor_nombre}</strong>
                 <div className={styles.phoneGroup}>
-                  <span className={styles.phone}>{presale.tutor_telefono}</span>
+                  <span className={styles.phone}>{formatDisplayPhone(presale.tutor_telefono)}</span>
                   {presale.telefono_verificado && (
                     <span className={styles.verifiedBadge} title="WhatsApp Verificado">
                       <svg viewBox="0 0 24 24" fill="#25D366" width="14" height="14">
