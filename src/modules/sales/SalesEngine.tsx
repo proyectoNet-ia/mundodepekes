@@ -952,11 +952,22 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                 <option value="">Seleccione un paquete...</option>
                                 {Object.entries(packagesByArea).map(([area, pkgs]) => (
                                   <optgroup key={area} label={`ÁREA: ${area.toUpperCase()}`}>
-                                    {pkgs.map(pkg => (
-                                      <option key={pkg.id} value={pkg.id}>
-                                        {pkg.nombre} — ${pkg.precio} ({formatDuration(pkg.duracion_minutos)})
-                                      </option>
-                                    ))}
+                                    {pkgs.map(pkg => {
+                                      const isFree = Number(pkg.precio) === 0;
+                                      return (
+                                        <option 
+                                          key={pkg.id} 
+                                          value={pkg.id}
+                                          style={isFree ? {
+                                            backgroundColor: '#fee2e2',
+                                            color: '#b91c1c',
+                                            fontWeight: 'bold'
+                                          } : {}}
+                                        >
+                                          {pkg.nombre} — ${pkg.precio} ({formatDuration(pkg.duracion_minutos)}) {isFree ? '⚠️ (SIN COSTO)' : ''}
+                                        </option>
+                                      );
+                                    })}
                                   </optgroup>
                                 ))}
                               </select>
