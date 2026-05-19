@@ -50,6 +50,44 @@ const formatPhone = (phone: string) => {
     return phone;
 };
 
+const formatDisplayPhone = (rawPhone: string): string => {
+    if (!rawPhone) return '';
+    if (rawPhone.includes(',')) {
+        return rawPhone
+            .split(',')
+            .map(p => formatDisplayPhone(p.trim()))
+            .filter(Boolean)
+            .join(', ');
+    }
+
+    const digits = rawPhone.replace(/\D/g, '');
+    if (!digits) return rawPhone;
+
+    // Caso de doble LADA de México (ej. 52523521645089 -> 14 dígitos)
+    if (digits.startsWith('5252') && digits.length === 14) {
+        const phone = digits.substring(4);
+        return `+52 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+    }
+
+    // Caso de LADA México normal (ej. 523521253235 -> 12 dígitos)
+    if (digits.startsWith('52') && digits.length === 12) {
+        const phone = digits.substring(2);
+        return `+52 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+    }
+
+    // Caso de LADA US normal (ej. 13521253235 -> 11 dígitos)
+    if (digits.startsWith('1') && digits.length === 11) {
+        const phone = digits.substring(1);
+        return `+1 (${phone.substring(0, 3)}) ${phone.substring(3, 6)}-${phone.substring(6)}`;
+    }
+
+    if (digits.length === 10) {
+        return `(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}`;
+    }
+
+    return rawPhone;
+};
+
 const formatPrefix = (val: string): string => {
     if (!val) return '';
     let clean = val.replace(/[^\d+]/g, '');
@@ -187,7 +225,12 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
             const prefixes: string[] = [];
 
             rawPhones.forEach(full => {
-                const d = full.replace(/\D/g, '');
+                let d = full.replace(/\D/g, '');
+                // Limpiar anomalía de doble LADA de México en la lectura
+                if (d.startsWith('5252') && d.length === 14) {
+                    d = d.substring(2);
+                }
+
                 if (full.startsWith('+')) {
                     if (d.startsWith('52') && d.length === 12) {
                         prefixes.push('+52');
@@ -333,7 +376,9 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                         )}
                                     </div>
                                 </td>
-                                <td data-label="Detalles" className={styles.detailsCell}>{item.details}</td>
+                                <td data-label="Detalles" className={styles.detailsCell}>
+                                    {item.type === 'tutor' ? formatDisplayPhone(item.details) : item.details}
+                                </td>
                                 <td data-label="Acciones">
                                     <div className={styles.actionGroup}>
                                         <button 
