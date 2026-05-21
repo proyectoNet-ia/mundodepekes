@@ -3,6 +3,8 @@ import styles from './Dashboard.module.css';
 import { PrinterService } from '../../lib/printerService';
 import { getActiveSessions, finishSession, subscribeToSessions, updateChildInfo, getActivePrivateEvents, addChildToPrivateEvent, getScheduledPrivateEventsCount, archivePackage, getTotalChildrenToday, type ActiveSession } from '../../lib/sessionService';
 import { getSystemSettings } from '../../lib/settingsService';
+import { birthdayService } from '../../lib/birthdayService';
+import { getPackages } from '../../lib/packageService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPhone, 
@@ -111,9 +113,10 @@ const getProductIconAndColor = (nombre: string) => {
 interface DashboardProps {
   onReentry?: (child: ActiveSession | null) => void;
   onPresale?: (data: any) => void;
+  onManageBirthday?: (birthdayId: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onManageBirthday }) => {
   const { showToast } = useToast();
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [limits, setLimits] = useState({ mundo_pekes: 30, trampolin: 35 });
@@ -141,6 +144,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
   const [privateEvents, setPrivateEvents] = useState<any[]>([]);
+  const [cumpleanosActivos, setCumpleanosActivos] = useState<any[]>([]);
+  const [paquetesDisponibles, setPaquetesDisponibles] = useState<any[]>([]);
   const [totalChildrenToday, setTotalChildrenToday] = useState<{ total: number; unique: number }>({ total: 0, unique: 0 });
   const [shiftProducts, setShiftProducts] = useState<any[]>([]);
   const [presaleRefreshTrigger, setPresaleRefreshTrigger] = useState(0);
@@ -152,18 +157,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
   const refreshData = async () => {
     setIsRefreshing(true);
     try {
-      const [active, settings, privEvents, sCount, todayCount] = await Promise.all([
+      const [active, settings, privEvents, sCount, todayCount, cumples, paquetes] = await Promise.all([
         getActiveSessions(),
         getSystemSettings(),
         getActivePrivateEvents(),
         getScheduledPrivateEventsCount(),
-        getTotalChildrenToday()
+        getTotalChildrenToday(),
+        birthdayService.getAgendadosYEnCurso(),
+        getPackages(true)
       ]);
       setSessions(active);
       setLimits(settings);
       setPrivateEvents(privEvents);
       setScheduledCount(sCount);
       setTotalChildrenToday(todayCount);
+      const todayVal = new Date();
+      const todayStr = `${todayVal.getFullYear()}-${String(todayVal.getMonth() + 1).padStart(2, '0')}-${String(todayVal.getDate()).padStart(2, '0')}`;
+      setCumpleanosActivos(cumples.filter(c => 
+          c.estado === 'en_curso' || 
+          (c.estado === 'agendado' && c.fecha_evento === todayStr)
+      ));
+      setPaquetesDisponibles(paquetes);
       setLastRefreshed(new Date());
 
       // Obtener productos vendidos durante el corte activo
@@ -302,6 +316,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
     }
   };
 
+  const handleIniciarBirthdayDirecto = async (id: string) => {
+    if (!window.confirm('¿Seguro que deseas iniciar el evento de cumpleaños ahora? Empezará a correr el tiempo.')) return;
+    try {
+      await birthdayService.cambiarEstado(id, 'en_curso');
+      showToast('Cumpleaños iniciado correctamente', 'success');
+      refreshData();
+    } catch (err) {
+      console.error(err);
+      showToast('Error al iniciar el cumpleaños', 'error');
+    }
+  };
+
   const allSessions = [...sessions, ...offlineSessions];
 
   // 1. Obtener eventos de Supabase
@@ -320,7 +346,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
           eventStartTime: event.event_start_time ? new Date(event.event_start_time) : null,
           eventEndTime: event.event_end_time ? new Date(event.event_end_time) : null,
           sessions: eventSessions,
-          isOffline: false
+          isOffline: false,
+          isCumpleanos: false
+      };
+  });
+
+  const cumpleanosGroups = cumpleanosActivos.map(ev => {
+      const paquete = paquetesDisponibles.find(p => p.precio === ev.precio_por_nino);
+      const [year, month, day] = ev.fecha_evento.split('-');
+      const [h, m] = ev.hora_inicio.split(':');
+      const start = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(h), parseInt(m));
+      const duracion = paquete?.duracion_minutos || 120;
+      const end = new Date(start.getTime() + duracion * 60000);
+
+      return {
+          transaccionId: ev.id,
+          tutorName: ev.nombre_cliente || 'Cliente',
+          tutorId: undefined,
+          tutorPhone: ev.telefono_cliente,
+          packageName: paquete?.nombre || 'Cumpleaños',
+          packageId: paquete?.id,
+          guestLimit: 0,
+          area: paquete?.area || 'Mundo de Pekes',
+          duration: duracion,
+          eventStartTime: start,
+          eventEndTime: end,
+          sessions: [],
+          isOffline: false,
+          isCumpleanos: true,
+          estado: ev.estado
       };
   });
 
@@ -351,7 +405,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
     fetchOfflinePrivate();
   }, [isRefreshing]);
 
-  const privateEventGroups = [...onlinePrivateGroups, ...offlinePrivateEvents];
+  const privateEventGroups = [...onlinePrivateGroups, ...cumpleanosGroups, ...offlinePrivateEvents];
 
   const allSessionsShown = allSessions.filter(s => !privateEventGroups.some(p => p.transaccionId === s.transaccionId));
 
@@ -925,7 +979,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {privateEventGroups.map(event => {
-              const isPending = !event.eventEndTime;
+              const isPending = !event.eventEndTime || event.estado === 'agendado';
               const now = currentTime.getTime();
               
               let progressPct = 0;
@@ -933,12 +987,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
               let isExpiredEvent = false;
               let isCritical = false;
               let endStr = 'Por iniciar';
+              let elapsedMs = 0;
+              let totalMs = 0;
 
               if (!isPending && event.eventEndTime && event.eventStartTime) {
                   const eventEnd = event.eventEndTime.getTime();
                   const eventStart = event.eventStartTime.getTime();
-                  const totalMs = Math.max(1, eventEnd - eventStart);
-                  const elapsedMs = now - eventStart;
+                  totalMs = Math.max(1, eventEnd - eventStart);
+                  elapsedMs = now - eventStart;
                   progressPct = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
                   remainMins = Math.max(0, Math.round((eventEnd - now) / 60000));
                   isExpiredEvent = remainMins === 0;
@@ -993,36 +1049,76 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                         )}
                       </div>
                     </div>
-                    <button
-                      disabled={(event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit}
-                      style={{ 
-                        background: ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? '#d1d5db' : '#d97706', 
-                        color: 'white', 
-                        border: 'none', 
-                        borderRadius: '8px', 
-                        padding: '0.5rem 1rem', 
-                        fontWeight: 700, 
-                        fontSize: '0.8rem', 
-                        cursor: ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? 'not-allowed' : 'pointer', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '0.4rem' 
-                      }}
-                      onClick={() => {
-                        setNewPekeName('');
-                        setAddToEventModal({ 
-                            transaccionId: event.transaccionId, 
-                            packageId: event.packageId, 
-                            area: event.area, 
-                            tutorId: event.tutorId, 
-                            eventEndTime: event.eventEndTime, 
-                            packageName: event.packageName,
-                            tutorName: event.tutorName
-                        } as any);
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faPlus} /> { ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? 'CUPO LLENO' : 'Ingresar Peke' }
-                    </button>
+                    {!(event as any).isCumpleanos ? (
+                      <button
+                        disabled={(event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit}
+                        style={{ 
+                          background: ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? '#d1d5db' : '#d97706', 
+                          color: 'white', 
+                          border: 'none', 
+                          borderRadius: '8px', 
+                          padding: '0.5rem 1rem', 
+                          fontWeight: 700, 
+                          fontSize: '0.8rem', 
+                          cursor: ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? 'not-allowed' : 'pointer', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.4rem' 
+                        }}
+                        onClick={() => {
+                          setNewPekeName('');
+                          setAddToEventModal({ 
+                              transaccionId: event.transaccionId, 
+                              packageId: event.packageId, 
+                              area: event.area, 
+                              tutorId: event.tutorId, 
+                              eventEndTime: event.eventEndTime, 
+                              packageName: event.packageName,
+                              tutorName: event.tutorName
+                          } as any);
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faPlus} /> { ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) ? 'CUPO LLENO' : 'Ingresar Peke' }
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {event.estado === 'agendado' ? (
+                          <button
+                            style={{ 
+                              background: '#3b82f6', 
+                              color: 'white', 
+                              border: 'none', 
+                              borderRadius: '8px', 
+                              padding: '0.5rem 1rem', 
+                              fontWeight: 700, 
+                              fontSize: '0.8rem', 
+                              cursor: 'pointer',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                            }}
+                            onClick={() => handleIniciarBirthdayDirecto(event.transaccionId)}
+                          >
+                            ▶️ Iniciar
+                          </button>
+                        ) : (
+                          <button
+                            style={{ 
+                              background: '#16a34a', 
+                              color: 'white', 
+                              border: 'none', 
+                              borderRadius: '8px', 
+                              padding: '0.5rem 1rem', 
+                              fontWeight: 700, 
+                              fontSize: '0.8rem', 
+                              cursor: 'pointer',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                            }}
+                            onClick={() => onManageBirthday?.(event.transaccionId)}
+                          >
+                            💰 Liquidar
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Barra de tiempo SINCRONIZADA para TODO el evento */}
@@ -1038,7 +1134,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale }) =>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#78716c', textAlign: 'right' }}>
                       {isPending 
-                        ? <span style={{ color: '#d97706', fontWeight: 700 }}>&#x23F3; ESPERANDO PRIMER INGRESO</span>
+                        ? <span style={{ color: '#d97706', fontWeight: 700 }}>
+                            {event.isCumpleanos ? '⌛ ESPERANDO INICIO' : '⏳ ESPERANDO INGRESO'}
+                          </span>
                         : isExpiredEvent
                             ? <span style={{ color: '#ef4444', fontWeight: 700 }}>&#x26A0; TIEMPO EXPIRADO</span>
                             : <span>{remainMins >= 60 ? `${Math.floor(remainMins/60)}h ${remainMins%60}m` : `${remainMins}m`} restantes &bull; todos salen a las {endStr}</span>

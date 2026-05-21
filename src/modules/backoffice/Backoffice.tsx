@@ -5,7 +5,7 @@ import { getPackages, createPackage, updatePackage, togglePackageStatus, type Pa
 import { stockService, type StockItem } from '../../lib/stockService';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye, faSignature, faUserPen, faEnvelope, faChild, faTableTennisPaddleBall, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTimes, faKey, faUsers, faUser, faLock, faUserShield, faPlus, faTrash, faBoxOpen, faLayerGroup, faClock, faTag, faBoxes, faExclamationTriangle, faMoneyBillWave, faArchive, faEye, faSignature, faUserPen, faEnvelope, faChild, faTableTennisPaddleBall } from '@fortawesome/free-solid-svg-icons';
 import { PortalQR } from '../../components/PortalQR';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -30,13 +30,13 @@ export const Backoffice: React.FC = () => {
   const [newUserRole, setNewUserRole] = useState('admin');
   const [editingStaffRole, setEditingStaffRole] = useState('');
   const [showCreatePackage, setShowCreatePackage] = useState(false);
-  const [isPrivateForm, setIsPrivateForm] = useState(false);
   const [showCreateItem, setShowCreateItem] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
   const [archivingItem, setArchivingItem] = useState<StockItem | null>(null);
   const [inventory, setInventory] = useState<StockItem[]>([]);
   const [showInactiveStock, setShowInactiveStock] = useState(false);
+  const [packageTypeFilter, setPackageTypeFilter] = useState<'all' | 'public' | 'birthday'>('all');
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<any | null>(null);
 
@@ -612,6 +612,15 @@ export const Backoffice: React.FC = () => {
                   <p>Gestione los tipos de entrada y costos del parque infantil.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select 
+                    value={packageTypeFilter} 
+                    onChange={(e) => setPackageTypeFilter(e.target.value as any)}
+                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                  >
+                    <option value="all">Todos los tipos</option>
+                    <option value="public">🌐 Público (Portal + Caja)</option>
+                    <option value="birthday">🔒 Cumpleaños</option>
+                  </select>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                     Ver archivados
@@ -636,9 +645,14 @@ export const Backoffice: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {packages.filter(p => showInactive ? true : p.activo).map(p => (
+                    {packages.filter(p => {
+                        if (!showInactive && !p.activo) return false;
+                        if (packageTypeFilter === 'public' && p.es_privado) return false;
+                        if (packageTypeFilter === 'birthday' && !p.es_privado) return false;
+                        return true;
+                    }).map(p => (
                         <tr key={p.id} style={{ opacity: p.activo ? 1 : 0.5 }}>
-                        <td><strong style={{fontSize: '1rem', color: 'var(--brand-700)'}}>{p.nombre}</strong></td>
+                        <td><strong style={{fontSize: '0.9rem', color: 'var(--brand-700)'}}>{p.nombre}</strong></td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <FontAwesomeIcon 
@@ -649,11 +663,11 @@ export const Backoffice: React.FC = () => {
                           </div>
                         </td>
                         <td>
-                          <span style={{ fontWeight: 700, padding: '2px 8px', background: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0', color: '#475569' }}>
+                          <span style={{ fontWeight: 700, padding: '2px 8px', background: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '0.8rem' }}>
                             {Math.floor(p.duracion_minutos / 60) > 0 ? `${Math.floor(p.duracion_minutos / 60)}h ${p.duracion_minutos % 60}m` : `${p.duracion_minutos}m`}
                           </span>
                         </td>
-                        <td><strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>${p.precio}.00</strong></td>
+                        <td><strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>${p.precio}.00</strong></td>
                         <td>
                            <span className={`${styles.statusBadge} ${p.activo ? styles.active : styles.inactive}`} style={{ padding: '0.2rem 0.6rem', fontSize: '0.7rem' }}>
                                {p.activo ? 'ACTIVO' : 'PAUSADO'}
@@ -667,7 +681,7 @@ export const Backoffice: React.FC = () => {
                             color:      p.es_privado ? '#92400e' : '#166534',
                             border:     `1px solid ${p.es_privado ? '#fde68a' : '#86efac'}`,
                           }}>
-                            {p.es_privado ? '🔒 PRIVADO' : '🌐 PÚBLICO'}
+                            {p.es_privado ? '🔒 CUMPLEAÑOS' : '🌐 PÚBLICO'}
                           </span>
                         </td>
                         <td className={styles.actionsCell}>
@@ -780,36 +794,25 @@ export const Backoffice: React.FC = () => {
                       {/* Visibilidad: Público vs Privado */}
                       <div className={styles.formGroup}>
                         <label><FontAwesomeIcon icon={faEye} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Tipo de Paquete</label>
-                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.6rem 1rem', border: '2px solid #e2e8f0', borderRadius: '8px', flex: 1, transition: 'all .2s' }}>
-                            <input type="radio" name="es_privado" value="false" defaultChecked={!editingPackage?.es_privado} onChange={() => setIsPrivateForm(false)} style={{ accentColor: '#16a34a' }} />
-                            <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>🌐 Público</span>
-                            <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Portal + Caja</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem 1rem', border: '2px solid #e2e8f0', borderRadius: '8px', transition: 'all .2s' }}>
+                            <input type="radio" name="es_privado" value="false" defaultChecked={!editingPackage?.es_privado} style={{ accentColor: '#16a34a', width: '1.2rem', height: '1.2rem' }} />
+                            <div>
+                              <span style={{ fontSize: '0.9rem', fontWeight: 700, display: 'block', color: '#1e293b' }}>🌐 Público</span>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '0.1rem' }}>Disponible para el portal público y la caja</span>
+                            </div>
                           </label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.6rem 1rem', border: '2px solid #e2e8f0', borderRadius: '8px', flex: 1, transition: 'all .2s' }}>
-                            <input type="radio" name="es_privado" value="true" defaultChecked={!!editingPackage?.es_privado} onChange={() => setIsPrivateForm(true)} style={{ accentColor: '#d97706' }} />
-                            <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>🔒 Privado</span>
-                            <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Solo Caja · Precio fijo</span>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem 1rem', border: '2px solid #e2e8f0', borderRadius: '8px', transition: 'all .2s' }}>
+                            <input type="radio" name="es_privado" value="true" defaultChecked={!!editingPackage?.es_privado} style={{ accentColor: '#d97706', width: '1.2rem', height: '1.2rem' }} />
+                            <div>
+                              <span style={{ fontSize: '0.9rem', fontWeight: 700, display: 'block', color: '#1e293b' }}>🔒 Cumpleaños</span>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '0.1rem' }}>Exclusivo para el módulo de eventos (precio base por niño)</span>
+                            </div>
                           </label>
                         </div>
                       </div>
 
-                      {(isPrivateForm || editingPackage?.es_privado) && (
-                        <div className={styles.formGroup} style={{ animation: 'slideUp 0.3s ease-out' }}>
-                           <label><FontAwesomeIcon icon={faCalendarAlt} style={{ opacity: 0.5, marginRight: '0.25rem' }} /> Fecha del Evento</label>
-                           <input 
-                             name="fecha_evento" 
-                             type="date" 
-                             required 
-                             defaultValue={editingPackage?.fecha_evento || new Date().toISOString().split('T')[0]} 
-                             className={styles.input} 
-                             style={{ border: '2px solid #d97706', background: '#fffef2' }}
-                           />
-                           <p style={{ fontSize: '0.75rem', color: '#b45309', marginTop: '0.4rem' }}>
-                             El botón aparecerá en el dashboard solo en esta fecha.
-                           </p>
-                        </div>
-                      )}
+
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '0.75rem' }}>
                         <div className={styles.formGroup}>

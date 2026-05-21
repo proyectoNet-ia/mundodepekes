@@ -25,8 +25,8 @@ import { useEffect } from 'react';
 import { getSystemSettings } from '../lib/settingsService';
 
 interface NavigationProps {
-  activeTab: 'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos';
-  setActiveTab: (tab: 'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos') => void;
+  activeTab: 'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos' | 'birthdays';
+  setActiveTab: (tab: 'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos' | 'birthdays') => void;
   userRole?: UserRole;
   user?: UserProfile;
 }
@@ -40,6 +40,7 @@ const TAB_LABELS: Record<string, string> = {
   analytics: 'Analíticas',
   audit: 'Auditoría',
   stock: 'Inventarios',
+  birthdays: 'Cumpleaños',
   config: 'Ajustes',
 };
 
@@ -65,11 +66,11 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
         if (userRole === 'admin') return true;
         switch (userRole) {
             case 'gerente':
-                return ['dashboard', 'ingresos', 'pos', 'records', 'treasury', 'stock'].includes(tab);
+                return ['dashboard', 'ingresos', 'pos', 'records', 'treasury', 'stock', 'birthdays'].includes(tab);
             case 'cajero':
                 return ['dashboard', 'ingresos', 'pos', 'treasury', 'records'].includes(tab);
             case 'supervisor':
-                return ['dashboard', 'ingresos', 'records', 'treasury', 'stock', 'pos'].includes(tab);
+                return ['dashboard', 'ingresos', 'records', 'treasury', 'stock', 'pos', 'birthdays'].includes(tab);
             case 'analista':
                 return ['analytics', 'audit'].includes(tab);
             default:
@@ -153,6 +154,15 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               <div className={styles.tabTextGroup}>
                 <span className={styles.tabTitle}>Inventarios</span>
                 <span className={styles.tabSubtitle}>Gestión de Artículos</span>
+              </div>
+            </button>
+          )}
+          {canSee('birthdays') && (
+            <button className={`${styles.tab} ${activeTab === 'birthdays' ? styles.active : ''}`} onClick={() => handleTabSelect('birthdays')}>
+              <div className={styles.tabIcon}><FontAwesomeIcon icon={faGamepad} /></div>
+              <div className={styles.tabTextGroup}>
+                <span className={styles.tabTitle}>Cumpleaños</span>
+                <span className={styles.tabSubtitle}>Eventos y Festejos</span>
               </div>
             </button>
           )}

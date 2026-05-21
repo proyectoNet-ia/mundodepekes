@@ -105,6 +105,7 @@
     border-bottom: 1px solid var(--bg-tertiary);
     vertical-align: middle;
     color: var(--text-primary);
+    font-size: 0.85rem;
 }
 
 .table th:last-child {

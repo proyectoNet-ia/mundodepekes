@@ -16,9 +16,11 @@ import { InventoryPOS } from './modules/sales/InventoryPOS';
 import { ToastProvider } from './components/Toast';
 import { RemoteAuthBell } from './components/RemoteAuthBell';
 import { PortalPage } from './modules/portal/PortalPage';
+import { Birthdays } from './modules/birthdays/Birthdays';
 
 function App() {
-  const [activeTab, setActiveTab] = React.useState<'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos'>('dashboard');
+  const [activeTab, setActiveTab] = React.useState<'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos' | 'birthdays'>('dashboard');
+  const [selectedBirthdayId, setSelectedBirthdayId] = React.useState<string | null>(null);
   const [reentryData, setReentryData] = React.useState<any>(null);
   const [presaleData, setPresaleData] = React.useState<any>(null);
   const [user, setUser] = React.useState<UserProfile | null>(null);
@@ -126,7 +128,16 @@ function App() {
                 {user && <Navigation activeTab={activeTab} setActiveTab={setActiveTab} userRole={user.role} user={user} />}
                 
                 <main className="container main-content">
-                    {activeTab === 'dashboard' && <Dashboard onReentry={handleExternalEntry} onPresale={handlePresaleEntry} />}
+                    {activeTab === 'dashboard' && (
+                        <Dashboard 
+                            onReentry={handleExternalEntry} 
+                            onPresale={handlePresaleEntry} 
+                            onManageBirthday={(id) => {
+                                setSelectedBirthdayId(id);
+                                setActiveTab('birthdays');
+                            }}
+                        />
+                    )}
                     {activeTab === 'ingresos' && (
                         <SalesEngine 
                             user={user}
@@ -149,6 +160,17 @@ function App() {
                     {activeTab === 'audit' && <Audit />}
                     {activeTab === 'stock' && <Stock />}
                     {activeTab === 'pos' && <InventoryPOS onCancel={() => setActiveTab('dashboard')} />}
+                    {activeTab === 'birthdays' && (
+                        <Birthdays 
+                            user={user!} 
+                            initialSelectedId={selectedBirthdayId} 
+                            onClearSelectedId={() => setSelectedBirthdayId(null)}
+                            onCancel={() => {
+                                setSelectedBirthdayId(null);
+                                setActiveTab('dashboard');
+                            }} 
+                        />
+                    )}
                     {activeTab === 'config' && <Backoffice />}
                 </main>
             </div>
