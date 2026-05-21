@@ -57,7 +57,7 @@ const BirthdayProgressBar = ({ fechaInicio, horaInicio, duracionMinutos }: { fec
     );
 };
 
-export const Birthdays: React.FC<Props> = ({ onCancel, initialSelectedId, onClearSelectedId }) => {
+export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, onClearSelectedId }) => {
   const { showToast } = useToast();
   const [eventos, setEventos] = useState<Cumpleanos[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,6 +65,7 @@ export const Birthdays: React.FC<Props> = ({ onCancel, initialSelectedId, onClea
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<Cumpleanos | null>(null);
   const [isManaging, setIsManaging] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [paquetesPrivados, setPaquetesPrivados] = useState<Package[]>([]);
   const [telefonoInput, setTelefonoInput] = useState('');
   const [inventory, setInventory] = useState<StockItem[]>([]);
@@ -125,6 +126,7 @@ export const Birthdays: React.FC<Props> = ({ onCancel, initialSelectedId, onClea
     const endMins = startMins + duration;
     
     for (const ev of eventos) {
+        if (selectedEvento && ev.id === selectedEvento.id) continue;
         if (ev.estado === 'cancelado') continue;
         if (ev.fecha_evento !== formFecha) continue;
         
@@ -155,7 +157,7 @@ export const Birthdays: React.FC<Props> = ({ onCancel, initialSelectedId, onClea
         }
     }
     return null;
-  }, [formFecha, formHora, formPaqueteId, eventos, paquetesPrivados]);
+  }, [formFecha, formHora, formPaqueteId, eventos, paquetesPrivados, selectedEvento]);
 
   // Generador de días del mes en formato cuadrícula
   const getDaysInMonth = (date: Date) => {
@@ -246,7 +248,7 @@ export const Birthdays: React.FC<Props> = ({ onCancel, initialSelectedId, onClea
 
         if (ev.estado === 'en_curso') {
           setShowLiquidar(true);
-          const paqueteSeleccionado = paquetesPrivados.find(p => p.id === ev.paquete_id) || paquetesPrivados.find(p => p.precio === ev.precio_por_nino);
+          const paqueteSeleccionado = getEventPackageInfo(ev);
           if (paqueteSeleccionado?.nombre.toLowerCase().includes('comida')) {
               const refresco = inventory.find(i => i.nombre.toLowerCase().includes('refresco') || i.categoria.toLowerCase().includes('refresco'));
               if (refresco) {
@@ -296,6 +298,97 @@ export const Birthdays: React.FC<Props> = ({ onCancel, initialSelectedId, onClea
       setSearchItem('');
       setBebidasIncluidas([]);
       setSearchIncluido('');
+      setIsEditing(false); // Reiniciar modo edición
+  };
+
+  const startEditing = () => {
+    if (!selectedEvento) return;
+    setFormFecha(selectedEvento.fecha_evento);
+    setFormHora(selectedEvento.hora_inicio);
+    setFormPaqueteId(selectedEvento.paquete_id || '');
+    setTelefonoInput(selectedEvento.telefono_cliente || '');
+    setIsEditing(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedEvento) return;
+
+    const formData = new FormData(e.currentTarget);
+    const packageId = formData.get('paquete_id') as string;
+    const selectedPkg = paquetesPrivados.find(p => p.id === packageId);
+
+    const updates = {
+        nombre_festejado: formData.get('nombre_festejado') as string,
+        nombre_cliente: formData.get('nombre_cliente') as string,
+        telefono_cliente: (formData.get('telefono_cliente') as string).replace(/\D/g, ''),
+        fecha_evento: formData.get('fecha_evento') as string,
+        hora_inicio: formData.get('hora_inicio') as string,
+        anticipo_pagado: parseFloat(formData.get('anticipo_pagado') as string) || 0,
+        metodo_pago_anticipo: formData.get('metodo_pago_anticipo') as string,
+        precio_por_nino: selectedPkg ? selectedPkg.precio : selectedEvento.precio_por_nino,
+        paquete_id: packageId || null,
+        area: selectedPkg ? selectedPkg.area : selectedEvento.area
+    } as any;
+
+    setIsSubmitting(true);
+    try {
+        const updated = await birthdayService.updateEvento(selectedEvento.id, updates);
+        showToast('Cumpleaños actualizado correctamente', 'success');
+        setIsEditing(false);
+        
+        const updatedData = await birthdayService.getTodos();
+        setEventos(updatedData);
+        setSelectedEvento(updated);
+    } catch (err) {
+        console.error(err);
+        showToast('Error al actualizar cumpleaños', 'error');
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelarEvento = async () => {
+    if (!selectedEvento) return;
+    if (!window.confirm('¿Seguro que deseas cancelar este evento de cumpleaños? Esta acción no se puede deshacer.')) return;
+    setIsManaging(true);
+    try {
+      await birthdayService.cambiarEstado(selectedEvento.id, 'cancelado');
+      showToast('Evento de cumpleaños cancelado', 'success');
+      
+      const updatedData = await birthdayService.getTodos();
+      setEventos(updatedData);
+      setSelectedEvento(null);
+    } catch (err) {
+      console.error(err);
+      showToast('Error al cancelar el evento', 'error');
+    } finally {
+      setIsManaging(false);
+    }
+  };
+
+  const handleReiniciarTiempo = async () => {
+    if (!selectedEvento) return;
+    if (!window.confirm('¿Seguro que deseas reiniciar el tiempo del evento? La hora de inicio se establecerá a la hora actual.')) return;
+    setIsManaging(true);
+    try {
+      await birthdayService.cambiarEstado(selectedEvento.id, 'en_curso');
+      showToast('Tiempo del evento reiniciado correctamente', 'success');
+      
+      const updatedData = await birthdayService.getTodos();
+      setEventos(updatedData);
+      const updatedEv = updatedData.find(e => e.id === selectedEvento.id);
+      if (updatedEv) {
+          setSelectedEvento(updatedEv);
+      } else {
+          setSelectedEvento(null);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error al reiniciar el tiempo', 'error');
+    } finally {
+      setIsManaging(false);
+    }
   };
 
   const handleIniciarEvento = async () => {
@@ -340,7 +433,7 @@ export const Birthdays: React.FC<Props> = ({ onCancel, initialSelectedId, onClea
   const openLiquidarModal = () => {
       setShowLiquidar(true);
       if (selectedEvento) {
-          const paqueteSeleccionado = paquetesPrivados.find(p => p.precio === selectedEvento.precio_por_nino);
+          const paqueteSeleccionado = getEventPackageInfo(selectedEvento);
           if (paqueteSeleccionado?.nombre.toLowerCase().includes('comida')) {
               const refresco = inventory.find(i => i.nombre.toLowerCase().includes('refresco') || i.categoria.toLowerCase().includes('refresco'));
               if (refresco) {
@@ -921,7 +1014,117 @@ loadData();
                 </div>
                 
                 <div style={{ padding: '1.5rem', flex: 1, overflowY: 'auto' }}>
-                    {!showLiquidar ? (
+                    {isEditing ? (
+                        <form onSubmit={handleEditSubmit} style={{ display: 'grid', gap: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 600, fontSize: '0.9rem' }}>Nombre del Festejado</label>
+                                <input type="text" name="nombre_festejado" required defaultValue={selectedEvento.nombre_festejado} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 600, fontSize: '0.9rem' }}>Nombre del Cliente (Tutor)</label>
+                                <input type="text" name="nombre_cliente" required defaultValue={selectedEvento.nombre_cliente} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 600, fontSize: '0.9rem' }}>Teléfono</label>
+                                <input 
+                                    type="tel" 
+                                    name="telefono_cliente" 
+                                    value={formatPhone(telefonoInput)}
+                                    onChange={(e) => setTelefonoInput(e.target.value)}
+                                    placeholder="(555) 123-4567" 
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} 
+                                />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 600, fontSize: '0.9rem' }}>Fecha del Evento</label>
+                                    <input 
+                                        type="date" 
+                                        name="fecha_evento" 
+                                        value={formFecha}
+                                        onChange={(e) => setFormFecha(e.target.value)}
+                                        required 
+                                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} 
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 600, fontSize: '0.9rem' }}>Hora de Inicio</label>
+                                    <input 
+                                        type="time" 
+                                        name="hora_inicio" 
+                                        value={formHora}
+                                        onChange={(e) => setFormHora(e.target.value)}
+                                        required 
+                                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} 
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 600, fontSize: '0.9rem' }}>Paquete de Cumpleaños</label>
+                                <select 
+                                    name="paquete_id" 
+                                    value={formPaqueteId} 
+                                    onChange={(e) => setFormPaqueteId(e.target.value)}
+                                    required 
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}
+                                >
+                                    <option value="">-- Selecciona el Paquete --</option>
+                                    {Object.entries(
+                                        paquetesPrivados.reduce((acc, p) => {
+                                            const isComida = p.nombre.toLowerCase().includes('comida');
+                                            const groupName = isComida ? `${p.area} (Con Comida)` : p.area;
+                                            if (!acc[groupName]) acc[groupName] = [];
+                                            acc[groupName].push(p);
+                                            return acc;
+                                        }, {} as Record<string, typeof paquetesPrivados>)
+                                    ).map(([area, pkgs]) => (
+                                        <optgroup key={area} label={area}>
+                                            {pkgs.sort((a, b) => a.duracion_minutos - b.duracion_minutos).map(p => (
+                                                <option key={p.id} value={p.id}>{p.nombre} (${p.precio}) - Duración: {p.duracion_minutos}min</option>
+                                            ))}
+                                        </optgroup>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* VALIDADOR DE TRASLAPES EN TIEMPO REAL */}
+                            {conflict ? (
+                                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.75rem', color: '#b91c1c', fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                    <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+                                    <div>
+                                        <strong>Conflicto de área:</strong> La zona <strong>{conflict.area}</strong> ya está reservada para el evento de <strong>{conflict.festejado}</strong> de <strong>{conflict.hora_inicio.substring(0, 5)}</strong> a <strong>{conflict.hora_fin}</strong> en esta fecha.
+                                    </div>
+                                </div>
+                            ) : formFecha && formHora && formPaqueteId ? (
+                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem', color: '#166534', fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                    <span>✅</span>
+                                    <div>
+                                        <strong>Zona y horario disponibles:</strong> El área está libre para agendar el evento.
+                                    </div>
+                                </div>
+                            ) : null}
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 600, fontSize: '0.9rem' }}>Anticipo Pagado ($)</label>
+                                    <input type="number" step="0.01" min="0" name="anticipo_pagado" defaultValue={selectedEvento.anticipo_pagado} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 600, fontSize: '0.9rem' }}>Método de Pago (Anticipo)</label>
+                                    <select name="metodo_pago_anticipo" defaultValue={selectedEvento.metodo_pago_anticipo} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
+                                        <option value="efectivo">Efectivo</option>
+                                        <option value="tarjeta">Tarjeta (Crédito/Débito)</option>
+                                        <option value="transferencia">Transferencia</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style={{ marginTop: '1rem', display: 'flex', gap: '1.5rem', justifyContent: 'flex-end' }}>
+                                <button type="button" onClick={() => setIsEditing(false)} className="btn btn-ghost">Cancelar</button>
+                                <button type="submit" className="btn btn-primary" disabled={isSubmitting || !!conflict}>{isSubmitting ? 'Guardando...' : 'Guardar Cambios'}</button>
+                            </div>
+                        </form>
+                    ) : !showLiquidar ? (
                         <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
                             {selectedEvento.estado === 'agendado' ? (
                                 <>
@@ -929,9 +1132,22 @@ loadData();
                                         <p>El evento está programado para el <strong>{selectedEvento.fecha_evento}</strong> a las <strong>{selectedEvento.hora_inicio.substring(0, 5)}</strong>.</p>
                                         <p>Cuando el festejado y sus invitados lleguen, inicia el evento.</p>
                                     </div>
-                                    <button onClick={handleIniciarEvento} className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.2rem', background: '#3b82f6' }} disabled={isManaging}>
-                                        <FontAwesomeIcon icon={faPlay} /> Iniciar Evento
-                                    </button>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                                        <button onClick={handleIniciarEvento} className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.2rem', background: '#3b82f6', width: '250px' }} disabled={isManaging}>
+                                            <FontAwesomeIcon icon={faPlay} style={{ marginRight: '8px' }} /> Iniciar Evento
+                                        </button>
+                                        
+                                        {user.role !== 'cajero' && (
+                                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                                <button onClick={startEditing} className="btn btn-secondary" style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                                                    ✏️ Editar Información
+                                                </button>
+                                                <button onClick={handleCancelarEvento} className="btn btn-danger" style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                                                    ❌ Cancelar Evento
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                             ) : (
                                 <>
@@ -946,9 +1162,22 @@ loadData();
                                             duracionMinutos={getEventPackageInfo(selectedEvento)?.duracion_minutos || 120} 
                                         />
                                     </div>
-                                    <button onClick={openLiquidarModal} className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.2rem', background: '#16a34a' }}>
-                                        <FontAwesomeIcon icon={faCheck} /> Finalizar y Liquidar
-                                    </button>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                                        <button onClick={openLiquidarModal} className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.2rem', background: '#16a34a', width: '250px' }}>
+                                            <FontAwesomeIcon icon={faCheck} style={{ marginRight: '8px' }} /> Finalizar y Liquidar
+                                        </button>
+                                        
+                                        {user.role !== 'cajero' && (
+                                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                                <button onClick={startEditing} className="btn btn-secondary" style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                                                    ✏️ Editar Información
+                                                </button>
+                                                <button onClick={handleReiniciarTiempo} className="btn btn-secondary" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                                                    ⏰ Reiniciar Tiempo
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -1125,17 +1354,19 @@ loadData();
                     )}
                 </div>
                 
-                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                    {showLiquidar && (
-                        <button type="button" onClick={() => setShowLiquidar(false)} className="btn btn-ghost" disabled={isManaging}>Volver</button>
-                    )}
-                    <button type="button" onClick={() => setSelectedEvento(null)} className="btn btn-ghost" disabled={isManaging}>Cerrar</button>
-                    {showLiquidar && (
-                        <button type="button" onClick={handleLiquidarFinal} className="btn btn-primary" style={{ background: '#16a34a' }} disabled={isManaging}>
-                            {isManaging ? 'Procesando...' : 'Confirmar Liquidación'}
-                        </button>
-                    )}
-                </div>
+                {!isEditing && (
+                    <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                        {showLiquidar && (
+                            <button type="button" onClick={() => setShowLiquidar(false)} className="btn btn-ghost" disabled={isManaging}>Volver</button>
+                        )}
+                        <button type="button" onClick={() => setSelectedEvento(null)} className="btn btn-ghost" disabled={isManaging}>Cerrar</button>
+                        {showLiquidar && (
+                            <button type="button" onClick={handleLiquidarFinal} className="btn btn-primary" style={{ background: '#16a34a' }} disabled={isManaging}>
+                                {isManaging ? 'Procesando...' : 'Confirmar Liquidación'}
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
           </div>
        )}

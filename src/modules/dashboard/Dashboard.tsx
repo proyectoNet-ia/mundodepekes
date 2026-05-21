@@ -352,12 +352,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
   });
 
   const cumpleanosGroups = cumpleanosActivos.map(ev => {
-      const paquete = paquetesDisponibles.find(p => p.precio === ev.precio_por_nino);
+      const paquete = (ev.paquete_id ? paquetesDisponibles.find(p => p.id === ev.paquete_id) : null) || 
+                      paquetesDisponibles.find(p => p.precio === ev.precio_por_nino);
       const [year, month, day] = ev.fecha_evento.split('-');
       const [h, m] = ev.hora_inicio.split(':');
       const start = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(h), parseInt(m));
       const duracion = paquete?.duracion_minutos || 120;
       const end = new Date(start.getTime() + duracion * 60000);
+      
+      const endMins = parseInt(h) * 60 + parseInt(m) + duracion;
+      const endH = Math.floor(endMins / 60);
+      const endM = endMins % 60;
+      const horaFin = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 
       return {
           transaccionId: ev.id,
@@ -374,7 +380,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
           sessions: [],
           isOffline: false,
           isCumpleanos: true,
-          estado: ev.estado
+          estado: ev.estado,
+          nombreFestejado: ev.nombre_festejado,
+          anticipoPagado: ev.anticipo_pagado,
+          precioPorNino: ev.precio_por_nino,
+          horaInicio: ev.hora_inicio,
+          horaFin: horaFin
       };
   });
 
@@ -1021,10 +1032,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                   {/* Header del evento */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#92400e', fontWeight: 800 }}>{event.packageName}</h3>
+                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#92400e', fontWeight: 800 }}>
+                        {event.isCumpleanos ? `Cumpleaños de ${event.nombreFestejado}` : event.packageName}
+                      </h3>
                       <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.85rem', color: '#78350f', fontWeight: 600 }}>
-                          <FontAwesomeIcon icon={faUser} style={{ marginRight: '4px', opacity: 0.7 }} /> {event.tutorName}
+                          <FontAwesomeIcon icon={faUser} style={{ marginRight: '4px', opacity: 0.7 }} /> {event.isCumpleanos ? `Cliente: ${event.tutorName}` : event.tutorName}
                         </span>
                         {(event as any).tutorPhone && (
                           <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 800 }}>
@@ -1048,6 +1061,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                           </span>
                         )}
                       </div>
+                      
+                      {event.isCumpleanos && (
+                        <div style={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                          gap: '0.5rem 1rem', 
+                          marginTop: '0.75rem', 
+                          paddingTop: '0.75rem', 
+                          borderTop: '1px dashed rgba(217, 119, 6, 0.25)',
+                          fontSize: '0.85rem',
+                          color: '#78350f'
+                        }}>
+                          <div>⏰ <strong>{event.horaInicio.substring(0, 5)} - {event.horaFin}</strong> ({event.packageName})</div>
+                          <div>📍 <strong>{event.area}</strong></div>
+                          <div>💰 Anticipo: <strong>${event.anticipoPagado}</strong></div>
+                          <div>🧒 Costo: <strong>${event.precioPorNino}/niño</strong></div>
+                        </div>
+                      )}
                     </div>
                     {!(event as any).isCumpleanos ? (
                       <button
@@ -1083,22 +1114,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                     ) : (
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         {event.estado === 'agendado' ? (
-                          <button
-                            style={{ 
-                              background: '#3b82f6', 
-                              color: 'white', 
-                              border: 'none', 
-                              borderRadius: '8px', 
-                              padding: '0.5rem 1rem', 
-                              fontWeight: 700, 
-                              fontSize: '0.8rem', 
-                              cursor: 'pointer',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                            }}
-                            onClick={() => handleIniciarBirthdayDirecto(event.transaccionId)}
-                          >
-                            ▶️ Iniciar
-                          </button>
+                          <>
+                            <button
+                              style={{ 
+                                background: '#3b82f6', 
+                                color: 'white', 
+                                border: 'none', 
+                                borderRadius: '8px', 
+                                padding: '0.5rem 1rem', 
+                                fontWeight: 700, 
+                                fontSize: '0.8rem', 
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                              }}
+                              onClick={() => handleIniciarBirthdayDirecto(event.transaccionId)}
+                            >
+                              ▶️ Iniciar
+                            </button>
+                            <button
+                              style={{ 
+                                background: '#f59e0b', 
+                                color: 'white', 
+                                border: 'none', 
+                                borderRadius: '8px', 
+                                padding: '0.5rem 0.8rem', 
+                                fontWeight: 700, 
+                                fontSize: '0.8rem', 
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                              }}
+                              onClick={() => onManageBirthday?.(event.transaccionId)}
+                              title="Editar / Cancelar"
+                            >
+                              ✏️ Gestionar
+                            </button>
+                          </>
                         ) : (
                           <button
                             style={{ 
@@ -1114,7 +1164,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                             }}
                             onClick={() => onManageBirthday?.(event.transaccionId)}
                           >
-                            💰 Liquidar
+                            ⚙️ Administrar
                           </button>
                         )}
                       </div>

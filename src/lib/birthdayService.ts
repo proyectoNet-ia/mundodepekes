@@ -82,6 +82,37 @@ export const birthdayService = {
         }
     },
 
+    async updateEvento(id: string, updates: Partial<Cumpleanos>) {
+        try {
+            const { data, error } = await supabase
+                .from('eventos_cumpleanos')
+                .update(updates)
+                .eq('id', id)
+                .select()
+                .single();
+            
+            if (error) {
+                if (error.message.includes('column') || error.message.includes('schema cache')) {
+                    console.warn("⚠️ Las columnas nuevas no existen en Supabase. Intentando fallback sin paquete_id ni area.");
+                    const { paquete_id, area, ...fallbackUpdates } = updates as any;
+                    const { data: fbData, error: fbError } = await supabase
+                        .from('eventos_cumpleanos')
+                        .update(fallbackUpdates)
+                        .eq('id', id)
+                        .select()
+                        .single();
+                    if (fbError) throw fbError;
+                    return fbData as Cumpleanos;
+                }
+                throw error;
+            }
+            return data as Cumpleanos;
+        } catch (err) {
+            console.error("Error en updateEvento:", err);
+            throw err;
+        }
+    },
+
     async cambiarEstado(id: string, nuevoEstado: Cumpleanos['estado'], totalFinal: number = 0) {
         const updateData: any = { estado: nuevoEstado, total_final: totalFinal };
         
