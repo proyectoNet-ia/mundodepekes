@@ -63,6 +63,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
     };
 
     const canSee = (tab: string) => {
+        if (tab === 'birthdays') return true;
         if (userRole === 'admin') return true;
         switch (userRole) {
             case 'gerente':
