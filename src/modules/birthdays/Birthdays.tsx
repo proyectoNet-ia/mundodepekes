@@ -72,6 +72,8 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
   const [showLiquidar, setShowLiquidar] = useState(false);
   const [totalNinos, setTotalNinos] = useState(10);
   const [metodoPagoLiquidacion, setMetodoPagoLiquidacion] = useState('Efectivo');
+  const [montoEfectivo, setMontoEfectivo] = useState<number | ''>('');
+  const [montoTarjeta, setMontoTarjeta] = useState<number | ''>('');
   const [extras, setExtras] = useState<{ item: StockItem, qty: number }[]>([]);
   const [searchItem, setSearchItem] = useState('');
   const [bebidasIncluidas, setBebidasIncluidas] = useState<{ item: StockItem, qty: number }[]>([]);
@@ -513,7 +515,18 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
           
           // 4. Registrar transacción financiera
           if (total_final > 0) {
-              await birthdayService.registrarTransaccionFinanciera(total_final, metodoPagoLiquidacion, selectedEvento.paquete_id, `Liquidación final de cumpleaños (Festejado: ${selectedEvento.nombre_festejado})`);
+              if (metodoPagoLiquidacion === 'Mixto') {
+                  const efectivo = Number(montoEfectivo) || 0;
+                  const tarjeta = Number(montoTarjeta) || 0;
+                  if (efectivo > 0) {
+                      await birthdayService.registrarTransaccionFinanciera(efectivo, 'Efectivo', selectedEvento.paquete_id, `Liquidación final (Mixto - Efectivo) cumpleaños (Festejado: ${selectedEvento.nombre_festejado})`);
+                  }
+                  if (tarjeta > 0) {
+                      await birthdayService.registrarTransaccionFinanciera(tarjeta, 'Tarjeta', selectedEvento.paquete_id, `Liquidación final (Mixto - Tarjeta) cumpleaños (Festejado: ${selectedEvento.nombre_festejado})`);
+                  }
+              } else {
+                  await birthdayService.registrarTransaccionFinanciera(total_final, metodoPagoLiquidacion, selectedEvento.paquete_id, `Liquidación final de cumpleaños (Festejado: ${selectedEvento.nombre_festejado})`);
+              }
           }
           
           showToast(`Evento liquidado. Se registraron ${totalNinos} niños.`, 'success');
@@ -1115,7 +1128,6 @@ loadData();
                                     <select name="metodo_pago_anticipo" defaultValue={selectedEvento.metodo_pago_anticipo} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
                                         <option value="efectivo">Efectivo</option>
                                         <option value="tarjeta">Tarjeta (Crédito/Débito)</option>
-                                        <option value="transferencia">Transferencia</option>
                                     </select>
                                 </div>
                             </div>
@@ -1342,13 +1354,33 @@ loadData();
                                     >
                                         <option value="Efectivo">Efectivo</option>
                                         <option value="Tarjeta">Tarjeta</option>
-                                        <option value="Transferencia">Transferencia</option>
+                                        <option value="Mixto">Mixto (Dividir Pago)</option>
                                     </select>
                                 </div>
+                                {metodoPagoLiquidacion === 'Mixto' && (
+                                    <div style={{ background: '#f1f5f9', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                                        <h5 style={{ margin: '0 0 0.75rem 0', color: '#475569', fontSize: '0.9rem' }}>Desglose de Pago</h5>
+                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '0.25rem' }}>Efectivo ($)</label>
+                                                <input type="number" step="0.01" min="0" value={montoEfectivo} onChange={(e) => setMontoEfectivo(e.target.value !== '' ? Number(e.target.value) : '')} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '0.25rem' }}>Tarjeta ($)</label>
+                                                <input type="number" step="0.01" min="0" value={montoTarjeta} onChange={(e) => setMontoTarjeta(e.target.value !== '' ? Number(e.target.value) : '')} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.5rem' }}>
                                     <strong>TOTAL A PAGAR</strong>
                                     <strong style={{ color: '#16a34a' }}>${calcularTotalPagar().toFixed(2)}</strong>
                                 </div>
+                                {metodoPagoLiquidacion === 'Mixto' && (Number(montoEfectivo) || 0) + (Number(montoTarjeta) || 0) !== calcularTotalPagar() && (
+                                    <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem', textAlign: 'right' }}>
+                                        La suma de los montos debe ser exactamente ${calcularTotalPagar().toFixed(2)}. Diferencia: ${Math.abs(calcularTotalPagar() - ((Number(montoEfectivo) || 0) + (Number(montoTarjeta) || 0))).toFixed(2)}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1361,7 +1393,7 @@ loadData();
                         )}
                         <button type="button" onClick={() => setSelectedEvento(null)} className="btn btn-ghost" disabled={isManaging}>Cerrar</button>
                         {showLiquidar && (
-                            <button type="button" onClick={handleLiquidarFinal} className="btn btn-primary" style={{ background: '#16a34a' }} disabled={isManaging}>
+                            <button type="button" onClick={handleLiquidarFinal} className="btn btn-primary" style={{ background: '#16a34a' }} disabled={isManaging || (metodoPagoLiquidacion === 'Mixto' && ((Number(montoEfectivo) || 0) + (Number(montoTarjeta) || 0) !== calcularTotalPagar()))}>
                                 {isManaging ? 'Procesando...' : 'Confirmar Liquidación'}
                             </button>
                         )}
