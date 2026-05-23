@@ -311,9 +311,9 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
 
     const handleTutorEntry = async (tutor: RecordData) => {
         try {
-            const { data: children } = await supabase.from('ninos').select('*').eq('tutor_id', tutor.id);
+            const { data: children } = await supabase.from('ninos').select('*').eq('cliente_id', tutor.id);
             if (children && onEntry) {
-                onEntry({ registeredChildren: children, tutorId: tutor.id, tutorName: tutor.name });
+                onEntry({ registeredChildren: children, tutorId: tutor.id, tutorName: tutor.name, tutorContact: tutor.tutorPhone || tutor.details });
             }
         } catch (err) {
             showToast('Error al buscar niños', 'error');
