@@ -246,14 +246,14 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
           }
           setCustomer({
             id: reentryData.tutorId || reentryData.clientes?.id,
-            phone: reentryData.tutorContact || reentryData.clientes?.telefono || reentryData.phone || '',
+            phone: reentryData.tutorContact || reentryData.tutorPhone || reentryData.clientes?.telefono || reentryData.phone || '',
             name: reentryData.tutorName || reentryData.clientes?.nombre || reentryData.name || '',
             email: reentryData.email || reentryData.clientes?.email || '',
             visitsCount: reentryData.visitsCount || reentryData.clientes?.visitas_acumuladas || 0,
             whatsapp_verificado: reentryData.whatsapp_verificado || reentryData.clientes?.whatsapp_verificado || false
           });
           // Actualizar el prefijo basado en el número real
-          setMainPrefix(extractPrefix(reentryData.tutorContact || reentryData.clientes?.telefono || reentryData.phone || ''));
+          setMainPrefix(extractPrefix(reentryData.tutorContact || reentryData.tutorPhone || reentryData.clientes?.telefono || reentryData.phone || ''));
           if (reentryData.presaleChildren && reentryData.presaleChildren.length > 0) {
             setChildren(reentryData.presaleChildren.map((n: any) => ({
               name: n.nombre || '',
@@ -303,10 +303,12 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
             setCurrentStep('NINO');
           } else {
             setChildren([{ 
-              id: reentryData.childId,
-              name: reentryData.childName || reentryData.nombre || '', 
-              age: reentryData.edad || 0,
+              id: reentryData.childId || (reentryData.type === 'child' ? reentryData.id : undefined),
+              name: reentryData.childName || reentryData.nombre || reentryData.name || '', 
+              age: reentryData.edad || reentryData.age || 0,
               included: true,
+              enListaNegra: reentryData.enListaNegra || reentryData.isBlacklisted,
+              observations: reentryData.observaciones || reentryData.observations,
               previousEndTime: reentryData.rawEndTime ? (typeof reentryData.rawEndTime === 'string' ? reentryData.rawEndTime : reentryData.rawEndTime.toISOString()) : undefined
             }]);
             setCurrentStep('PAQUETE');
