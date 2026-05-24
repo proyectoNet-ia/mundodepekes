@@ -268,11 +268,13 @@ export class PrinterService {
         lines.push(bold('TOTAL VENTAS:'.padEnd(25) + `$ ${data.totalVentas.toFixed(2)}`.padStart(13)));
 
         if (data.gastos.length > 0) {
-            lines.push('GASTOS DEL TURNO:');
+            lines.push('MOVIMIENTOS DE CAJA:');
             data.gastos.forEach(g => {
-                lines.push(` - ${n(g.concepto).substring(0, 22).padEnd(23)}$ ${g.monto.toFixed(2)}`.padStart(13));
+                const label = g.monto < 0 ? '(+) ENTRADA ' : '(-) SALIDA  ';
+                const absMonto = Math.abs(g.monto);
+                lines.push(` - ${label}${n(g.concepto).substring(0, 10).padEnd(11)}$ ${absMonto.toFixed(2)}`);
             });
-            lines.push('TOTAL GASTOS:'.padEnd(25) + `$ ${data.totalGastos.toFixed(2)}`.padStart(13));
+            lines.push('NETO EGRESOS:'.padEnd(25) + `$ ${data.totalGastos.toFixed(2)}`.padStart(13));
         }
 
         if (data.productosVendidos && data.productosVendidos.length > 0) {

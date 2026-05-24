@@ -42,6 +42,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     const [authActionPayload] = useState<{type: 'expense' | 'cancel_ticket', data?: any} | null>(null);
     const [authorizer, setAuthorizer] = useState<UserProfile | null>(null);
     const [isSavingExpense, setIsSavingExpense] = useState(false);
+    const [movementType, setMovementType] = useState<'egreso' | 'ingreso'>('egreso');
 
     // Modal de motivo de cancelación de ticket
     const [showCancelReasonModal, setShowCancelReasonModal] = useState(false);
@@ -257,12 +258,23 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
 
     const handleRecordExpense = async () => {
         const monto = getNumericAmount(expenseMonto);
-        if (!monto || !expenseDesc) return showToast('Ingrese monto y concepto del gasto', 'warning');
+        if (!monto || !expenseDesc) {
+            return showToast(
+                movementType === 'ingreso' ? 'Ingrese monto y concepto de la entrada' : 'Ingrese monto y concepto del gasto', 
+                'warning'
+            );
+        }
+
+        const finalMonto = movementType === 'ingreso' ? -monto : monto;
+        const categoria = movementType === 'ingreso' ? 'Otros' : 'Insumos';
 
         setIsSavingExpense(true);
         try {
-            await recordExpense(monto, expenseDesc, hasTicket, authorizer?.email || 'Gerente', 'Insumos');
-            showToast('Gasto registrado y autorizado', 'success');
+            await recordExpense(finalMonto, expenseDesc, hasTicket, authorizer?.email || 'Gerente', categoria);
+            showToast(
+                movementType === 'ingreso' ? 'Entrada registrada y autorizada' : 'Gasto registrado y autorizado', 
+                'success'
+            );
             setExpenseMonto('');
             setExpenseDesc('');
             setHasTicket(false);
@@ -270,7 +282,10 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
             setShowExpenseModal(false);
             await loadData();
         } catch (error) {
-            showToast('No se pudo registrar el gasto', 'error');
+            showToast(
+                movementType === 'ingreso' ? 'No se pudo registrar la entrada' : 'No se pudo registrar el gasto', 
+                'error'
+            );
         } finally {
             setIsSavingExpense(false);
         }
@@ -321,6 +336,9 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
         );
     }
 
+    const totalSalidas = expenses.filter(e => e.monto > 0).reduce((acc, e) => acc + e.monto, 0);
+    const totalEntradas = expenses.filter(e => e.monto < 0).reduce((acc, e) => acc + Math.abs(e.monto), 0);
+
     return (
         <div className={styles.container}>
             <header className={styles.header}>
@@ -361,49 +379,65 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                 <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${summary.tarjeta.toFixed(2)}</strong>
                             </div>
                         </div>
-                        <div className={styles.metricItem}>
+                        <div className={styles.metricItem} style={{ borderLeft: '4px solid #10b981' }}>
+                            <div className={styles.metricIcon} style={{ background: '#ccfbf1', color: '#115e59' }}>
+                                <FontAwesomeIcon icon={faMoneyBillWave} />
+                            </div>
+                            <div className={styles.metricInfo}>
+                                <span>Entradas / Refuerzos</span>
+                                <strong>+${totalEntradas.toFixed(2)}</strong>
+                            </div>
+                        </div>
+                        <div className={styles.metricItem} style={{ borderLeft: '4px solid #ef4444' }}>
                             <div className={styles.metricIcon} style={{ background: '#fef2f2', color: '#991b1b' }}>
                                 <FontAwesomeIcon icon={faMinusCircle} />
                             </div>
                             <div className={styles.metricInfo}>
                                 <span>Gastos / Salidas</span>
-                                <strong>-${summary.gastos.toFixed(2)}</strong>
+                                <strong>-${totalSalidas.toFixed(2)}</strong>
                             </div>
                         </div>
                     </div>
-
+ 
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                         <button 
                             className={styles.expenseActionBtn} 
-                            style={{ flex: 1, background: '#f8fafc', color: '#0f172a', border: '1px solid #e2e8f0' }}
+                            style={{ flex: 1, background: '#f8fafc', color: '#0f172a', border: '1px solid #e2e8f0', margin: '0' }}
                             onClick={handleOpenTickets}
                         >
                             <FontAwesomeIcon icon={faTicketAlt} style={{ color: '#3b82f6' }} /> CONSULTAR TICKETS
                         </button>
                         <button 
                             className={styles.expenseActionBtn} 
-                            style={{ flex: 1 }}
+                            style={{ flex: 1, margin: '0' }}
                             onClick={() => { 
                                 setAuthorizer(user);
+                                setMovementType('egreso');
                                 setShowExpenseModal(true);
                             }}
                         >
-                            <FontAwesomeIcon icon={faShieldAlt} /> REGISTRAR GASTO
+                            <FontAwesomeIcon icon={faShieldAlt} /> REGISTRAR MOVIMIENTO
                         </button>
                     </div>
-
+ 
                     <div className={styles.totalSection}>
                         <div className={styles.totalRow}>
                             <span>Ingresos Totales (Ventas):</span>
                             <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(summary.efectivo + summary.tarjeta).toFixed(2)}</span>
                         </div>
+                        {totalEntradas > 0 && (
+                            <div className={styles.totalRow} style={{ color: '#10b981' }}>
+                                <span>Entradas de Efectivo (Refuerzos):</span>
+                                <span>+${totalEntradas.toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className={styles.totalRow} style={{ color: '#dc2626' }}>
                             <span>Egresos Totales (Gastos):</span>
-                            <span>-${summary.gastos.toFixed(2)}</span>
+                            <span>-${totalSalidas.toFixed(2)}</span>
                         </div>
                         <div className={styles.totalRow + ' ' + styles.finalTotal}>
                             <span>Saldo Neto en Caja:</span>
-                            <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(activeSession ? activeSession.monto_inicial + summary.efectivo + summary.tarjeta - summary.gastos : 0).toFixed(2)}</strong>
+                            <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(activeSession ? activeSession.monto_inicial + summary.efectivo + summary.tarjeta + totalEntradas - totalSalidas : 0).toFixed(2)}</strong>
                         </div>
                         {summary.cancelados_count > 0 && (
                             <div className={styles.cancelledSummary}>
@@ -450,15 +484,21 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                         <span><FontAwesomeIcon icon={faCreditCard} style={{marginRight: '8px'}} /> Ventas Tarjeta:</span>
                                         <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${summary.tarjeta.toFixed(2)}</span>
                                     </div>
+                                    {totalEntradas > 0 && (
+                                        <div className={styles.balanceRow} style={{ color: '#10b981' }}>
+                                            <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Entradas/Refuerzos:</span>
+                                            <span>+${totalEntradas.toFixed(2)}</span>
+                                        </div>
+                                    )}
                                     <div className={styles.balanceRow}>
                                         <span><FontAwesomeIcon icon={faMinusCircle} style={{marginRight: '8px'}} /> Gastos Registrados:</span>
-                                        <span>-${summary.gastos.toFixed(2)}</span>
+                                        <span>-${totalSalidas.toFixed(2)}</span>
                                     </div>
                                     <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid var(--border-color)' }} />
                                     <div className={styles.balanceRow}>
                                         <span style={{ fontWeight: 800 }}>Esperado en Efectivo:</span>
                                         <strong style={{ fontSize: '1.8rem', color: 'var(--brand-600)' }} className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>
-                                            ${(activeSession.monto_inicial + summary.efectivo - summary.gastos).toFixed(2)}
+                                            ${(activeSession.monto_inicial + summary.efectivo + totalEntradas - totalSalidas).toFixed(2)}
                                         </strong>
                                     </div>
                                 </div>
@@ -506,18 +546,44 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     )}
 
                     {showExpenseModal && (
-                        <div className={styles.modalOverlay} onClick={() => setShowExpenseModal(false)}>
+                        <div className={styles.modalOverlay} onClick={() => {
+                            setShowExpenseModal(false);
+                            setExpenseMonto('');
+                            setExpenseDesc('');
+                            setHasTicket(false);
+                        }}>
                             <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                                <div className={styles.modalTabs}>
+                                    <button 
+                                        type="button"
+                                        className={`${styles.modalTab} ${movementType === 'egreso' ? styles.activeTabEgreso : ''}`}
+                                        onClick={() => setMovementType('egreso')}
+                                    >
+                                        Salida (Gasto)
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        className={`${styles.modalTab} ${movementType === 'ingreso' ? styles.activeTabIngreso : ''}`}
+                                        onClick={() => setMovementType('ingreso')}
+                                    >
+                                        Entrada (Refuerzo)
+                                    </button>
+                                </div>
+
                                 <div className={styles.modalHeader}>
-                                    <h3>Registrar Salida de Efectivo</h3>
-                                    <p>Este monto se descontará automáticamente del efectivo esperado al cierre.</p>
+                                    <h3>{movementType === 'ingreso' ? 'Registrar Entrada de Efectivo' : 'Registrar Salida de Efectivo'}</h3>
+                                    <p>
+                                        {movementType === 'ingreso' 
+                                            ? 'Este monto se sumará automáticamente al efectivo esperado al cierre.' 
+                                            : 'Este monto se descontará automáticamente del efectivo esperado al cierre.'}
+                                    </p>
                                 </div>
                                 
                                 <div className={styles.inputGroup}>
-                                    <label>Concepto / Concepto del Gasto</label>
+                                    <label>{movementType === 'ingreso' ? 'Concepto del Ingreso' : 'Concepto del Gasto'}</label>
                                     <input 
                                         type="text"
-                                        placeholder="Ej: Compra de insumos, pago de servicios..."
+                                        placeholder={movementType === 'ingreso' ? 'Ej: Refuerzo de caja, fondo extra...' : 'Ej: Compra de insumos, pago de servicios...'}
                                         value={expenseDesc}
                                         onChange={(e) => setExpenseDesc(e.target.value)}
                                         autoFocus
@@ -525,7 +591,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                 </div>
 
                                 <div className={styles.inputGroup}>
-                                    <label>Monto a retirar de caja</label>
+                                    <label>{movementType === 'ingreso' ? 'Monto a ingresar a caja' : 'Monto a retirar de caja'}</label>
                                     <div className={styles.inputWithIcon}>
                                         <span>$</span>
                                         <input 
@@ -552,11 +618,21 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                 </div>
 
                                 <div className={styles.modalActions}>
-                                    <button className="btn btn-secondary" onClick={() => setShowExpenseModal(false)}>
+                                    <button className="btn btn-secondary" onClick={() => {
+                                        setShowExpenseModal(false);
+                                        setExpenseMonto('');
+                                        setExpenseDesc('');
+                                        setHasTicket(false);
+                                    }}>
                                         Cancelar
                                     </button>
-                                    <button className="btn btn-danger" onClick={handleRecordExpense} disabled={isSavingExpense}>
-                                        {isSavingExpense ? 'Guardando...' : 'Confirmar Salida'}
+                                    <button 
+                                        className={movementType === 'ingreso' ? 'btn btn-primary' : 'btn btn-danger'} 
+                                        style={movementType === 'ingreso' ? { background: '#10b981', borderColor: '#10b981', color: 'white' } : undefined}
+                                        onClick={handleRecordExpense} 
+                                        disabled={isSavingExpense}
+                                    >
+                                        {isSavingExpense ? 'Guardando...' : movementType === 'ingreso' ? 'Confirmar Entrada' : 'Confirmar Salida'}
                                     </button>
                                 </div>
                             </div>
@@ -567,22 +643,29 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
 
                 <section className={styles.expensesCard}>
                     <div className={styles.cardHeader}>
-                        <h3><FontAwesomeIcon icon={faCartArrowDown} /> Gastos del Turno</h3>
+                        <h3><FontAwesomeIcon icon={faCartArrowDown} /> Movimientos de Caja</h3>
                     </div>
                     <div className={styles.expensesList}>
-                        {expenses.length > 0 ? expenses.map(exp => (
-                            <div key={exp.id} className={styles.expenseItem}>
-                                <div className={styles.expenseData}>
-                                    <span className={styles.expenseDesc}>
-                                        {exp.tiene_comprobante && <FontAwesomeIcon icon={faReceipt} style={{ color: '#10b981', marginRight: '6px' }} title="Con Comprobante" />}
-                                        {exp.descripcion}
-                                    </span>
-                                    <small>{new Date(exp.fecha || exp.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                        {expenses.length > 0 ? expenses.map(exp => {
+                            const isIncome = exp.monto < 0;
+                            return (
+                                <div key={exp.id} className={`${styles.expenseItem} ${isIncome ? styles.incomeItem : ''}`}>
+                                    <div className={styles.expenseData}>
+                                        <span className={styles.expenseDesc}>
+                                            {exp.tiene_comprobante && <FontAwesomeIcon icon={faReceipt} style={{ color: '#10b981', marginRight: '6px' }} title="Con Comprobante" />}
+                                            {exp.descripcion}
+                                        </span>
+                                        <small>{new Date(exp.fecha || exp.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                                    </div>
+                                    {isIncome ? (
+                                        <strong className={styles.incomeAmount}>+${Math.abs(exp.monto).toFixed(2)}</strong>
+                                    ) : (
+                                        <strong className={styles.expenseAmount}>-${exp.monto.toFixed(2)}</strong>
+                                    )}
                                 </div>
-                                <strong className={styles.expenseAmount}>-${exp.monto.toFixed(2)}</strong>
-                            </div>
-                        )) : (
-                            <p className={styles.emptyText}>No hay gastos registrados.</p>
+                            );
+                        }) : (
+                            <p className={styles.emptyText}>No hay movimientos registrados.</p>
                         )}
                     </div>
                     {showTicketsModal && (

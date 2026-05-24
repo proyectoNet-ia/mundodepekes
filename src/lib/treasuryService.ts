@@ -227,9 +227,11 @@ export const recordExpense = async (monto: number, descripcion: string, tieneCom
     if (error) throw error;
   
     await AuditService.log({
-      accion: 'EGRESO' as any,
+      accion: (monto < 0 ? 'INGRESO' : 'EGRESO') as any,
       modulo: 'TESORERIA',
-      descripcion: `Gasto registrado por $ ${monto}: ${descripcion}`,
+      descripcion: monto < 0 
+        ? `Entrada de caja registrada por $ ${Math.abs(monto)}: ${descripcion}` 
+        : `Gasto registrado por $ ${monto}: ${descripcion}`,
       metadatos: { expense_id: data.id, arqueo_id: data.arqueo_id }
     });
   

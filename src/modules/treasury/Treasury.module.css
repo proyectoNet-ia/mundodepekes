@@ -1041,3 +1041,52 @@
     justify-content: flex-end;
     align-items: center;
 }
+
+/* Selector de pestañas para el Modal de Movimiento de Caja */
+.modalTabs {
+    display: flex;
+    gap: 0.5rem;
+    background: #f1f5f9;
+    padding: 0.25rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+}
+
+.modalTab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #64748b;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modalTab:hover {
+    color: var(--text-primary);
+}
+
+.activeTabEgreso {
+    background: #ffffff;
+    color: #ef4444 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.activeTabIngreso {
+    background: #ffffff;
+    color: #10b981 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Modificadores para Entradas de Efectivo (Ingresos) */
+.incomeItem {
+    border-left: 4px solid #10b981 !important;
+}
+
+.incomeAmount {
+    color: #10b981;
+    font-weight: 800;
+}
