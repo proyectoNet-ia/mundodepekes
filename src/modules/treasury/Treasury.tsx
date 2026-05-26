@@ -399,7 +399,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                         </div>
                     </div>
  
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', marginBottom: '1.5rem' }}>
                         <button 
                             className={styles.expenseActionBtn} 
                             style={{ flex: 1, background: '#f8fafc', color: '#0f172a', border: '1px solid #e2e8f0', margin: '0' }}
