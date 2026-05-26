@@ -475,6 +475,7 @@ export const Analytics: React.FC = () => {
                           <tr>
                               <th>Fecha / Hora</th>
                               <th>Ventas Efe.</th>
+                              <th>Ventas Tarj.</th>
                               <th>Gastos</th>
                               <th>Esperado</th>
                               <th>Real</th>
@@ -484,14 +485,15 @@ export const Analytics: React.FC = () => {
                       </thead>
                       <tbody>
                           {(() => {
-                              const sortedHistory = [...data.auditHistory].reverse();
+                              const sortedHistory = data.auditHistory;
                               const startIndex = (historyPage - 1) * ITEMS_PER_PAGE_HISTORY;
                               const visibleHistory = sortedHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE_HISTORY);
                               return visibleHistory.map(session => (
                                   <tr key={session.id}>
                                       <td data-label="Fecha"><strong>{session.date}</strong><div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{session.time}</div></td>
-                                      <td data-label="Ventas Efe.">${session.ventas.toLocaleString('es-MX')}</td>
-                                      <td data-label="Gastos" style={{ color: '#ef4444' }}>-${session.gastos.toLocaleString('es-MX')}</td>
+                                      <td data-label="Ventas Efe.">${(session.ventas || 0).toLocaleString('es-MX')}</td>
+                                      <td data-label="Ventas Tarj." style={{ color: '#6366f1' }}>${(session.ventasTarjeta || 0).toLocaleString('es-MX')}</td>
+                                      <td data-label="Gastos" style={{ color: '#ef4444' }}>-${(session.gastos || 0).toLocaleString('es-MX')}</td>
                                       <td data-label="Esperado">${session.esperado.toLocaleString('es-MX')}</td>
                                       <td data-label="Real" style={{ fontWeight: 700 }}>${session.real.toLocaleString('es-MX')}</td>
                                       <td data-label="Precisión">

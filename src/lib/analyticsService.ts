@@ -17,7 +17,7 @@ export const getFullAnalytics = async (days = 7): Promise<any> => {
     supabase.from('sesiones').select('paquete_id, area_actual, hora_inicio, paquetes(nombre)').gte('hora_inicio', since),
     supabase.from('clientes').select('id, visitas_acumuladas', { count: 'exact' }),
     supabase.from('gastos_diarios').select('monto, fecha, categoria, arqueo_id').gte('fecha', since.split('T')[0]),
-    supabase.from('arqueos_caja').select('id, fecha_apertura, monto_inicial, monto_final_efectivo_esperado, monto_final_real').neq('estado', 'abierta').gte('fecha_apertura', since)
+    supabase.from('arqueos_caja').select('id, fecha_apertura, monto_inicial, monto_final_efectivo_esperado, monto_final_tarjeta_esperado, monto_final_real').neq('estado', 'abierta').gte('fecha_apertura', since)
   ]);
 
   if (tErr || sErr || cErr || eErr || hErr) throw tErr || sErr || cErr || eErr || hErr;
@@ -109,24 +109,38 @@ export const getFullAnalytics = async (days = 7): Promise<any> => {
     const gastosTurno = expenses?.filter(e => e.arqueo_id === sh.id).reduce((acc, g) => acc + Number(g.monto), 0) || 0;
     const inicial = Number(sh.monto_inicial);
     const ventas = Number(sh.monto_final_efectivo_esperado);
+    const ventasTarjeta = Number(sh.monto_final_tarjeta_esperado) || 0;
     const real = Number(sh.monto_final_real);
 
     const esperadoTotal = (inicial + ventas) - gastosTurno;
     const diff = real - esperadoTotal;
     
+    const d = new Date(sh.fecha_apertura);
+    const dayName = d.toLocaleDateString('es-MX', { weekday: 'short' });
+    const monthName = d.toLocaleDateString('es-MX', { month: 'short' });
+    const capDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1).replace('.', '');
+    const capMonthName = monthName.charAt(0).toUpperCase() + monthName.slice(1).replace('.', '');
+    const capitalizedDate = `${capDayName} ${d.getDate()}, ${capMonthName} ${d.getFullYear()}`;
+
     return {
       id: sh.id,
-      date: new Date(sh.fecha_apertura).toLocaleDateString([], { day: '2-digit', month: 'short' }),
-      time: new Date(sh.fecha_apertura).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: capitalizedDate,
+      time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       fullDate: sh.fecha_apertura,
       inicial,
       ventas,
+      ventasTarjeta,
       gastos: gastosTurno,
       real,
       esperado: esperadoTotal,
       diff: Number(diff.toFixed(2))
     };
-  }).reverse() || [];
+  }).sort((a, b) => {
+      const timeDiff = new Date(b.fullDate).getTime() - new Date(a.fullDate).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      if (!isNaN(Number(a.id)) && !isNaN(Number(b.id))) return Number(b.id) - Number(a.id);
+      return b.id.toString().localeCompare(a.id.toString());
+  }) || [];
 
   // 7. Metrics & Monthly ROI Calculation
   const totalIncome = trans?.reduce((acc, t) => acc + Number(t.total), 0) || 0;
