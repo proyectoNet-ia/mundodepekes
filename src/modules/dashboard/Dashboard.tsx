@@ -1278,8 +1278,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
           
           const formatPhone = (p: string) => {
               const clean = p.replace(/\D/g, '');
+              if (clean.length === 12 && clean.startsWith('52')) return `+52 (${clean.slice(2,5)}) ${clean.slice(5,8)}-${clean.slice(8)}`;
+              if (clean.length === 11 && clean.startsWith('1')) return `+1 (${clean.slice(1,4)}) ${clean.slice(4,7)}-${clean.slice(7)}`;
               if (clean.length === 10) return `(${clean.slice(0,3)}) ${clean.slice(3,6)}-${clean.slice(6)}`;
-              return p; // original if not 10 digits
+              return p; // original if doesn't match
           };
 
           return (
