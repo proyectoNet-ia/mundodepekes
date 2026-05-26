@@ -488,7 +488,7 @@ export const Analytics: React.FC = () => {
                               const sortedHistory = data.auditHistory;
                               const startIndex = (historyPage - 1) * ITEMS_PER_PAGE_HISTORY;
                               const visibleHistory = sortedHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE_HISTORY);
-                              return visibleHistory.map(session => (
+                              return visibleHistory.map((session: any) => (
                                   <tr key={session.id}>
                                       <td data-label="Fecha"><strong>{session.date}</strong><div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{session.time}</div></td>
                                       <td data-label="Ventas Efe.">${(session.ventas || 0).toLocaleString('es-MX')}</td>
