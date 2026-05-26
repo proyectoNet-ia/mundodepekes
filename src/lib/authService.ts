@@ -30,10 +30,15 @@ export const authService = {
             if (session?.user) {
                 try {
                     const profile = await this.getCurrentUser();
-                    callback(profile);
+                    if (profile) {
+                        callback(profile);
+                    } else {
+                        console.warn('Fallback activado: perfil devolvió null.');
+                        callback({ id: session.user.id, email: session.user.email || 'admin@mundodepekes.com', role: 'cajero', nombre_completo: 'Usuario (Fallback)' });
+                    }
                 } catch (e) {
                     console.warn('Auth fallback triggered after profile failure');
-                    callback({ id: session.user.id, email: session.user.email || '', role: 'cajero' });
+                    callback({ id: session.user.id, email: session.user.email || 'admin@mundodepekes.com', role: 'cajero', nombre_completo: 'Usuario (Fallback)' });
                 }
             } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
                 callback(null);

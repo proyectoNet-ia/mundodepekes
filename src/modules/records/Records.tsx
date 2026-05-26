@@ -4,7 +4,7 @@ import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
 import { getActiveSessions } from '../../lib/sessionService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash, faCheckCircle, faPhone } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 
 // Capitaliza nombres propios respetando preposiciones en español
@@ -158,7 +158,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                     }
                 }
 
-                let q = supabase.from('clientes').select('*, ninos(id)', { count: 'exact' });
+                let q = supabase.from('clientes').select('*, ninos(id, observaciones)', { count: 'exact' });
                 if (isSearching) {
                     q = q.or(`nombre.ilike.%${debouncedSearch}%,id.filter.ilike.%${debouncedSearch}%${idFilter}`);
                 }
@@ -169,12 +169,13 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                     results = [...results, ...clients.map(c => {
                         const totalKids = c.ninos ? c.ninos.length : 0;
                         const allKidsActive = totalKids > 0 && c.ninos.every((n: any) => activeChildIds.has(n.id));
+                        const kidsObs = c.ninos ? c.ninos.map((n: any) => n.observaciones).filter(Boolean).join(' | ') : '';
                         return {
                             id: c.id,
                             name: c.nombre,
                             type: 'tutor' as const,
                             subtext: 'Tutor / Responsable',
-                            details: c.telefono || 'Sin teléfono',
+                            details: kidsObs || 'Sin observaciones',
                             tutorPhone: c.telefono,
                             isBlacklisted: false,
                             allKidsActive: allKidsActive
@@ -209,7 +210,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                         name: c.nombre,
                         type: 'child' as const,
                         subtext: `Niño(a) · ${c.edad} años`,
-                        details: `Tutor: ${c.clientes?.nombre || 'Desconocido'}`,
+                        details: c.observaciones || 'Sin observaciones',
                         isBlacklisted: !!c.en_lista_negra,
                         tutorPhone: c.clientes?.telefono,
                         observations: c.observaciones
@@ -368,15 +369,15 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                                             <span className={styles.mainName}>{item.name}</span>
-                                            <span style={{ fontSize: '0.65rem', color: 'var(--brand-600)', fontWeight: 800, background: 'var(--brand-50)', padding: '2px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginTop: '4px' }}>
+                                            {item.tutorPhone && (
+                                                <span style={{ fontSize: '0.85rem', color: '#64748b', margin: '4px 0' }}>
+                                                    <FontAwesomeIcon icon={faPhone} style={{ marginRight: '6px', color: 'var(--brand-500)' }} />
+                                                    {formatDisplayPhone(item.tutorPhone.split(',')[0])}
+                                                </span>
+                                            )}
+                                            <span style={{ fontSize: '0.85rem', color: 'var(--brand-600)', fontWeight: 800, background: 'var(--brand-50)', padding: '2px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginTop: '2px' }}>
                                                 ID: {item.id.substring(0,8).toUpperCase()}
                                             </span>
-                                            {item.observations && (
-                                                <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '6px', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', maxWidth: '300px' }}>
-                                                    <FontAwesomeIcon icon={faEdit} style={{ marginRight: '6px', fontSize: '0.65rem', color: '#94a3b8' }} />
-                                                    {item.observations}
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 </td>
@@ -393,7 +394,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                     </div>
                                 </td>
                                 <td data-label="Detalles" className={styles.detailsCell}>
-                                    {item.type === 'tutor' ? formatDisplayPhone(item.details) : item.details}
+                                    {item.details}
                                 </td>
                                 <td data-label="Acciones">
                                     <div className={styles.actionGroup}>
