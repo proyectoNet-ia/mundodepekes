@@ -1640,27 +1640,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
         </div>
       )}
 
-      {/* Expired Sessions FullWidth Toast */}
+      {/* Expired Sessions Alerts */}
       {activeExpiredToasts.length > 0 && (
-          <div className={styles.expiredAlertsContainer}>
+          <div className={styles.expiredAlertsContainer} style={{ maxHeight: '35vh', overflowY: 'auto', paddingRight: '5px' }}>
             {activeExpiredToasts.map(session => (
-                <div key={session.id} className={styles.fullWidthAlert}>
-                    <div className={styles.alertMessage}>
-                        <FontAwesomeIcon icon={faTriangleExclamation} /> 
-                        <span>El límite de <strong>{session.childName}</strong> en <strong>{session.area}</strong> ha terminado.</span>
+                <div key={session.id} className={styles.expiredMiniCard} style={{ boxShadow: '0 8px 20px rgba(220,38,38,0.3)', background: 'var(--danger)', color: 'white', border: 'none' }}>
+                    <div className={styles.expiredMiniInfo}>
+                        <span className={styles.expiredMiniName} style={{ color: 'white' }}>{session.childName}</span>
+                        <div className={styles.expiredMiniMeta}>
+                            <span className={styles.expiredMiniTime} style={{ color: '#fef2f2' }}>
+                                <FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: '4px' }} /> Excedido
+                            </span>
+                            <span className={styles.expiredMiniArea} style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>{session.area}</span>
+                        </div>
                     </div>
-                    <div className={styles.alertActions}>
+                    <div className={styles.expiredMiniActions}>
                         <button 
                             onClick={() => {
-                                setDismissedExpired(prev => new Set(prev).add(session.id)); // Lo quitamos del UI primero
+                                setDismissedExpired(prev => new Set(prev).add(session.id));
                                 setCheckoutChild(session);
                             }} 
-                            className={styles.alertCheckoutBtn}
+                            title="Dar Salida"
+                            style={{ border: 'none', padding: '0 12px', height: '34px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', width: 'auto', fontWeight: 800, fontSize: '0.8rem', background: 'white', color: 'var(--danger)' }}
                         >
-                            <FontAwesomeIcon icon={faArrowRightFromBracket} /> Dar Salida
+                            <FontAwesomeIcon icon={faArrowRightFromBracket} style={{ marginRight: '6px' }} /> Salida
                         </button>
-                        <button onClick={() => setDismissedExpired(prev => new Set(prev).add(session.id))} className={styles.alertDismissBtn}>
-                            Ignorar por ahora
+                        <button 
+                            onClick={() => setDismissedExpired(prev => new Set(prev).add(session.id))} 
+                            title="Ignorar por ahora"
+                            style={{ border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', height: '34px', width: '34px', borderRadius: '8px', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <FontAwesomeIcon icon={faTimes} />
                         </button>
                     </div>
                 </div>
