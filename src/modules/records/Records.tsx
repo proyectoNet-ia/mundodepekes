@@ -375,7 +375,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                                     {formatDisplayPhone(item.tutorPhone.split(',')[0])}
                                                 </span>
                                             )}
-                                            <span style={{ fontSize: '0.85rem', color: 'var(--brand-600)', fontWeight: 800, background: 'var(--brand-50)', padding: '2px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginTop: '2px' }}>
+                                            <span style={{ fontSize: '0.85rem', fontFamily: 'SFMono-Regular, Consolas, \"Liberation Mono\", Menlo, monospace', color: 'var(--brand-600)', fontWeight: 800, background: 'var(--brand-50)', padding: '2px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginTop: '2px', letterSpacing: '1px' }}>
                                                 ID: {item.id.substring(0,8).toUpperCase()}
                                             </span>
                                         </div>
