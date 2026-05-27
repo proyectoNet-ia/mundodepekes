@@ -487,7 +487,7 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
 
   const calcularTotalPagar = () => {
       if (!selectedEvento) return 0;
-      const ninosACobrar = Math.max(10, totalNinos);
+      const ninosACobrar = totalNinos;
       const subtotalNinos = ninosACobrar * selectedEvento.precio_por_nino;
       const subtotalExtras = extras.reduce((sum, e) => sum + (e.item.precio_venta * e.qty), 0);
       return Math.max(0, (subtotalNinos + subtotalExtras) - selectedEvento.anticipo_pagado);
@@ -510,8 +510,9 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
               await stockService.recordMovement(extra.item.id, extra.qty, 'salida', `Venta extra en Cumpleaños - ${selectedEvento.nombre_festejado}`);
           }
 
-          // 3. Liquidar el evento
-          await birthdayService.cambiarEstado(selectedEvento.id, 'liquidado', total_final);
+          // 3. Liquidar el evento (Guardando el costo total real del evento en BD)
+          const costo_total_evento = (totalNinos * selectedEvento.precio_por_nino) + extras.reduce((sum, e) => sum + (e.item.precio_venta * e.qty), 0);
+          await birthdayService.cambiarEstado(selectedEvento.id, 'liquidado', costo_total_evento);
           
           // 4. Registrar transacción financiera
           if (total_final > 0) {
@@ -1208,7 +1209,7 @@ loadData();
                                         style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100px', fontSize: '1.2rem', textAlign: 'center' }}
                                     />
                                     <span style={{ fontSize: '0.9rem', color: '#64748b' }}>
-                                        *Se cobrará un <strong>mínimo de 10 niños</strong> por política del paquete.
+                                        *Ingresa la cantidad exacta de niños asistentes para el cobro.
                                     </span>
                                 </div>
                             </div>
@@ -1331,8 +1332,8 @@ loadData();
                             
                             <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', border: '2px solid #16a34a' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                    <span style={{ color: '#64748b' }}>Costo Niños ({Math.max(10, totalNinos)} cobrados x ${selectedEvento.precio_por_nino})</span>
-                                    <strong>${Math.max(10, totalNinos) * selectedEvento.precio_por_nino}</strong>
+                                    <span style={{ color: '#64748b' }}>Costo Niños ({totalNinos} cobrados x ${selectedEvento.precio_por_nino})</span>
+                                    <strong>${totalNinos * selectedEvento.precio_por_nino}</strong>
                                 </div>
                                 {extras.length > 0 && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
