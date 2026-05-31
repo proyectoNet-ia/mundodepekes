@@ -127,16 +127,29 @@ export const useResilience = () => {
 
     // 6. Check Cash Session
     const checkCash = async () => {
+        if (!navigator.onLine) {
+            const cached = localStorage.getItem('cache_caja');
+            setStatus(prev => ({ ...prev, cashStatus: cached ? 'abierta' : 'cerrada' }));
+            return;
+        }
         try {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('arqueos_caja')
                 .select('id')
                 .eq('estado', 'abierta')
+                .order('fecha_apertura', { ascending: false })
+                .limit(1)
                 .maybeSingle();
             
-            setStatus(prev => ({ ...prev, cashStatus: data ? 'abierta' : 'cerrada' }));
+            if (error && error.code !== 'PGRST116') {
+                const cached = localStorage.getItem('cache_caja');
+                setStatus(prev => ({ ...prev, cashStatus: cached ? 'abierta' : 'cerrada' }));
+            } else {
+                setStatus(prev => ({ ...prev, cashStatus: data ? 'abierta' : 'cerrada' }));
+            }
         } catch (e) {
-            setStatus(prev => ({ ...prev, cashStatus: 'cerrada' }));
+            const cached = localStorage.getItem('cache_caja');
+            setStatus(prev => ({ ...prev, cashStatus: cached ? 'abierta' : 'cerrada' }));
         }
     };
     checkCash();

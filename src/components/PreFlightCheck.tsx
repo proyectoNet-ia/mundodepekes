@@ -69,16 +69,27 @@ export const PreFlightCheck: React.FC<{ onCompleted: (needsCashOpening: boolean)
         if (isOnline) {
             setCashStatus('checking');
             try {
-                const { data } = await supabase
+                const { data, error } = await supabase
                     .from('arqueos_caja')
                     .select('id')
                     .eq('estado', 'abierta')
+                    .order('fecha_apertura', { ascending: false })
+                    .limit(1)
                     .maybeSingle();
                 
-                setCashStatus(data ? 'success' : 'fail');
+                if (error && error.code !== 'PGRST116') {
+                    const cached = localStorage.getItem('cache_caja');
+                    setCashStatus(cached ? 'success' : 'fail');
+                } else {
+                    setCashStatus(data ? 'success' : 'fail');
+                }
             } catch (err) {
-                setCashStatus('fail');
+                const cached = localStorage.getItem('cache_caja');
+                setCashStatus(cached ? 'success' : 'fail');
             }
+        } else {
+            const cached = localStorage.getItem('cache_caja');
+            setCashStatus(cached ? 'success' : 'fail');
         }
 
         // 2. Real Hardware Check
