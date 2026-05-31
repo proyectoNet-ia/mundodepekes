@@ -47,16 +47,19 @@ export const getActiveSession = async (): Promise<CashSession | null> => {
       .from('arqueos_caja')
       .select('*')
       .eq('estado', 'abierta')
+      .order('fecha_apertura', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching cash session:', error);
-      return null;
+      console.warn('Error fetching cash session:', error);
+      const cached = localStorage.getItem('cache_caja');
+      return cached ? JSON.parse(cached) : null;
     }
 
     if (data) {
         localStorage.setItem('cache_caja', JSON.stringify(data));
-    } else {
+    } else if (!error) {
         localStorage.removeItem('cache_caja');
     }
     
@@ -76,6 +79,11 @@ export const getActiveSession = async (): Promise<CashSession | null> => {
 };
 
 export const openCash = async (montoInicial: number): Promise<CashSession> => {
+  const existing = await getActiveSession();
+  if (existing && existing.id && !existing.id.startsWith('OFFLINE-')) {
+    return existing; // Ya está abierta, retornarla para evitar duplicados
+  }
+
   const { data, error } = await supabase
     .from('arqueos_caja')
     .insert({
