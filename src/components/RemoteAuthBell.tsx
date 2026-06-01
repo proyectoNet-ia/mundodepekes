@@ -20,6 +20,10 @@ export const RemoteAuthBell: React.FC = () => {
     const panelOpenRef = useRef(false);
     const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Refs for active Supabase channels
+    const authChannelRef = useRef<any>(null);
+    const opsChannelRef = useRef<any>(null);
+
     // Tipos de notificaciones permitidas según rol
     const getAllowedTypes = (role?: string): string[] => {
         if (role === 'cajero') return ['cash_open', 'cash_close', 'expense'];
@@ -76,9 +80,11 @@ export const RemoteAuthBell: React.FC = () => {
             const filtered = initialOps.filter(n => allowedTypes.includes(n.type) && !n.read);
             setNotifications(filtered);
 
-            let authChannel: any = null;
             if (canSeeAuthRequests(currUser.role)) {
-                authChannel = authRequestService.subscribeToNewRequests((newReq) => {
+                if (authChannelRef.current) {
+                    authChannelRef.current.unsubscribe();
+                }
+                authChannelRef.current = authRequestService.subscribeToNewRequests((newReq) => {
                     setPendingRequests(prev => {
                         // Deduplicar (por si llega por broadcast y luego por postgres_changes)
                         if (prev.some(r => r.id === newReq.id)) return prev;
@@ -89,7 +95,10 @@ export const RemoteAuthBell: React.FC = () => {
                 });
             }
 
-            const opsChannel = notificationsService.subscribe(async (notification) => {
+            if (opsChannelRef.current) {
+                opsChannelRef.current.unsubscribe();
+            }
+            opsChannelRef.current = notificationsService.subscribe(async (notification) => {
                 if (!allowedTypes.includes(notification.type)) return;
 
                 if (notification.type === 'auth_request' && canSeeAuthRequests(currUser.role)) {
@@ -145,11 +154,6 @@ export const RemoteAuthBell: React.FC = () => {
                 };
                 auditStock();
             }
-
-            return () => {
-                if (authChannel) authChannel.unsubscribe();
-                opsChannel.unsubscribe();
-            };
         }
     };
 
@@ -167,6 +171,14 @@ export const RemoteAuthBell: React.FC = () => {
 
         return () => {
             subscription.unsubscribe();
+            if (authChannelRef.current) {
+                authChannelRef.current.unsubscribe();
+                authChannelRef.current = null;
+            }
+            if (opsChannelRef.current) {
+                opsChannelRef.current.unsubscribe();
+                opsChannelRef.current = null;
+            }
             if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
             clearInterval(sweepInterval);
         };
