@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { AuditService } from './auditService';
 import { notificationsService } from './notificationsService';
+import { stockService } from './stockService';
 
 export type CashSessionStatus = 'abierta' | 'en_operacion' | 'corte_pendiente' | 'corte_cerrado' | 'auditoria';
 
@@ -212,6 +213,26 @@ export const cancelTransaction = async (transactionId: string, authorizer: strin
     metadatos: { transaction_id: transactionId, authorizer, reason, action: 'cancel' }
   });
 
+  // 4. Revertir inventario (entradas)
+  const txFolio = transactionId.substring(0, 8);
+  const { data: movimientos } = await supabase
+    .from('movimientos_inventario')
+    .select('id, item_id, cantidad, motivo')
+    .eq('tipo', 'salida')
+    .or(`motivo.ilike.%${transactionId}%,motivo.ilike.%${txFolio}%`);
+
+  if (movimientos && movimientos.length > 0) {
+    for (const mov of movimientos) {
+      await stockService.recordMovement(
+        mov.item_id,
+        mov.cantidad,
+        'entrada',
+        `Anulación Ticket - Folio: ${txFolio}`,
+        true
+      );
+    }
+  }
+
   return true;
 };
 
@@ -366,7 +387,7 @@ export const getShiftProductsSoldSummary = async (fechaApertura: string): Promis
           categoria
         )
       `)
-      .eq('tipo', 'salida')
+      .in('tipo', ['salida', 'entrada'])
       .gte('created_at', fechaApertura);
 
     if (error) {
@@ -374,18 +395,58 @@ export const getShiftProductsSoldSummary = async (fechaApertura: string): Promis
       return [];
     }
 
+    const { data: cancelledTxs } = await supabase
+      .from('transacciones')
+      .select('id')
+      .eq('estado', 'cancelado')
+      .gte('fecha', fechaApertura);
+
+    const cancelledFolios = new Set<string>();
+    const cancelledIds = new Set<string>();
+    cancelledTxs?.forEach(t => {
+      cancelledIds.add(t.id);
+      cancelledFolios.add(t.id.substring(0, 8).toUpperCase());
+    });
+
     const map: Record<string, { cantidad: number; categoria?: string }> = {};
 
     data?.forEach((mov: any) => {
       const motivo = mov.motivo || '';
-      // Aceptamos cualquier salida por venta (ya sea POS o venta general)
-      if (!motivo.toLowerCase().includes('venta') && !motivo.toLowerCase().includes('pos')) {
+      const isSalidaVenta = mov.tipo === 'salida' && (motivo.toLowerCase().includes('venta') || motivo.toLowerCase().includes('pos'));
+      const isEntradaAnulacion = mov.tipo === 'entrada' && (motivo.toLowerCase().includes('anulaci') || motivo.toLowerCase().includes('cancelad'));
+
+      if (!isSalidaVenta && !isEntradaAnulacion) {
         return; 
+      }
+
+      let isCancelledSale = false;
+      if (isEntradaAnulacion) {
+        isCancelledSale = true;
+      } else if (isSalidaVenta) {
+        for (const id of cancelledIds) {
+          if (motivo.includes(id)) {
+            isCancelledSale = true;
+            break;
+          }
+        }
+        if (!isCancelledSale) {
+          for (const fol of cancelledFolios) {
+            if (motivo.includes(fol)) {
+              isCancelledSale = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isCancelledSale) {
+        return;
       }
 
       const nombre = mov.inventario?.nombre || 'Producto Desconocido';
       const categoriaDb = mov.inventario?.categoria || 'General';
       const qty = Number(mov.cantidad) || 0;
+      const finalQty = isEntradaAnulacion ? -qty : qty;
 
       let categoria = categoriaDb;
       const c = (categoriaDb || '').toLowerCase();
@@ -400,9 +461,9 @@ export const getShiftProductsSoldSummary = async (fechaApertura: string): Promis
       }
 
       if (map[nombre]) {
-        map[nombre].cantidad += qty;
+        map[nombre].cantidad += finalQty;
       } else {
-        map[nombre] = { cantidad: qty, categoria };
+        map[nombre] = { cantidad: finalQty, categoria };
       }
     });
 
@@ -417,7 +478,9 @@ export const getShiftProductsSoldSummary = async (fechaApertura: string): Promis
       return 5;
     };
 
-    return Object.entries(map).map(([nombre, details]) => ({
+    return Object.entries(map)
+      .filter(([_, details]) => details.cantidad > 0)
+      .map(([nombre, details]) => ({
       nombre,
       cantidad: details.cantidad,
       categoria: details.categoria || 'General'

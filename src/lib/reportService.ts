@@ -128,6 +128,9 @@ export class ReportService {
         let tarjeta = 0;
         let cancelados_count = 0;
         let cancelados_monto = 0;
+        const cancelledFolios = new Set<string>();
+        const cancelledIds = new Set<string>();
+        const cancelledDetailsMap: Record<string, { total: number; time: string; details: string[] }> = {};
 
         trans?.forEach(t => {
             if (t.estado === 'pagado') {
@@ -143,6 +146,19 @@ export class ReportService {
             } else if (t.estado === 'cancelado') {
                 cancelados_count += 1;
                 cancelados_monto += Number(t.total) || 0;
+                
+                const folio = t.id.substring(0, 8).toUpperCase();
+                cancelledFolios.add(folio);
+                cancelledIds.add(t.id);
+                
+                const time = new Date(t.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const accessDetails = t.sesiones?.map((s: any) => `1x ${s.paquetes?.nombre || 'Acceso'}`).join(', ') || '';
+                
+                cancelledDetailsMap[folio] = {
+                    total: Number(t.total) || 0,
+                    time: time,
+                    details: accessDetails ? [accessDetails] : []
+                };
             }
         });
 
@@ -169,19 +185,61 @@ export class ReportService {
                         categoria
                     )
                 `)
-                .eq('tipo', 'salida')
+                .in('tipo', ['salida', 'entrada'])
                 .gte('created_at', start)
                 .lte('created_at', end);
 
             const map: Record<string, { cantidad: number; categoria?: string }> = {};
             movs?.forEach((mov: any) => {
                 const motivo = mov.motivo || '';
-                if (!motivo.toLowerCase().includes('venta') && !motivo.toLowerCase().includes('pos')) {
+                const isSalidaVenta = mov.tipo === 'salida' && (motivo.toLowerCase().includes('venta') || motivo.toLowerCase().includes('pos'));
+                const isEntradaAnulacion = mov.tipo === 'entrada' && (motivo.toLowerCase().includes('anulaci') || motivo.toLowerCase().includes('cancelad'));
+
+                if (!isSalidaVenta && !isEntradaAnulacion) {
                     return; 
                 }
                 const nombre = mov.inventario?.nombre || 'Producto Desconocido';
                 const categoriaDb = mov.inventario?.categoria || 'General';
                 const qty = Number(mov.cantidad) || 0;
+                
+                let isCancelledSale = false;
+                let relatedFolio = '';
+
+                if (isEntradaAnulacion) {
+                    const match = motivo.match(/Folio:\s*([A-Za-z0-9]+)/i);
+                    if (match && match[1]) {
+                        relatedFolio = match[1].toUpperCase();
+                        isCancelledSale = true;
+                    }
+                } else if (isSalidaVenta) {
+                    for (const id of cancelledIds) {
+                        if (motivo.includes(id)) {
+                            relatedFolio = id.substring(0,8).toUpperCase();
+                            isCancelledSale = true;
+                            break;
+                        }
+                    }
+                    if (!isCancelledSale) {
+                        for (const fol of cancelledFolios) {
+                            if (motivo.includes(fol)) {
+                                relatedFolio = fol;
+                                isCancelledSale = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (isCancelledSale && relatedFolio && cancelledDetailsMap[relatedFolio]) {
+                    // Only use the 'salida' to populate details to avoid duplication
+                    if (isSalidaVenta) {
+                        cancelledDetailsMap[relatedFolio].details.push(`${qty}x ${nombre}`);
+                    }
+                    // Skip counting it in the soldProducts summary
+                    return;
+                }
+
+                const finalQty = isEntradaAnulacion ? -qty : qty;
 
                 let categoria = categoriaDb;
                 const c = (categoriaDb || '').toLowerCase();
@@ -196,9 +254,9 @@ export class ReportService {
                 }
 
                 if (map[nombre]) {
-                    map[nombre].cantidad += qty;
+                    map[nombre].cantidad += finalQty;
                 } else {
-                    map[nombre] = { cantidad: qty, categoria };
+                    map[nombre] = { cantidad: finalQty, categoria };
                 }
             });
 
@@ -213,7 +271,9 @@ export class ReportService {
               return 5;
             };
 
-            soldProducts = Object.entries(map).map(([nombre, details]) => ({
+            soldProducts = Object.entries(map)
+                .filter(([_, details]) => details.cantidad > 0)
+                .map(([nombre, details]) => ({
                 nombre,
                 cantidad: details.cantidad,
                 categoria: details.categoria || 'General'
@@ -335,6 +395,30 @@ export class ReportService {
                 headStyles: { fillColor: [220, 38, 38] } // Rojo para gastos
             });
 
+            // Tabla 2.6: Detalle de Tickets Cancelados
+            const cancelledFolios = Object.keys(cancelledDetailsMap);
+            if (cancelledFolios.length > 0) {
+                const cancelY = (doc as any).lastAutoTable.finalY + 15;
+                doc.setTextColor(30, 41, 59);
+                doc.text('DETALLE DE TICKETS CANCELADOS', 14, cancelY);
+                autoTable(doc, {
+                    startY: cancelY + 4,
+                    head: [['Hora', 'Folio', 'Monto', 'Productos / Accesos']],
+                    body: cancelledFolios.map(folio => {
+                        const info = cancelledDetailsMap[folio];
+                        return [
+                            info.time,
+                            folio,
+                            `$ ${info.total.toFixed(2)}`,
+                            info.details.length > 0 ? info.details.join(' | ') : 'Sin productos'
+                        ];
+                    }),
+                    theme: 'striped',
+                    headStyles: { fillColor: [220, 38, 38] }, // Red for cancellations
+                    alternateRowStyles: { fillColor: [254, 242, 242] }
+                });
+            }
+
             // Tabla 3: Detalle de Transacciones (Salto de página si es necesario)
             doc.addPage();
             doc.setTextColor(30, 41, 59);
@@ -410,6 +494,26 @@ export class ReportService {
                 m: t.estado === 'cancelado' ? 'CANCELADO' : t.metodo_pago,
                 t: t.estado === 'cancelado' ? 0 : t.total
             })));
+
+            const cancelledFoliosEx = Object.keys(cancelledDetailsMap);
+            if (cancelledFoliosEx.length > 0) {
+                const wsCancel = workbook.addWorksheet('Tickets Cancelados');
+                wsCancel.columns = [
+                    {header: 'Hora', key: 'h', width: 15},
+                    {header: 'Folio', key: 'f', width: 15},
+                    {header: 'Monto', key: 'm', width: 15},
+                    {header: 'Productos / Accesos', key: 'p', width: 60}
+                ];
+                cancelledFoliosEx.forEach(folio => {
+                    const info = cancelledDetailsMap[folio];
+                    wsCancel.addRow({
+                        h: info.time,
+                        f: folio,
+                        m: info.total,
+                        p: info.details.length > 0 ? info.details.join(' | ') : 'Sin productos'
+                    });
+                });
+            }
 
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
