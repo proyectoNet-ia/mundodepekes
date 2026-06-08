@@ -216,7 +216,7 @@ export const registerFullEntry = async (data: {
       .insert({
         cliente_id: customerId,
         total: data.total || 0,
-        metodo_pago: data.voucherFolio ? `${data.paymentMethod} (Folio: ${data.voucherFolio})` : data.paymentMethod,
+        metodo_pago: (data.paymentMethod === 'tarjeta' && data.voucherFolio) ? `${data.paymentMethod} (Folio: ${data.voucherFolio})` : data.paymentMethod,
         arqueo_id: activeSession?.id || (isSync ? null : undefined), // Evitar nulls accidentales
         es_privado: (data as any).esPrivado || false,
         paquete_id: (data as any).paquete_id || ((data as any).esPrivado ? (data as any).children?.[0]?.packageId : null),
@@ -420,7 +420,7 @@ export const registerInventorySale = async (data: {
       .insert({
         cliente_id: customerId,
         total: data.total,
-        metodo_pago: data.voucherFolio ? `${data.paymentMethod} (Folio: ${data.voucherFolio})` : data.paymentMethod,
+        metodo_pago: (data.paymentMethod === 'tarjeta' && data.voucherFolio) ? `${data.paymentMethod} (Folio: ${data.voucherFolio})` : data.paymentMethod,
         arqueo_id: activeSession?.id || (isSync ? null : undefined)
       })
       .select().single();

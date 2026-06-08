@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Dashboard.module.css';
 import { PrinterService } from '../../lib/printerService';
-import { getActiveSessions, finishSession, subscribeToSessions, updateChildInfo, getActivePrivateEvents, addChildToPrivateEvent, getScheduledPrivateEventsCount, archivePackage, getTotalChildrenToday, type ActiveSession } from '../../lib/sessionService';
+import { getActiveSessions, finishSession, updateChildInfo, getActivePrivateEvents, addChildToPrivateEvent, getScheduledPrivateEventsCount, archivePackage, getTotalChildrenToday, type ActiveSession } from '../../lib/sessionService';
 import { getSystemSettings } from '../../lib/settingsService';
 import { birthdayService } from '../../lib/birthdayService';
 import { getPackages } from '../../lib/packageService';
@@ -216,10 +216,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
 
     refreshData();
     
-    // Sincronización Realtime con Supabase
-    const subscription = subscribeToSessions(() => {
-      refreshData();
-    });
+    // Sincronización Realtime con Supabase (DESACTIVADO PARA AHORRAR EGRESS)
+    // const subscription = subscribeToSessions(() => {
+    //   refreshData();
+    // });
 
     // Reloj: actualiza cada 30s
     const clockTimer = setInterval(() => {
@@ -269,7 +269,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
     const unsubSuccess = syncService.onSyncSuccess(handleSyncSuccess);
 
     return () => {
-      subscription.unsubscribe();
+      // subscription.unsubscribe();
       clearInterval(clockTimer);
       clearInterval(pollTimer);
       unsubSync();
