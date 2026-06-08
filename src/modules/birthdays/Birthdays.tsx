@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCakeCandles, faPlus, faTimes, faTrash, faPlay, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { getPackages, type Package } from '../../lib/packageService';
 import { stockService, type StockItem } from '../../lib/stockService';
+import { PrinterService } from '../../lib/printerService';
 
 interface Props {
   user: UserProfile;
@@ -564,16 +565,36 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
     try {
         await birthdayService.createEvento(evento);
         
-        // Print ticket for non-cash advance payment
-        if (evento.anticipo_pagado > 0 && evento.metodo_pago_anticipo !== 'efectivo') {
+        // Print ticket for advance payment
+        if (evento.anticipo_pagado > 0) {
             try {
-                // Generar ZPL (para la caja) o el formato que usen
-                // Asumimos que hay un método de impresión genérico en printerService.
-                // En su defecto informamos al usuario de imprimir
-                showToast('Anticipo cobrado. Entregue el comprobante de tarjeta en la caja.', 'info');
+                const settings = JSON.parse(localStorage.getItem('printer_settings') || '{}');
+                if (settings.ticketPrinter?.address) {
+                    const ticketData = {
+                        folio: 'ANTICIPO',
+                        cliente: evento.nombre_cliente,
+                        telefono: evento.telefono_cliente,
+                        items: [{
+                            nino: evento.nombre_festejado,
+                            nombre: `Anticipo Evento (${evento.fecha_evento})`,
+                            precio: evento.anticipo_pagado
+                        }],
+                        subtotal: evento.anticipo_pagado,
+                        iva: 0,
+                        total: evento.anticipo_pagado,
+                        paymentMethod: evento.metodo_pago_anticipo,
+                        mensaje: `Anticipo para evento de ${evento.nombre_festejado}`
+                    };
+                    const original = PrinterService.formatEpsonTicket(ticketData as any, false);
+                    const copia = PrinterService.formatEpsonTicket(ticketData as any, true);
+                    
+                    await PrinterService.printRaw(original, 'TICKET');
+                    await PrinterService.printRaw(copia, 'TICKET');
+                    showToast('Vouchers de anticipo impresos.', 'success');
+                }
             } catch (printErr) {
                 console.error("Error al imprimir ticket:", printErr);
-                showToast('No se pudo imprimir el comprobante. Regístrelo manualmente.', 'warning');
+                showToast('No se pudo imprimir el comprobante.', 'warning');
             }
         }
 
