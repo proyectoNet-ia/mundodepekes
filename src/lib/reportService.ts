@@ -126,6 +126,7 @@ export class ReportService {
         const packageMix: Record<string, number> = {};
         let efectivo = 0;
         let tarjeta = 0;
+        let transferencia = 0;
         let cancelados_count = 0;
         let cancelados_monto = 0;
         const cancelledFolios = new Set<string>();
@@ -134,8 +135,11 @@ export class ReportService {
 
         trans?.forEach(t => {
             if (t.estado === 'pagado') {
-                if (t.metodo_pago?.toLowerCase().includes('efectivo')) {
+                const metodo = t.metodo_pago?.toLowerCase() || '';
+                if (metodo === 'efectivo' || metodo.includes('efectivo')) {
                     efectivo += Number(t.total) || 0;
+                } else if (metodo.includes('transferencia')) {
+                    transferencia += Number(t.total) || 0;
                 } else {
                     tarjeta += Number(t.total) || 0;
                 }
@@ -314,6 +318,7 @@ export class ReportService {
             { concepto: 'Diferencia Efectivo (+/-)', monto: `$ ${(dbSession.monto_final_real != null ? (Number(dbSession.monto_final_real) - (Number(dbSession.monto_inicial) + efectivo - gastos)) : 0).toFixed(2)}` },
             { concepto: '----------------------------', monto: '------------' },
             { concepto: 'Ventas Tarjeta Esperadas', monto: `$ ${tarjeta.toFixed(2)}` },
+            { concepto: 'Ventas Transferencia Esperadas', monto: `$ ${transferencia.toFixed(2)}` },
             { concepto: 'Vouchers Tarjeta (Físico)', monto: `$ ${dbSession.monto_final_tarjeta_real != null ? Number(dbSession.monto_final_tarjeta_real).toFixed(2) : '---'}` },
             { concepto: 'Diferencia Tarjeta (+/-)', monto: `$ ${(dbSession.monto_final_tarjeta_real != null ? (Number(dbSession.monto_final_tarjeta_real) - tarjeta) : 0).toFixed(2)}` },
             { concepto: '----------------------------', monto: '------------' },

@@ -127,6 +127,7 @@ export const getTransactionsSummary = async (since: string, arqueoId?: string) =
   const summary = {
     efectivo: 0,
     tarjeta: 0,
+    transferencia: 0,
     gastos: 0,
     total: 0,
     cancelados_monto: 0,
@@ -157,8 +158,11 @@ export const getTransactionsSummary = async (since: string, arqueoId?: string) =
         summary.cancelados_monto += amount;
         summary.cancelados_count += 1;
     } else if (t.estado === 'pagado') {
-        if (t.metodo_pago.toLowerCase() === 'efectivo') {
+        const metodo = t.metodo_pago?.toLowerCase() || '';
+        if (metodo === 'efectivo' || metodo.includes('efectivo')) {
           summary.efectivo += amount;
+        } else if (metodo.includes('transferencia')) {
+          summary.transferencia += amount;
         } else {
           summary.tarjeta += amount;
         }
@@ -166,7 +170,7 @@ export const getTransactionsSummary = async (since: string, arqueoId?: string) =
   });
 
   // El saldo neto esperado es (Ingresos Pagados) - (Egresos)
-  summary.total = (summary.efectivo + summary.tarjeta) - summary.gastos;
+  summary.total = (summary.efectivo + summary.tarjeta + summary.transferencia) - summary.gastos;
 
   return summary;
 };

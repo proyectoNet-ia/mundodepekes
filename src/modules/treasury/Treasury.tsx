@@ -27,7 +27,7 @@ interface TreasuryProps {
 export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     const { showToast } = useToast();
     const [activeSession, setActiveSession] = useState<CashSession | null>(null);
-    const [summary, setSummary] = useState({ efectivo: 0, tarjeta: 0, gastos: 0, total: 0, cancelados_monto: 0, cancelados_count: 0 });
+    const [summary, setSummary] = useState({ efectivo: 0, tarjeta: 0, transferencia: 0, gastos: 0, total: 0, cancelados_monto: 0, cancelados_count: 0 });
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [montoApertura, setMontoApertura] = useState('');
@@ -226,6 +226,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     montoInicial: activeSession.monto_inicial,
                     ventasEfectivo: summary.efectivo,
                     ventasTarjeta: summary.tarjeta,
+                    ventasTransferencia: summary.transferencia,
                     gastos: expenses.map(e => ({ concepto: e.descripcion, monto: e.monto })),
                     totalGastos: summary.gastos,
                     esperadoEfectivo: summary.efectivo + activeSession.monto_inicial - summary.gastos,
@@ -379,6 +380,15 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                 <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${summary.tarjeta.toFixed(2)}</strong>
                             </div>
                         </div>
+                        <div className={styles.metricItem}>
+                            <div className={styles.metricIcon} style={{ background: '#f3e8ff', color: '#6b21a8' }}>
+                                <FontAwesomeIcon icon={faMoneyBillWave} />
+                            </div>
+                            <div className={styles.metricInfo}>
+                                <span>Transferencias</span>
+                                <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(summary.transferencia || 0).toFixed(2)}</strong>
+                            </div>
+                        </div>
                         <div className={styles.metricItem} style={{ borderLeft: '4px solid #10b981' }}>
                             <div className={styles.metricIcon} style={{ background: '#ccfbf1', color: '#115e59' }}>
                                 <FontAwesomeIcon icon={faMoneyBillWave} />
@@ -423,7 +433,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     <div className={styles.totalSection}>
                         <div className={styles.totalRow}>
                             <span>Ingresos Totales (Ventas):</span>
-                            <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(summary.efectivo + summary.tarjeta).toFixed(2)}</span>
+                            <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(summary.efectivo + summary.tarjeta + (summary.transferencia || 0)).toFixed(2)}</span>
                         </div>
                         {totalEntradas > 0 && (
                             <div className={styles.totalRow} style={{ color: '#10b981' }}>
@@ -437,7 +447,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                         </div>
                         <div className={styles.totalRow + ' ' + styles.finalTotal}>
                             <span>Saldo Neto en Caja:</span>
-                            <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(activeSession ? activeSession.monto_inicial + summary.efectivo + summary.tarjeta + totalEntradas - totalSalidas : 0).toFixed(2)}</strong>
+                            <strong className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${(activeSession ? activeSession.monto_inicial + summary.efectivo + summary.tarjeta + (summary.transferencia || 0) + totalEntradas - totalSalidas : 0).toFixed(2)}</strong>
                         </div>
                         {summary.cancelados_count > 0 && (
                             <div className={styles.cancelledSummary}>
@@ -483,6 +493,10 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                     <div className={styles.balanceRow}>
                                         <span><FontAwesomeIcon icon={faCreditCard} style={{marginRight: '8px'}} /> Ventas Tarjeta:</span>
                                         <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${summary.tarjeta.toFixed(2)}</span>
+                                    </div>
+                                    <div className={styles.balanceRow}>
+                                        <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Transferencias:</span>
+                                        <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${(summary.transferencia || 0).toFixed(2)}</span>
                                     </div>
                                     {totalEntradas > 0 && (
                                         <div className={styles.balanceRow} style={{ color: '#10b981' }}>
