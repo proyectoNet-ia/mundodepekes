@@ -158,13 +158,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
     setIsRefreshing(true);
     try {
       const [active, settings, privEvents, sCount, todayCount, cumples, paquetes] = await Promise.all([
-        getActiveSessions(),
-        getSystemSettings(),
-        getActivePrivateEvents(),
-        getScheduledPrivateEventsCount(),
-        getTotalChildrenToday(),
-        birthdayService.getAgendadosYEnCurso(),
-        getPackages(true)
+        getActiveSessions().catch(err => { console.error('Error fetching active sessions:', err); return []; }),
+        getSystemSettings().catch(err => { console.error('Error fetching settings:', err); return limits; }),
+        getActivePrivateEvents().catch(err => { console.error('Error fetching private events:', err); return []; }),
+        getScheduledPrivateEventsCount().catch(err => { console.error('Error fetching scheduled private events count:', err); return 0; }),
+        getTotalChildrenToday().catch(err => { console.error('Error fetching total children today:', err); return { total: 0, unique: 0 }; }),
+        birthdayService.getAgendadosYEnCurso().catch(err => { console.error('Error fetching active birthdays:', err); return []; }),
+        getPackages(true).catch(err => { console.error('Error fetching packages:', err); return []; })
       ]);
       setSessions(active);
       setLimits(settings);
