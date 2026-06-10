@@ -44,11 +44,15 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
     .from('config_sistema')
     .select('valor')
     .eq('clave', 'capacidades')
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error fetching settings:', error);
     return DEFAULT_SETTINGS; // Fallback
+  }
+
+  if (!data) {
+    return DEFAULT_SETTINGS;
   }
 
   return { ...DEFAULT_SETTINGS, ...(data.valor as any) };

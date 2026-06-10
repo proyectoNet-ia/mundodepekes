@@ -25,6 +25,11 @@ function App() {
   const [presaleData, setPresaleData] = React.useState<any>(null);
   const [user, setUser] = React.useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const userRef = React.useRef<UserProfile | null>(null);
+
+  React.useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Detectar si la URL es /portal (vista pública sin auth) - más flexible con la diagonal
   const isPortalRoute = window.location.pathname.startsWith('/portal');
@@ -51,8 +56,10 @@ function App() {
     const { data: { subscription } } = authService.onAuthStateChange(async (newUser) => {
       if (!isMounted) return;
       
+      const currentUser = userRef.current;
+      
       // Bloqueo de Cierre por Micro-Corte de Red
-      if (!newUser && user) {
+      if (!newUser && currentUser) {
         // Si estamos offline, mantenemos al usuario (confianza total en sesión local)
         if (!navigator.onLine) {
             console.log('📡 Red caída detectada. Manteniendo sesión local activa...');
@@ -70,7 +77,7 @@ function App() {
           }
         }, 3000); // Aumentado a 3s para estabilidad total
       } else if (newUser) {
-        if (!user || user.id !== newUser.id) {
+        if (!currentUser || currentUser.id !== newUser.id) {
           setActiveTab(newUser.role === 'analista' ? 'analytics' : 'dashboard');
         }
         setUser(newUser);
@@ -82,7 +89,7 @@ function App() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [user]);
+  }, []);
 
   const handleExternalEntry = (data: any) => {
     setReentryData(data);
