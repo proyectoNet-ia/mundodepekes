@@ -14,7 +14,7 @@ const originalChannel = supabase.channel.bind(supabase);
 supabase.channel = (name: string, opts?: any) => {
   const channel = originalChannel(name, opts);
   
-  channel.subscribe = (callback?: (status: string, err?: any) => void) => {
+  channel.subscribe = (callback?: (status: any, err?: any) => void) => {
     console.info(`[Realtime] Suscripción al canal "${name}" omitida (Realtime desactivado).`);
     if (callback) {
       setTimeout(() => callback('SUBSCRIBED'), 0);
