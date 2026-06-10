@@ -3,7 +3,6 @@ import {
   getPendingPresales,
   cancelPresale,
   expireOldPresales,
-  subscribeToPresales,
   confirmPresale,
   registerCustomerOnly,
   type Presale,
@@ -100,14 +99,16 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute, refreshTr
   useEffect(() => {
     load();
 
-    // Realtime subscription
-    const sub = subscribeToPresales(load);
+    // Polling ágil de preventas (cada 15 segundos) para no depender de Realtime
+    const pollInterval = setInterval(() => {
+      load();
+    }, 15000);
 
     // Re-render cada 30s para actualizar los timers
     const ticker = setInterval(() => forceRender(x => x + 1), 30000);
 
     return () => {
-      sub.unsubscribe();
+      clearInterval(pollInterval);
       clearInterval(ticker);
     };
   }, [load]);
