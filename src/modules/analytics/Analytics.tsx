@@ -440,7 +440,7 @@ export const Analytics: React.FC = () => {
              <h3>Mix de Paquetes (Top Uso)</h3>
              <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '1rem' }}>Frecuencia de venta por tipo de paquete</p>
              <ResponsiveContainer width="100%" height={400}>
-                <BarChart layout="vertical" data={packagePopularity} margin={{ left: 20, right: 40, top: 0, bottom: 0 }}>
+                <BarChart layout="vertical" data={[...packagePopularity].sort((a, b) => b.count - a.count)} margin={{ left: 20, right: 40, top: 0, bottom: 0 }}>
                    <XAxis type="number" hide />
                    <YAxis type="category" dataKey="name" width={120} fontSize={11} tick={{ fill: '#475569', fontWeight: 600 }} axisLine={false} tickLine={false} />
                    <Tooltip cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '0.8rem' }} />
