@@ -32,13 +32,16 @@ export const Stock: React.FC = () => {
     const [deletingItem, setDeletingItem] = useState<StockItem | null>(null);
     const [categories, setCategories] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
+    const [movementFilter, setMovementFilter] = useState<'todos' | 'entrada' | 'salida'>('todos');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const loadData = async () => {
         setIsLoading(true);
         try {
             const [stockTable, recentMoves, me, settings] = await Promise.all([
                 stockService.getInventory(),
-                stockService.getMovements(),
+                stockService.getMovements(500, startDate, endDate),
                 authService.getCurrentUser(),
                 getSystemSettings()
             ]);
@@ -55,7 +58,7 @@ export const Stock: React.FC = () => {
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [startDate, endDate]);
 
     const handleOpenAdjust = (item: StockItem) => {
         setSelectedItem(item);
@@ -95,6 +98,8 @@ export const Stock: React.FC = () => {
     };
 
     const isAdmin = currentUser?.role === 'admin';
+
+    const filteredMovements = movements.filter(m => movementFilter === 'todos' || m.tipo === movementFilter);
 
     return (
         <div className={styles.stockContainer}>
@@ -159,13 +164,13 @@ export const Stock: React.FC = () => {
             <div className={styles.mainContent}>
                 {/* Tabla desktop */}
                 <div className={styles.tableWrapper}>
-                    {isLoading ? (
+                    {isLoading && items.length === 0 ? (
                          <div style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
                             <FontAwesomeIcon icon={faSpinner} spin size="2x" />
                             <p style={{ marginTop: '1rem' }}>Cargando inventario...</p>
                          </div>
                     ) : (
-                        <table className={styles.table}>
+                        <table className={styles.table} style={{ opacity: isLoading ? 0.5 : 1, pointerEvents: isLoading ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
                             <thead>
                                 <tr>
                                     <th>Producto</th>
@@ -220,8 +225,8 @@ export const Stock: React.FC = () => {
                 </div>
 
                 {/* Cards compactas para móvil — fuera del tableWrapper */}
-                {!isLoading && (
-                    <div className={styles.mobileCardList}>
+                {(!isLoading || items.length > 0) && (
+                    <div className={styles.mobileCardList} style={{ opacity: isLoading ? 0.5 : 1, pointerEvents: isLoading ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
                         {items.map(item => {
                             const isLow = item.cantidad <= item.minimo_alert;
                             return (
@@ -264,7 +269,14 @@ export const Stock: React.FC = () => {
 
             <section className={styles.historySection}>
                 <div className={styles.sectionHeader}>
-                    <h3>Historial de Movimientos</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', width: '100%' }}>
+                        <h3>Historial de Movimientos</h3>
+                        <div style={{ padding: '4px', background: 'var(--bg-secondary)', borderRadius: '8px', display: 'flex', gap: '4px' }}>
+                            <button style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', border: 'none', background: movementFilter === 'todos' ? 'var(--bg-primary)' : 'transparent', color: movementFilter === 'todos' ? 'var(--text-primary)' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: movementFilter === 'todos' ? 600 : 400, boxShadow: movementFilter === 'todos' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s' }} onClick={() => { setMovementFilter('todos'); setCurrentPage(1); }}>Todos</button>
+                            <button style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', border: 'none', background: movementFilter === 'entrada' ? 'var(--success-light)' : 'transparent', color: movementFilter === 'entrada' ? 'var(--success)' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: movementFilter === 'entrada' ? 600 : 400, boxShadow: movementFilter === 'entrada' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s' }} onClick={() => { setMovementFilter('entrada'); setCurrentPage(1); }}>Entradas</button>
+                            <button style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', border: 'none', background: movementFilter === 'salida' ? 'var(--danger-light)' : 'transparent', color: movementFilter === 'salida' ? 'var(--danger)' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: movementFilter === 'salida' ? 600 : 400, boxShadow: movementFilter === 'salida' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', transition: 'all 0.2s' }} onClick={() => { setMovementFilter('salida'); setCurrentPage(1); }}>Salidas</button>
+                        </div>
+                    </div>
                     <div className={styles.pagination}>
                         <button 
                             className={styles.pageBtn} 
@@ -276,7 +288,7 @@ export const Stock: React.FC = () => {
                         <span className={styles.pageInfo}>Página {currentPage}</span>
                         <button 
                             className={styles.pageBtn} 
-                            disabled={movements.length <= currentPage * 5} 
+                            disabled={filteredMovements.length <= currentPage * 10} 
                             onClick={() => setCurrentPage(p => p + 1)}
                         >
                             Siguiente
@@ -284,25 +296,61 @@ export const Stock: React.FC = () => {
                     </div>
                 </div>
                 
-                <div className={styles.historyGrid}>
-                    {movements.slice((currentPage - 1) * 5, currentPage * 5).map(move => {
-                        const cleanMotivo = (move.motivo || '').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '...');
-                        const shortDate = new Date(move.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-                        return (
-                            <div key={move.id} className={styles.historyCard}>
-                                <div className={`${styles.historyIcon} ${move.tipo === 'entrada' ? styles.in : styles.out}`}>
-                                    <FontAwesomeIcon icon={move.tipo === 'entrada' ? faArrowUp : faArrowDown} />
-                                </div>
-                                <div className={styles.historyData}>
-                                    <strong>{move.tipo === 'entrada' ? '+' : '-'}{move.cantidad} {move.inventario?.nombre}</strong>
-                                    <span>{cleanMotivo}</span>
-                                    <small>{shortDate}</small>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'var(--bg-secondary)', borderRadius: '12px', marginBottom: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.03)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rango de Fechas</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                            <div style={{ position: 'relative' }}>
+                                <input type="date" max={new Date().toISOString().split('T')[0]} value={startDate} onChange={e => { setStartDate(e.target.value); setCurrentPage(1); }} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none', transition: 'all 0.2s', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)', cursor: 'pointer' }} title="Fecha inicial" />
+                            </div>
+                            <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>—</span>
+                            <div style={{ position: 'relative' }}>
+                                <input type="date" max={new Date().toISOString().split('T')[0]} value={endDate} onChange={e => { setEndDate(e.target.value); setCurrentPage(1); }} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none', transition: 'all 0.2s', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)', cursor: 'pointer' }} title="Fecha final" />
+                            </div>
+                            {(startDate || endDate) && (
+                                <button onClick={() => { setStartDate(''); setEndDate(''); setCurrentPage(1); }} style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: 'var(--danger-light)', color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto', transition: 'all 0.2s' }}>Limpiar Filtro</button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    {(() => {
+                        const paginatedMovements = filteredMovements.slice((currentPage - 1) * 10, currentPage * 10);
+                        const grouped = paginatedMovements.reduce((acc, move) => {
+                            const dateObj = new Date(move.created_at);
+                            const date = dateObj.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                            if (!acc[date]) acc[date] = [];
+                            acc[date].push(move);
+                            return acc;
+                        }, {} as Record<string, InventoryMovement[]>);
+                        
+                        return Object.entries(grouped).map(([date, moves]) => (
+                            <div key={date} style={{ marginBottom: '1.5rem' }}>
+                                <h4 style={{ textTransform: 'capitalize', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>{date}</h4>
+                                <div className={styles.historyGrid}>
+                                    {moves.map(move => {
+                                        const cleanMotivo = (move.motivo || '').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '...');
+                                        const shortDate = new Date(move.created_at).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                                        return (
+                                            <div key={move.id} className={styles.historyCard}>
+                                                <div className={`${styles.historyIcon} ${move.tipo === 'entrada' ? styles.in : styles.out}`}>
+                                                    <FontAwesomeIcon icon={move.tipo === 'entrada' ? faArrowUp : faArrowDown} />
+                                                </div>
+                                                <div className={styles.historyData}>
+                                                    <strong>{move.tipo === 'entrada' ? '+' : '-'}{move.cantidad} {move.inventario?.nombre}</strong>
+                                                    <span>{cleanMotivo}</span>
+                                                    <small>{shortDate}</small>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        );
-                    })}
-                    {movements.length === 0 && !isLoading && (
-                        <div className={styles.emptyHistory}>No hay movimientos registrados recientemente.</div>
+                        ));
+                    })()}
+                    {filteredMovements.length === 0 && !isLoading && (
+                        <div className={styles.emptyHistory}>No hay movimientos registrados para este filtro.</div>
                     )}
                 </div>
             </section>

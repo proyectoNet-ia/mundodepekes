@@ -48,13 +48,22 @@ export const stockService = {
         }
     },
 
-    async getMovements(limit = 10): Promise<InventoryMovement[]> {
-        const { data, error } = await supabase
+    async getMovements(limit = 500, startDate?: string, endDate?: string): Promise<InventoryMovement[]> {
+        let query = supabase
             .from('movimientos_inventario')
             .select('*, inventario(nombre)')
-            .order('created_at', { ascending: false })
-            .limit(limit);
+            .order('created_at', { ascending: false });
+            
+        if (startDate) {
+            query = query.gte('created_at', `${startDate}T00:00:00`);
+        }
+        if (endDate) {
+            query = query.lte('created_at', `${endDate}T23:59:59.999`);
+        }
         
+        query = query.limit(limit);
+        
+        const { data, error } = await query;
         if (error) throw error;
         return data || [];
     },
