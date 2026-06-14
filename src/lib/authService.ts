@@ -21,6 +21,7 @@ export const authService = {
     },
 
     async signOut() {
+        localStorage.removeItem('cached_user_profile');
         await supabase.auth.signOut();
     },
 
@@ -33,14 +34,25 @@ export const authService = {
                     if (profile) {
                         callback(profile);
                     } else {
-                        console.warn('Fallback activado: perfil devolvió null.');
-                        callback({ id: session.user.id, email: session.user.email || 'admin@mundodepekes.com', role: 'cajero', nombre_completo: 'Usuario (Fallback)' });
+                        const cached = localStorage.getItem('cached_user_profile');
+                        if (cached) {
+                            callback(JSON.parse(cached));
+                        } else {
+                            console.warn('Fallback activado: perfil devolvió null.');
+                            callback({ id: session.user.id, email: session.user.email || 'admin@mundodepekes.com', role: 'cajero', nombre_completo: 'Usuario (Fallback)' });
+                        }
                     }
                 } catch (e) {
-                    console.warn('Auth fallback triggered after profile failure');
-                    callback({ id: session.user.id, email: session.user.email || 'admin@mundodepekes.com', role: 'cajero', nombre_completo: 'Usuario (Fallback)' });
+                    const cached = localStorage.getItem('cached_user_profile');
+                    if (cached) {
+                        callback(JSON.parse(cached));
+                    } else {
+                        console.warn('Auth fallback triggered after profile failure');
+                        callback({ id: session.user.id, email: session.user.email || 'admin@mundodepekes.com', role: 'cajero', nombre_completo: 'Usuario (Fallback)' });
+                    }
                 }
             } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
+                localStorage.removeItem('cached_user_profile');
                 callback(null);
             }
         });
@@ -81,12 +93,16 @@ export const authService = {
                     console.error('Error obteniendo perfil desde BD (RLS O Vacío):', dbError);
                 }
 
-                return {
+                const finalProfile = {
                     id: user.id,
                     email: user.email || '',
                     role: (profile?.rol_slug as UserRole) || 'cajero',
                     nombre_completo: profile?.nombre_completo || 'Usuario'
                 };
+
+                // Guardamos en caché para usarlo en caso de que la red falle después
+                localStorage.setItem('cached_user_profile', JSON.stringify(finalProfile));
+                return finalProfile;
             })();
 
             const result = await Promise.race([authPromise, timeout]);
@@ -113,6 +129,12 @@ export const authService = {
             ]) as any;
 
             if (session?.user) {
+                const cached = localStorage.getItem('cached_user_profile');
+                if (cached) {
+                    console.info('⚠️ MODO EMERGENCIA: Usando perfil en caché.');
+                    return JSON.parse(cached) as UserProfile;
+                }
+
                 // Alerta Obligatoria: Registrar que se está abusando del modo offline
                 console.warn('⚠️ MODO EMERGENCIA ACTIVADO. Operaciones críticas bloqueadas.');
                 return {
@@ -125,6 +147,11 @@ export const authService = {
             return null;
         } catch (e) {
             console.warn('Fallo brutal de Storage Local. Abortando emergencia.');
+            const cached = localStorage.getItem('cached_user_profile');
+            if (cached) {
+                console.info('⚠️ Recuperando perfil en caché como último recurso tras fallo de storage.');
+                return JSON.parse(cached) as UserProfile;
+            }
             return null;
         }
     },
