@@ -235,7 +235,7 @@ export const PortalPage: React.FC = () => {
   }, 0);
 
   const addNino = () => {
-    if (ninos.length >= 4) return;
+    // Sin límite de niños
     setNinos([...ninos, { nombre: '', edad: 0, paquete_id: '', accesorios: [] }]);
   };
 
@@ -651,7 +651,7 @@ export const PortalPage: React.FC = () => {
               <div className="portal-card-icon"><Icon type="child" /></div>
               <div>
                 <h2>¿Quiénes vienen a jugar?</h2>
-                <p>Agrega hasta 4 pekes y elige su paquete</p>
+                <p>Agrega a todos los pekes y elige su paquete</p>
               </div>
             </div>
 
@@ -925,11 +925,9 @@ export const PortalPage: React.FC = () => {
                   );
                 })}
 
-                {ninos.length < 4 && (
-                  <button id="portal-add-child" className="portal-add-child-btn" onClick={addNino}>
-                    <Icon type="plus" /> Agregar otro peke
-                  </button>
-                )}
+                <button id="portal-add-child" className="portal-add-child-btn" onClick={addNino}>
+                  <Icon type="plus" /> Agregar otro peke
+                </button>
               </div>
             )}
 
