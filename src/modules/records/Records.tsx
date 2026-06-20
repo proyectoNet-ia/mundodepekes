@@ -4,7 +4,7 @@ import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
 import { getActiveSessions } from '../../lib/sessionService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash, faCheckCircle, faPhone } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash, faCheckCircle, faPhone, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
 
 // Capitaliza nombres propios respetando preposiciones en español
@@ -124,6 +124,13 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [editPrefixes, setEditPrefixes] = useState<string[]>([]);
     const [isSaving, setIsSaving]   = useState(false);
     const [activeChildIds, setActiveChildIds] = useState<Set<string>>(new Set());
+
+    // New Registration states
+    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+    const [regTutorName, setRegTutorName] = useState('');
+    const [regTutorPhone, setRegTutorPhone] = useState('');
+    const [regNinos, setRegNinos] = useState<{ nombre: string; edad: number }[]>([{ nombre: '', edad: 0 }]);
+    const [isRegistering, setIsRegistering] = useState(false);
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -323,11 +330,79 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
         }
     };
 
+    const handleSaveNewRegistration = async () => {
+        if (!regTutorName.trim()) {
+            showToast('El nombre del tutor es obligatorio', 'error');
+            return;
+        }
+        if (!regTutorPhone.trim()) {
+            showToast('El teléfono del tutor es obligatorio', 'error');
+            return;
+        }
+        const validNinos = regNinos.filter(n => n.nombre.trim());
+        if (validNinos.length === 0) {
+            showToast('Debe agregar al menos un niño', 'error');
+            return;
+        }
+
+        setIsRegistering(true);
+        try {
+            const formattedPhone = formatPhone(regTutorPhone);
+            const { data: tutorData, error: tutorError } = await supabase
+                .from('tutores')
+                .insert([{ 
+                    nombre_completo: toTitleCase(regTutorName), 
+                    telefono: formattedPhone 
+                }])
+                .select()
+                .single();
+
+            if (tutorError || !tutorData) throw tutorError || new Error('Error al guardar tutor');
+
+            const ninosInserts = validNinos.map(n => ({
+                cliente_id: tutorData.id,
+                nombre_completo: toTitleCase(n.nombre),
+                edad: n.edad
+            }));
+
+            const { error: ninosError } = await supabase
+                .from('ninos')
+                .insert(ninosInserts);
+
+            if (ninosError) throw ninosError;
+
+            showToast('Registro guardado exitosamente', 'success');
+            setShowRegistrationModal(false);
+            setRegTutorName('');
+            setRegTutorPhone('');
+            setRegNinos([{ nombre: '', edad: 0 }]);
+            fetchData();
+        } catch (err) {
+            showToast('Error al guardar el registro', 'error');
+        } finally {
+            setIsRegistering(false);
+        }
+    };
+
     return (
         <div className={styles.recordsContainer}>
             <header className={styles.header}>
-                <h1 className={styles.title}>Registros del Sistema</h1>
-                <span className={styles.countBadge}>{total} registros</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <h1 className={styles.title}>Registros del Sistema</h1>
+                    <span className={styles.countBadge}>{total} registros</span>
+                </div>
+                <button 
+                    className="btn btn-primary" 
+                    onClick={() => {
+                        setRegTutorName('');
+                        setRegTutorPhone('');
+                        setRegNinos([{ nombre: '', edad: 0 }]);
+                        setShowRegistrationModal(true);
+                    }}
+                    style={{ fontSize: '0.85rem' }}
+                >
+                    <FontAwesomeIcon icon={faPlus} /> Nuevo Registro
+                </button>
             </header>
 
             <div className={styles.searchBar}>
@@ -547,6 +622,112 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                             <button className="btn btn-ghost" onClick={() => setEditItem(null)}>Cancelar</button>
                             <button className="btn btn-primary" onClick={handleSaveEdit} disabled={isSaving}>
                                 {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showRegistrationModal && (
+                <div className={styles.modalOverlay} onClick={() => !isRegistering && setShowRegistrationModal(false)}>
+                    <div className={styles.editModal} onClick={e => e.stopPropagation()} style={{ width: '500px', maxWidth: '90vw' }}>
+                        <div className={styles.editModalHeader}>
+                            <h3><FontAwesomeIcon icon={faUserPlus} /> Nuevo Registro Rápido</h3>
+                            <button className={styles.closeBtn} onClick={() => setShowRegistrationModal(false)} disabled={isRegistering}>
+                                <FontAwesomeIcon icon={faTimes} />
+                            </button>
+                        </div>
+                        <div className={styles.editModalBody} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                    Tutor / Responsable <span style={{color: 'var(--danger)'}}>*</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    className={styles.editInput}
+                                    placeholder="Nombre completo"
+                                    value={regTutorName}
+                                    onChange={e => setRegTutorName(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                    Teléfono <span style={{color: 'var(--danger)'}}>*</span>
+                                </label>
+                                <input 
+                                    type="tel" 
+                                    className={styles.editInput}
+                                    placeholder="Ej. 352 123 4567"
+                                    value={regTutorPhone}
+                                    onChange={e => setRegTutorPhone(e.target.value)}
+                                />
+                            </div>
+
+                            <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h4 style={{ margin: 0, color: 'var(--text-secondary)' }}>Pekes</h4>
+                                    <button 
+                                        className="btn btn-ghost" 
+                                        onClick={() => setRegNinos([...regNinos, { nombre: '', edad: 0 }])}
+                                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                                    >
+                                        <FontAwesomeIcon icon={faPlus} /> Agregar Peke
+                                    </button>
+                                </div>
+                                
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                    {regNinos.map((n, i) => (
+                                        <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            <input 
+                                                type="text" 
+                                                className={styles.editInput}
+                                                placeholder="Nombre del peke"
+                                                value={n.nombre}
+                                                onChange={e => {
+                                                    const updated = [...regNinos];
+                                                    updated[i].nombre = e.target.value;
+                                                    setRegNinos(updated);
+                                                }}
+                                                style={{ flex: 1 }}
+                                            />
+                                            <input 
+                                                type="number" 
+                                                className={styles.editInput}
+                                                placeholder="Edad"
+                                                value={n.edad || ''}
+                                                onChange={e => {
+                                                    const updated = [...regNinos];
+                                                    updated[i].edad = parseInt(e.target.value) || 0;
+                                                    setRegNinos(updated);
+                                                }}
+                                                style={{ width: '80px' }}
+                                                min={0}
+                                                max={17}
+                                            />
+                                            {regNinos.length > 1 && (
+                                                <button 
+                                                    className="btn btn-ghost"
+                                                    onClick={() => {
+                                                        const updated = regNinos.filter((_, idx) => idx !== i);
+                                                        setRegNinos(updated);
+                                                    }}
+                                                    style={{ color: 'var(--danger)', padding: '0.5rem' }}
+                                                >
+                                                    <FontAwesomeIcon icon={faTrash} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className={styles.editModalFooter}>
+                            <button className="btn btn-ghost" onClick={() => setShowRegistrationModal(false)} disabled={isRegistering}>
+                                Cancelar
+                            </button>
+                            <button className="btn btn-primary" onClick={handleSaveNewRegistration} disabled={isRegistering}>
+                                {isRegistering ? 'Guardando...' : 'Guardar Registro'}
                             </button>
                         </div>
                     </div>
