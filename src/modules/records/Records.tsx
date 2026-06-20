@@ -351,9 +351,9 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
         try {
             const formattedPhone = formatPhone(regTutorPhone);
             const { data: tutorData, error: tutorError } = await supabase
-                .from('tutores')
+                .from('clientes')
                 .insert([{ 
-                    nombre_completo: toTitleCase(regTutorName), 
+                    nombre: toTitleCase(regTutorName), 
                     telefono: formattedPhone 
                 }])
                 .select()
@@ -363,7 +363,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
 
             const ninosInserts = validNinos.map(n => ({
                 cliente_id: tutorData.id,
-                nombre_completo: toTitleCase(n.nombre),
+                nombre: toTitleCase(n.nombre),
                 edad: n.edad
             }));
 
