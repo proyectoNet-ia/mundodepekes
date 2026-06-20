@@ -337,8 +337,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
             showToast('El nombre del tutor es obligatorio', 'error');
             return;
         }
-        if (!regTutorPhone.trim()) {
-            showToast('El teléfono del tutor es obligatorio', 'error');
+        if (regTutorPhone.replace(/\D/g, '').length < 10) {
+            showToast('El teléfono debe tener 10 dígitos', 'error');
             return;
         }
         const validNinos = regNinos.filter(n => n.nombre.trim());
@@ -674,7 +674,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                     style={{ padding: '0.8rem 1.2rem', border: '2px solid #e2e8f0', borderRadius: '1rem', outline: 'none', fontSize: '1rem', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
                                     placeholder="Ej. (352) 123-4567"
                                     value={formatPhone(regTutorPhone)}
-                                    onChange={e => setRegTutorPhone(e.target.value)}
+                                    onChange={e => setRegTutorPhone(e.target.value.replace(/\D/g, '').substring(0, 10))}
                                     onFocus={e => e.target.style.borderColor = 'var(--brand-500)'}
                                     onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                                 />
