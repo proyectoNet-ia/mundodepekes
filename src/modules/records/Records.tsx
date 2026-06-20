@@ -45,11 +45,13 @@ const PAGE_SIZE = 25;
 
 const formatPhone = (phone: string) => {
     if (!phone) return '';
-    const clean = phone.replace(/\D/g, '');
-    if (clean.length === 10) {
-        return `(${clean.substring(0, 3)}) ${clean.substring(3, 6)}-${clean.substring(6)}`;
-    }
-    return phone;
+    let digits = phone.replace(/\D/g, '');
+    if (digits.length === 12 && digits.startsWith('52')) digits = digits.substring(2);
+    if (digits.length === 11 && digits.startsWith('1')) digits = digits.substring(1);
+    digits = digits.substring(0, 10);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.substring(0, 3)}) ${digits.substring(3)}`;
+    return `(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6, 10)}`;
 };
 
 const formatDisplayPhone = (rawPhone: string): string => {
@@ -629,48 +631,62 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
             )}
 
             {showRegistrationModal && (
-                <div className={styles.modalOverlay} onClick={() => !isRegistering && setShowRegistrationModal(false)}>
-                    <div className={styles.editModal} onClick={e => e.stopPropagation()} style={{ width: '500px', maxWidth: '90vw' }}>
-                        <div className={styles.editModalHeader}>
-                            <h3><FontAwesomeIcon icon={faUserPlus} /> Nuevo Registro Rápido</h3>
+                <div className={styles.modalOverlay} onClick={() => !isRegistering && setShowRegistrationModal(false)} style={{ zIndex: 1100 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ 
+                        background: '#ffffff',
+                        width: '100%',
+                        maxWidth: '440px',
+                        borderRadius: '1.5rem',
+                        overflow: 'hidden',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        animation: 'slideUp 0.25s ease'
+                    }}>
+                        <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                            <h3 style={{ margin: 0, color: '#0f172a', fontWeight: 800, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                <FontAwesomeIcon icon={faUserPlus} style={{ color: 'var(--brand-500)' }} /> Nuevo Registro Rápido
+                            </h3>
                             <button className={styles.closeBtn} onClick={() => setShowRegistrationModal(false)} disabled={isRegistering}>
                                 <FontAwesomeIcon icon={faTimes} />
                             </button>
                         </div>
-                        <div className={styles.editModalBody} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                    Tutor / Responsable <span style={{color: 'var(--danger)'}}>*</span>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Tutor / Responsable <span style={{color: '#ef4444'}}>*</span>
                                 </label>
                                 <input 
                                     type="text" 
-                                    className={styles.editInput}
+                                    style={{ padding: '0.8rem 1.2rem', border: '2px solid #e2e8f0', borderRadius: '1rem', outline: 'none', fontSize: '1rem', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
                                     placeholder="Nombre completo"
                                     value={regTutorName}
                                     onChange={e => setRegTutorName(e.target.value)}
                                     autoFocus
+                                    onFocus={e => e.target.style.borderColor = 'var(--brand-500)'}
+                                    onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                                 />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                    Teléfono <span style={{color: 'var(--danger)'}}>*</span>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Teléfono <span style={{color: '#ef4444'}}>*</span>
                                 </label>
                                 <input 
                                     type="tel" 
-                                    className={styles.editInput}
-                                    placeholder="Ej. 352 123 4567"
-                                    value={regTutorPhone}
+                                    style={{ padding: '0.8rem 1.2rem', border: '2px solid #e2e8f0', borderRadius: '1rem', outline: 'none', fontSize: '1rem', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+                                    placeholder="Ej. (352) 123-4567"
+                                    value={formatPhone(regTutorPhone)}
                                     onChange={e => setRegTutorPhone(e.target.value)}
+                                    onFocus={e => e.target.style.borderColor = 'var(--brand-500)'}
+                                    onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                                 />
                             </div>
 
-                            <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '12px' }}>
+                            <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '1rem', border: '1px solid #e2e8f0' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <h4 style={{ margin: 0, color: 'var(--text-secondary)' }}>Pekes</h4>
+                                    <h4 style={{ margin: 0, color: '#334155', fontWeight: 800, fontSize: '1rem' }}>Pekes</h4>
                                     <button 
                                         className="btn btn-ghost" 
                                         onClick={() => setRegNinos([...regNinos, { nombre: '', edad: 0 }])}
-                                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', background: '#e0e7ff', color: '#4f46e5', border: 'none', borderRadius: '0.5rem', fontWeight: 700 }}
                                     >
                                         <FontAwesomeIcon icon={faPlus} /> Agregar Peke
                                     </button>
@@ -681,7 +697,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                         <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                             <input 
                                                 type="text" 
-                                                className={styles.editInput}
+                                                style={{ flex: 1, padding: '0.8rem 1rem', border: '2px solid #e2e8f0', borderRadius: '0.75rem', outline: 'none', fontSize: '0.9rem', transition: 'border-color 0.2s' }}
                                                 placeholder="Nombre del peke"
                                                 value={n.nombre}
                                                 onChange={e => {
@@ -689,11 +705,12 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                                     updated[i].nombre = e.target.value;
                                                     setRegNinos(updated);
                                                 }}
-                                                style={{ flex: 1 }}
+                                                onFocus={e => e.target.style.borderColor = 'var(--brand-500)'}
+                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                                             />
                                             <input 
                                                 type="number" 
-                                                className={styles.editInput}
+                                                style={{ width: '70px', padding: '0.8rem 0.5rem', border: '2px solid #e2e8f0', borderRadius: '0.75rem', outline: 'none', fontSize: '0.9rem', textAlign: 'center', transition: 'border-color 0.2s' }}
                                                 placeholder="Edad"
                                                 value={n.edad || ''}
                                                 onChange={e => {
@@ -701,7 +718,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                                     updated[i].edad = parseInt(e.target.value) || 0;
                                                     setRegNinos(updated);
                                                 }}
-                                                style={{ width: '80px' }}
+                                                onFocus={e => e.target.style.borderColor = 'var(--brand-500)'}
+                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                                                 min={0}
                                                 max={17}
                                             />
@@ -712,7 +730,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                                         const updated = regNinos.filter((_, idx) => idx !== i);
                                                         setRegNinos(updated);
                                                     }}
-                                                    style={{ color: 'var(--danger)', padding: '0.5rem' }}
+                                                    style={{ color: '#ef4444', padding: '0.5rem' }}
                                                 >
                                                     <FontAwesomeIcon icon={faTrash} />
                                                 </button>
@@ -722,11 +740,11 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                 </div>
                             </div>
                         </div>
-                        <div className={styles.editModalFooter}>
-                            <button className="btn btn-ghost" onClick={() => setShowRegistrationModal(false)} disabled={isRegistering}>
+                        <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem', background: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+                            <button className="btn btn-ghost" onClick={() => setShowRegistrationModal(false)} disabled={isRegistering} style={{ fontWeight: 700 }}>
                                 Cancelar
                             </button>
-                            <button className="btn btn-primary" onClick={handleSaveNewRegistration} disabled={isRegistering}>
+                            <button className="btn btn-primary" onClick={handleSaveNewRegistration} disabled={isRegistering} style={{ borderRadius: '0.75rem', padding: '0.6rem 1.5rem', fontWeight: 800 }}>
                                 {isRegistering ? 'Guardando...' : 'Guardar Registro'}
                             </button>
                         </div>
