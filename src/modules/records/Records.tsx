@@ -659,7 +659,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                     style={{ padding: '0.8rem 1.2rem', border: '2px solid #e2e8f0', borderRadius: '1rem', outline: 'none', fontSize: '1rem', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
                                     placeholder="Nombre completo"
                                     value={regTutorName}
-                                    onChange={e => setRegTutorName(e.target.value)}
+                                    onChange={e => setRegTutorName(toTitleCase(e.target.value))}
                                     autoFocus
                                     onFocus={e => e.target.style.borderColor = 'var(--brand-500)'}
                                     onBlur={e => e.target.style.borderColor = '#e2e8f0'}
@@ -702,7 +702,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                                 value={n.nombre}
                                                 onChange={e => {
                                                     const updated = [...regNinos];
-                                                    updated[i].nombre = e.target.value;
+                                                    updated[i].nombre = toTitleCase(e.target.value);
                                                     setRegNinos(updated);
                                                 }}
                                                 onFocus={e => e.target.style.borderColor = 'var(--brand-500)'}
