@@ -112,6 +112,9 @@ export class PrinterService {
         if (isClientCopy) {
             lines.push('\x1B\x21\x30*** COPIA CLIENTE ***\x1B\x21\x00');
             lines.push('');
+        } else {
+            lines.push('\x1B\x21\x30*** ORIGINAL NEGOCIO ***\x1B\x21\x00');
+            lines.push('');
         }
 
         lines.push('\x1B\x45\x01MUNDO DE PEKES\x1B\x45\x00');

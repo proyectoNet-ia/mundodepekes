@@ -205,6 +205,55 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
                 </div>
             )}
 
+            {userRole === 'admin' && (
+                <div style={{ 
+                    padding: '0.75rem 1rem', 
+                    margin: '0.5rem 1rem',
+                    background: localStorage.getItem('modo_entrenamiento') === 'true' ? '#fef2f2' : '#f8fafc',
+                    border: localStorage.getItem('modo_entrenamiento') === 'true' ? '1px solid #fca5a5' : '1px solid #e2e8f0',
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    fontSize: '0.85rem', 
+                    color: localStorage.getItem('modo_entrenamiento') === 'true' ? '#991b1b' : '#334155' 
+                }}>
+                    <span style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🔧</span> Modo Pruebas
+                    </span>
+                    <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px' }}>
+                        <input 
+                            type="checkbox" 
+                            checked={localStorage.getItem('modo_entrenamiento') === 'true'} 
+                            onChange={(e) => {
+                                localStorage.setItem('modo_entrenamiento', e.target.checked ? 'true' : 'false');
+                                window.location.reload();
+                            }}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                        />
+                        <span style={{
+                            position: 'absolute',
+                            cursor: 'pointer',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: localStorage.getItem('modo_entrenamiento') === 'true' ? '#ef4444' : '#ccc',
+                            transition: '.4s',
+                            borderRadius: '20px'
+                        }}>
+                            <span style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '14px', width: '14px',
+                                left: localStorage.getItem('modo_entrenamiento') === 'true' ? '18px' : '3px',
+                                bottom: '3px',
+                                backgroundColor: 'white',
+                                transition: '.4s',
+                                borderRadius: '50%'
+                            }}></span>
+                        </span>
+                    </label>
+                </div>
+            )}
+
             <div className={styles.premiumCardWrapper}>
               {user && (
                 <div className={styles.userPremiumCard}>
@@ -253,6 +302,55 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             </button>
           </div>
           <div className={styles.tabs}>{navItems}</div>
+          {userRole === 'admin' && (
+              <div style={{ 
+                  padding: '0.75rem 1rem', 
+                  margin: '0.5rem 1rem',
+                  background: localStorage.getItem('modo_entrenamiento') === 'true' ? '#fef2f2' : '#f8fafc',
+                  border: localStorage.getItem('modo_entrenamiento') === 'true' ? '1px solid #fca5a5' : '1px solid #e2e8f0',
+                  borderRadius: '8px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  fontSize: '0.85rem', 
+                  color: localStorage.getItem('modo_entrenamiento') === 'true' ? '#991b1b' : '#334155' 
+              }}>
+                  <span style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🔧</span> Modo Pruebas
+                  </span>
+                  <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px' }}>
+                      <input 
+                          type="checkbox" 
+                          checked={localStorage.getItem('modo_entrenamiento') === 'true'} 
+                          onChange={(e) => {
+                              localStorage.setItem('modo_entrenamiento', e.target.checked ? 'true' : 'false');
+                              window.location.reload();
+                          }}
+                          style={{ opacity: 0, width: 0, height: 0 }}
+                      />
+                      <span style={{
+                          position: 'absolute',
+                          cursor: 'pointer',
+                          top: 0, left: 0, right: 0, bottom: 0,
+                          backgroundColor: localStorage.getItem('modo_entrenamiento') === 'true' ? '#ef4444' : '#ccc',
+                          transition: '.4s',
+                          borderRadius: '20px'
+                      }}>
+                          <span style={{
+                              position: 'absolute',
+                              content: '""',
+                              height: '14px', width: '14px',
+                              left: localStorage.getItem('modo_entrenamiento') === 'true' ? '18px' : '3px',
+                              bottom: '3px',
+                              backgroundColor: 'white',
+                              transition: '.4s',
+                              borderRadius: '50%'
+                          }}></span>
+                      </span>
+                  </label>
+              </div>
+          )}
+
           <div className={styles.premiumCardWrapper}>
             {user && (
               <div className={styles.userPremiumCard}>

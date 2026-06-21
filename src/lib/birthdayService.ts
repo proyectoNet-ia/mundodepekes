@@ -16,6 +16,9 @@ export interface Cumpleanos {
     paquete_id?: string;
     area?: string;
     created_at: string;
+    arqueo_id?: string;
+    extras_liquidados?: any[];
+    cant_ninos?: number;
 }
 
 export interface NinoCumpleanos {
@@ -24,6 +27,12 @@ export interface NinoCumpleanos {
     nombre_nino: string;
     hora_ingreso: string;
     refresco_entregado: boolean;
+    paquete_id?: string;
+    costo_unitario?: number;
+    paquetes?: {
+        nombre: string;
+        area: string;
+    };
 }
 
 export const birthdayService = {
@@ -113,7 +122,14 @@ export const birthdayService = {
         }
     },
 
-    async cambiarEstado(id: string, nuevoEstado: Cumpleanos['estado'], totalFinal: number = 0) {
+    async cambiarEstado(
+        id: string, 
+        nuevoEstado: Cumpleanos['estado'], 
+        totalFinal: number = 0, 
+        arqueoId?: string, 
+        extrasLiquidados?: any[],
+        cantNinos?: number
+    ) {
         const updateData: any = { estado: nuevoEstado, total_final: totalFinal };
         
         if (nuevoEstado === 'en_curso') {
@@ -128,6 +144,18 @@ export const birthdayService = {
             updateData.hora_inicio = `${horas}:${minutos}`;
         }
 
+        if (nuevoEstado === 'liquidado') {
+            if (arqueoId) {
+                updateData.arqueo_id = arqueoId;
+            }
+            if (extrasLiquidados) {
+                updateData.extras_liquidados = extrasLiquidados;
+            }
+            if (cantNinos !== undefined) {
+                updateData.cant_ninos = cantNinos;
+            }
+        }
+
         const { error } = await supabase
             .from('eventos_cumpleanos')
             .update(updateData)
@@ -139,7 +167,7 @@ export const birthdayService = {
     async getDetallesEvento(cumpleanosId: string) {
         const { data, error } = await supabase
             .from('ninos_cumpleanos')
-            .select('*')
+            .select('*, paquetes(nombre, area)')
             .eq('cumpleanos_id', cumpleanosId)
             .order('hora_ingreso', { ascending: true });
         
@@ -147,14 +175,16 @@ export const birthdayService = {
         return data as NinoCumpleanos[];
     },
 
-    async ingresarNino(cumpleanosId: string, nombreNino: string, descuentaRefresco: boolean = true) {
+    async ingresarNino(cumpleanosId: string, nombreNino: string, descuentaRefresco: boolean = true, paqueteId?: string, costoUnitario?: number) {
         // Registrar al niño
         const { data, error } = await supabase
             .from('ninos_cumpleanos')
             .insert({
                 cumpleanos_id: cumpleanosId,
                 nombre_nino: nombreNino,
-                refresco_entregado: descuentaRefresco
+                refresco_entregado: descuentaRefresco,
+                paquete_id: paqueteId || null,
+                costo_unitario: costoUnitario || 0
             })
             .select()
             .single();
@@ -201,6 +231,19 @@ export const birthdayService = {
         if (error) throw error;
     },
 
+    async updateNino(ninoId: string, nombreNino: string, paqueteId: string, costoUnitario: number) {
+        const { error } = await supabase
+            .from('ninos_cumpleanos')
+            .update({ 
+                nombre_nino: nombreNino,
+                paquete_id: paqueteId,
+                costo_unitario: costoUnitario
+            })
+            .eq('id', ninoId);
+            
+        if (error) throw error;
+    },
+
     async registrarTransaccionFinanciera(monto: number, metodoPago: string, paqueteId: string | undefined, descripcion: string) {
         if (monto <= 0) return;
         try {
@@ -214,7 +257,7 @@ export const birthdayService = {
                 total: monto,
                 metodo_pago: metodoPago,
                 arqueo_id: session.id,
-                es_privado: true,
+                es_privado: false,
                 paquete_id: paqueteId || null
             }).select('id').single();
             

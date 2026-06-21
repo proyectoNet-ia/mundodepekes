@@ -38,6 +38,7 @@ import { useToast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { syncService } from '../../lib/syncService';
 import { PresaleQueue } from './PresaleQueue';
+import { supabase } from '../../lib/supabase';
 import { confirmPresale } from '../../lib/presaleService';
 import { getActiveSession, getShiftProductsSoldSummary } from '../../lib/treasuryService';
 
@@ -116,6 +117,21 @@ interface DashboardProps {
   onManageBirthday?: (birthdayId: string) => void;
 }
 
+const LOWERCASE_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e', 'o', 'a', 'en']);
+const toTitleCase = (str: string): string => {
+    return str
+        .toLowerCase()
+        .split(' ')
+        .map((word, index) => {
+            if (!word) return word;
+            if (index !== 0 && LOWERCASE_WORDS.has(word)) return word;
+            return word.split('-').map(part =>
+                part.charAt(0).toUpperCase() + part.slice(1)
+            ).join('-');
+        })
+        .join(' ');
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onManageBirthday }) => {
   const { showToast } = useToast();
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
@@ -145,6 +161,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
   const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
   const [privateEvents, setPrivateEvents] = useState<any[]>([]);
   const [cumpleanosActivos, setCumpleanosActivos] = useState<any[]>([]);
+  const [ninosCumpleanos, setNinosCumpleanos] = useState<any[]>([]);
   const [paquetesDisponibles, setPaquetesDisponibles] = useState<any[]>([]);
   const [totalChildrenToday, setTotalChildrenToday] = useState<{ total: number; unique: number }>({ total: 0, unique: 0 });
   const [shiftProducts, setShiftProducts] = useState<any[]>([]);
@@ -153,6 +170,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
   // Estado del modal para agregar peke a un evento privado
   const [addToEventModal, setAddToEventModal] = useState<{ transaccionId: string; packageId: string; area: string; tutorId: string; eventEndTime: Date; packageName: string; } | null>(null);
   const [newPekeName, setNewPekeName] = useState('');
+  const [modalSelectedPackageId, setModalSelectedPackageId] = useState('');
+
+  useEffect(() => {
+    if (addToEventModal) {
+      setModalSelectedPackageId(addToEventModal.packageId || '');
+    } else {
+      setModalSelectedPackageId('');
+    }
+  }, [addToEventModal]);
+
+  const [editingPekePackage, setEditingPekePackage] = useState<{ ninoId: string; childName: string; packageId: string; transaccionId: string; } | null>(null);
+  const [newPekePackageId, setNewPekePackageId] = useState('');
+  const [editPekeName, setEditPekeName] = useState('');
+  const [pekeSearchQueries, setPekeSearchQueries] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (editingPekePackage) {
+      setNewPekePackageId(editingPekePackage.packageId || '');
+      setEditPekeName(editingPekePackage.childName || '');
+    } else {
+      setNewPekePackageId('');
+      setEditPekeName('');
+    }
+  }, [editingPekePackage]);
 
   const refreshData = async () => {
     setIsRefreshing(true);
@@ -173,10 +214,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
       setTotalChildrenToday(todayCount);
       const todayVal = new Date();
       const todayStr = `${todayVal.getFullYear()}-${String(todayVal.getMonth() + 1).padStart(2, '0')}-${String(todayVal.getDate()).padStart(2, '0')}`;
-      setCumpleanosActivos(cumples.filter(c => 
+      const filteredCumples = cumples.filter(c => 
           c.estado === 'en_curso' || 
           (c.estado === 'agendado' && c.fecha_evento === todayStr)
-      ));
+      );
+      setCumpleanosActivos(filteredCumples);
+
+      if (filteredCumples.length > 0) {
+        const { data: ninos, error: ninosErr } = await supabase
+          .from('ninos_cumpleanos')
+          .select('*, paquetes(nombre, area)')
+          .in('cumpleanos_id', filteredCumples.map(c => c.id));
+        
+        if (!ninosErr && ninos) {
+          setNinosCumpleanos(ninos);
+        } else {
+          setNinosCumpleanos([]);
+        }
+      } else {
+        setNinosCumpleanos([]);
+      }
+
       setPaquetesDisponibles(paquetes);
       setLastRefreshed(new Date());
 
@@ -377,7 +435,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
           duration: duracion,
           eventStartTime: start,
           eventEndTime: end,
-          sessions: [],
+          sessions: ninosCumpleanos
+              .filter(n => n.cumpleanos_id === ev.id)
+              .map(n => ({
+                  id: n.id,
+                  childName: n.nombre_nino,
+                  packageName: n.paquetes?.nombre || paquete?.nombre || 'Cumpleaños',
+                  packageId: n.paquete_id || ev.paquete_id,
+                  areaActual: n.paquetes?.area || ev.area || 'Mundo de Pekes',
+                  transaccionId: ev.id,
+                  isBirthdayGuest: true,
+                  costoUnitario: n.costo_unitario ?? ev.precio_por_nino ?? 0,
+                  refrescoEntregado: n.refresco_entregado ?? false
+              })),
           isOffline: false,
           isCumpleanos: true,
           estado: ev.estado,
@@ -457,17 +527,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
   // Áreas reconocidas por el sistema
   const KNOWN_AREAS = Object.keys(AREA_MAP); // ['Mundo Pekes', 'Trampolin', 'Mixto']
 
+  // Active birthday children currently playing (when the event is 'en_curso')
+  const activeBirthdayGuests = cumpleanosGroups
+    .filter(g => g.estado === 'en_curso')
+    .flatMap(g => g.sessions.map(s => ({
+      childId: `cumple-${s.id}`,
+      area: AREA_MAP[s.areaActual] || s.areaActual
+    })));
 
+  // Combine regular play sessions and active birthday kids
+  const allActiveSessionsForStats = [
+    ...allSessions.map(s => ({
+      childId: s.childId,
+      area: AREA_MAP[s.area] || s.area
+    })),
+    ...activeBirthdayGuests
+  ];
 
   // Total real: solo sesiones en áreas conocidas, sin duplicados por childId
-  const visibleSessions = allSessions.filter(s => KNOWN_AREAS.includes(s.area));
+  const visibleSessions = allActiveSessionsForStats.filter(s => KNOWN_AREAS.includes(s.area));
   const uniqueChildIds = new Set(visibleSessions.map(s => s.childId));
   const totalEnRecinto = uniqueChildIds.size;
 
   // Occupancy Logic (Mixed counts for both areas)
-  const countMundo = allSessions.filter(s => AREA_MAP[s.area] === 'Mundo de Pekes' || AREA_MAP[s.area] === 'Área Mixta').length;
-  const countTrampolin = allSessions.filter(s => AREA_MAP[s.area] === 'Trampolín Park' || AREA_MAP[s.area] === 'Área Mixta').length;
-  const countMixta = allSessions.filter(s => AREA_MAP[s.area] === 'Área Mixta').length;
+  const countMundo = allActiveSessionsForStats.filter(s => s.area === 'Mundo de Pekes' || s.area === 'Área Mixta').length;
+  const countTrampolin = allActiveSessionsForStats.filter(s => s.area === 'Trampolín Park' || s.area === 'Área Mixta').length;
+  const countMixta = allActiveSessionsForStats.filter(s => s.area === 'Área Mixta').length;
 
   const normalizeText = (text: string) => 
     text ? text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
@@ -793,7 +878,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
             <div className={styles.zoneHeader}>
               <h3 className={styles.zoneTitle}>{uiArea}</h3>
               <span className={styles.zoneCount}>
-                {new Set(sessions.filter(s => AREA_MAP[s.area] === uiArea).map(s => s.childId)).size} niños
+                {
+                  new Set([
+                    ...sessions.filter(s => AREA_MAP[s.area] === uiArea).map(s => s.childId),
+                    ...activeBirthdayGuests.filter(bg => bg.area === uiArea).map(bg => bg.childId)
+                  ]).size
+                } niños
               </span>
             </div>
             
@@ -1015,8 +1105,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
 
               return (
                 <div key={event.transaccionId} style={{
-                  background: isExpiredEvent ? '#fef2f2' : '#fffbeb',
-                  border: `2px solid ${isExpiredEvent ? '#fca5a5' : isCritical ? '#fb923c' : '#fde68a'}`,
+                  background: isExpiredEvent ? '#fef2f2' : event.isCumpleanos ? '#faf5ff' : '#fffbeb',
+                  border: `2px solid ${isExpiredEvent ? '#fca5a5' : isCritical ? '#fb923c' : event.isCumpleanos ? '#e9d5ff' : '#fde68a'}`,
                   borderRadius: '1rem',
                   padding: '1.25rem',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
@@ -1025,18 +1115,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                 }}>
                   {(event as any).isOffline && (
                       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.5)', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '1rem', flexDirection: 'column', gap: '0.5rem' }}>
-                          <FontAwesomeIcon icon={faCloudUploadAlt} spin size="lg" style={{ color: '#d97706' }} />
-                          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#d97706' }}>SINCRONIZANDO VENTA...</span>
+                          <FontAwesomeIcon icon={faCloudUploadAlt} spin size="lg" style={{ color: event.isCumpleanos ? '#7c3aed' : '#d97706' }} />
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: event.isCumpleanos ? '#7c3aed' : '#d97706' }}>SINCRONIZANDO VENTA...</span>
                       </div>
                   )}
                   {/* Header del evento */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#92400e', fontWeight: 800 }}>
+                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: event.isCumpleanos ? '#6d28d9' : '#92400e', fontWeight: 800 }}>
                         {event.isCumpleanos ? `Cumpleaños de ${event.nombreFestejado}` : event.packageName}
                       </h3>
                       <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#78350f', fontWeight: 600 }}>
+                        <span style={{ fontSize: '0.85rem', color: event.isCumpleanos ? '#5b21b6' : '#78350f', fontWeight: 600 }}>
                           <FontAwesomeIcon icon={faUser} style={{ marginRight: '4px', opacity: 0.7 }} /> {event.isCumpleanos ? `Cliente: ${event.tutorName}` : event.tutorName}
                         </span>
                         {(event as any).tutorPhone && (
@@ -1044,20 +1134,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                             <FontAwesomeIcon icon={faWhatsapp} style={{ marginRight: '4px' }} /> {formatDisplayPhone((event as any).tutorPhone)}
                           </span>
                         )}
-                        <span style={{ fontSize: '0.8rem', background: '#fef3c7', padding: '2px 8px', borderRadius: '6px', color: '#92400e', fontWeight: 800, border: '1px solid #fde68a' }}>
+                        <span style={{ fontSize: '0.8rem', background: event.isCumpleanos ? '#f3e8ff' : '#fef3c7', padding: '2px 8px', borderRadius: '6px', color: event.isCumpleanos ? '#6d28d9' : '#92400e', fontWeight: 800, border: `1px solid ${event.isCumpleanos ? '#e9d5ff' : '#fde68a'}` }}>
                            Fin: {endStr}
                         </span>
-                        {(event as any).guestLimit > 0 && (
+                        {((event as any).guestLimit > 0 || event.isCumpleanos) && (
                           <span style={{ 
                             fontSize: '0.8rem', 
-                            background: event.sessions.length >= (event as any).guestLimit ? '#fee2e2' : '#f0fdf4', 
+                            background: ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) 
+                              ? '#fee2e2' 
+                              : event.isCumpleanos 
+                                ? '#f3e8ff' 
+                                : '#f0fdf4', 
                             padding: '2px 8px', 
                             borderRadius: '6px', 
-                            color: event.sessions.length >= (event as any).guestLimit ? '#991b1b' : '#166534', 
+                            color: ((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) 
+                              ? '#991b1b' 
+                              : event.isCumpleanos 
+                                ? '#6d28d9' 
+                                : '#166534', 
                             fontWeight: 800, 
-                            border: `1px solid ${event.sessions.length >= (event as any).guestLimit ? '#fecaca' : '#bbf7d0'}` 
+                            border: `1px solid ${((event as any).guestLimit > 0 && event.sessions.length >= (event as any).guestLimit) 
+                              ? '#fecaca' 
+                              : event.isCumpleanos 
+                                ? '#e9d5ff' 
+                                : '#bbf7d0'}` 
                           }}>
-                            Invitados: {event.sessions.length} / {(event as any).guestLimit}
+                            Pekes Ingresados: {event.sessions.length} { (event as any).guestLimit > 0 ? `/ ${(event as any).guestLimit}` : '' }
+                          </span>
+                        )}
+                        {event.isCumpleanos && (
+                          <span style={{ 
+                            fontSize: '0.8rem', 
+                            background: '#f3e8ff', 
+                            padding: '2px 8px', 
+                            borderRadius: '6px', 
+                            color: '#6d28d9', 
+                            fontWeight: 800, 
+                            border: '1px solid #e9d5ff' 
+                          }}>
+                            Costo Acumulado: ${event.sessions.reduce((sum: number, s: any) => sum + (s.costoUnitario || 0), 0).toFixed(2)}
                           </span>
                         )}
                       </div>
@@ -1069,9 +1184,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                           gap: '0.5rem 1rem', 
                           marginTop: '0.75rem', 
                           paddingTop: '0.75rem', 
-                          borderTop: '1px dashed rgba(217, 119, 6, 0.25)',
+                          borderTop: '1px dashed rgba(124, 58, 237, 0.25)',
                           fontSize: '0.85rem',
-                          color: '#78350f'
+                          color: '#5b21b6'
                         }}>
                           <div>⏰ <strong>{event.horaInicio.substring(0, 5)} - {event.horaFin}</strong> ({event.packageName})</div>
                           <div>📍 <strong>{event.area}</strong></div>
@@ -1117,7 +1232,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                           <>
                             <button
                               style={{ 
-                                background: '#3b82f6', 
+                                background: '#7c3aed', 
                                 color: 'white', 
                                 border: 'none', 
                                 borderRadius: '8px', 
@@ -1133,7 +1248,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                             </button>
                             <button
                               style={{ 
-                                background: '#f59e0b', 
+                                background: '#a855f7', 
                                 color: 'white', 
                                 border: 'none', 
                                 borderRadius: '8px', 
@@ -1150,22 +1265,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                             </button>
                           </>
                         ) : (
-                          <button
-                            style={{ 
-                              background: '#16a34a', 
-                              color: 'white', 
-                              border: 'none', 
-                              borderRadius: '8px', 
-                              padding: '0.5rem 1rem', 
-                              fontWeight: 700, 
-                              fontSize: '0.8rem', 
-                              cursor: 'pointer',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                            }}
-                            onClick={() => onManageBirthday?.(event.transaccionId)}
-                          >
-                            ⚙️ Administrar
-                          </button>
+                          <>
+                            <button
+                              style={{ 
+                                background: '#7c3aed', 
+                                color: 'white', 
+                                border: 'none', 
+                                borderRadius: '8px', 
+                                padding: '0.5rem 1rem', 
+                                fontWeight: 700, 
+                                fontSize: '0.8rem', 
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                              }}
+                              onClick={() => onManageBirthday?.(event.transaccionId)}
+                            >
+                              ⚙️ Administrar
+                            </button>
+                            <button
+                              style={{ 
+                                background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', 
+                                color: 'white', 
+                                border: 'none', 
+                                borderRadius: '8px', 
+                                padding: '0.5rem 1rem', 
+                                fontWeight: 700, 
+                                fontSize: '0.8rem', 
+                                cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem'
+                              }}
+                              onClick={() => {
+                                setNewPekeName('');
+                                setAddToEventModal({ 
+                                    transaccionId: event.transaccionId, 
+                                    packageId: event.packageId || '', 
+                                    area: event.area, 
+                                    tutorId: '', 
+                                    eventEndTime: event.eventEndTime, 
+                                    packageName: event.packageName,
+                                    tutorName: event.tutorName,
+                                    isCumpleanos: true
+                                } as any);
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faPlus} /> Ingresar Peke
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
@@ -1177,14 +1325,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                       <div style={{
                         height: '100%',
                         width: `${progressPct}%`,
-                        background: isExpiredEvent ? '#ef4444' : isCritical ? '#f97316' : '#d97706',
+                        background: isExpiredEvent 
+                          ? '#ef4444' 
+                          : isCritical 
+                            ? '#f97316' 
+                            : event.isCumpleanos 
+                              ? '#7c3aed' 
+                              : '#d97706',
                         borderRadius: '99px',
                         transition: 'width 1s linear'
                       }} />
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#78716c', textAlign: 'right' }}>
                       {isPending 
-                        ? <span style={{ color: '#d97706', fontWeight: 700 }}>
+                        ? <span style={{ color: event.isCumpleanos ? '#7c3aed' : '#d97706', fontWeight: 700 }}>
                             {event.isCumpleanos ? '⌛ ESPERANDO INICIO' : '⏳ ESPERANDO INGRESO'}
                           </span>
                         : isExpiredEvent
@@ -1195,20 +1349,143 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                   </div>
 
                   {/* Lista de pekes en el evento */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    {event.sessions.map((s: ActiveSession) => (
-                      <div key={s.id} style={{ background: 'white', border: '1px solid #fde68a', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 600, color: '#44403c', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        &#x1F476; {s.childName}
-                        <button
-                          title="Dar salida"
-                          onClick={() => setCheckoutChild(s)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0 2px', fontSize: '0.75rem' }}
-                        >
-                          &#x2715;
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  {event.isCumpleanos ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', width: '100%', marginTop: '0.75rem', borderTop: '1px dashed #ddd6fe', paddingTop: '0.75rem' }}>
+                      {event.sessions.length > 0 && (
+                        <div style={{ gridColumn: 'span 2', position: 'relative', width: '100%', marginBottom: '0.25rem' }}>
+                          <input
+                            type="text"
+                            placeholder="🔍 Buscar peke..."
+                            value={pekeSearchQueries[event.transaccionId] || ''}
+                            onChange={(e) => setPekeSearchQueries(prev => ({ ...prev, [event.transaccionId]: e.target.value }))}
+                            style={{
+                              width: '100%',
+                              padding: '14px 16px 14px 38px',
+                              borderRadius: '28px',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '0.9rem',
+                              outline: 'none',
+                              background: '#ffffff',
+                              color: '#334155',
+                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)'
+                            }}
+                          />
+                          {(pekeSearchQueries[event.transaccionId] || '') && (
+                            <button
+                              onClick={() => setPekeSearchQueries(prev => ({ ...prev, [event.transaccionId]: '' }))}
+                              style={{
+                                position: 'absolute',
+                                right: '10px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: '#94a3b8',
+                                fontSize: '0.8rem',
+                                padding: '2px 4px'
+                              }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
+                      {(() => {
+                        const query = pekeSearchQueries[event.transaccionId] || '';
+                        const filtered = event.sessions.filter((s: any) => 
+                          s.childName.toLowerCase().includes(query.toLowerCase())
+                        );
+                        
+                        const grouped = filtered.reduce((acc: Record<string, any[]>, s: any) => {
+                          const pkg = paquetesDisponibles.find(p => p.id === s.packageId);
+                          const rawArea = pkg?.area || 'Área Base';
+                          const area = AREA_MAP[rawArea] || rawArea;
+                          if (!acc[area]) acc[area] = [];
+                          acc[area].push(s);
+                          return acc;
+                        }, {});
+                        
+                        const FIXED_AREA_ORDER = ['Mundo de Pekes', 'Trampolín Park', 'Área Mixta'];
+                        const sortedEntries = Object.entries(grouped).sort(([areaA], [areaB]) => {
+                          const idxA = FIXED_AREA_ORDER.indexOf(areaA);
+                          const idxB = FIXED_AREA_ORDER.indexOf(areaB);
+                          const valA = idxA === -1 ? 999 : idxA;
+                          const valB = idxB === -1 ? 999 : idxB;
+                          return valA - valB;
+                        });
+                        
+                        return sortedEntries.map(([area, areaSessions]) => (
+                          <React.Fragment key={area}>
+                            <div style={{ gridColumn: 'span 2', fontSize: '0.75rem', fontWeight: 800, color: '#7c3aed', background: '#f5f3ff', padding: '4px 10px', borderRadius: '6px', textAlign: 'left', marginTop: '0.25rem', borderLeft: '3px solid #6d28d9' }}>
+                              📍 {area} ({areaSessions.length})
+                            </div>
+                            {areaSessions.map((s: any) => (
+                              <div key={s.id} style={{ background: 'white', border: '1px solid #ddd6fe', borderRadius: '8px', padding: '8px 12px', fontSize: '0.85rem', fontWeight: 600, color: '#44403c', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, flex: 1, textAlign: 'left' }}>
+                                  <span style={{ fontWeight: 'bold', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    👶 {s.childName}
+                                  </span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.7rem', color: '#7c3aed', background: '#f5f3ff', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                                      {s.packageName}
+                                    </span>
+                                    {s.packageName.toLowerCase().includes('comida') && (
+                                      <span style={{ fontSize: '0.65rem', color: '#16a34a', background: '#dcfce7', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                        🍔 Comida
+                                      </span>
+                                    )}
+                                    <span style={{ fontSize: '0.75rem', color: '#78716c', fontWeight: 600 }}>
+                                      (${Number(s.costoUnitario || 0).toFixed(2)})
+                                    </span>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexShrink: 0 }}>
+                                  <button
+                                    title="Editar Paquete"
+                                    onClick={() => {
+                                      setEditingPekePackage({
+                                        ninoId: s.id,
+                                        childName: s.childName,
+                                        packageId: s.packageId,
+                                        transaccionId: event.transaccionId
+                                      });
+                                    }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', fontSize: '0.85rem', padding: '2px' }}
+                                  >
+                                    ✏️
+                                  </button>
+                                  <button
+                                    title="Dar salida"
+                                    onClick={() => setCheckoutChild(s)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0 2px', fontSize: '0.85rem', fontWeight: 'bold' }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </React.Fragment>
+                        ));
+                      })()}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {event.sessions.map((s: ActiveSession) => (
+                        <div key={s.id} style={{ background: 'white', border: '1px solid #fde68a', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 600, color: '#44403c', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          &#x1F476; {s.childName}
+                          <button
+                            title="Dar salida"
+                            onClick={() => setCheckoutChild(s)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0 2px', fontSize: '0.75rem' }}
+                          >
+                            &#x2715;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1265,8 +1542,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
         message={`¿Está seguro de que desea retirar a ${checkoutChild?.childName}? Esta acción finalizará la sesión y liberará el espacio.`}
         confirmText="Confirmar Salida"
         onCancel={() => setCheckoutChild(null)}
-        onConfirm={() => {
-          if (checkoutChild) handleCheckout(checkoutChild.id);
+        onConfirm={async () => {
+          if (checkoutChild) {
+            if ((checkoutChild as any).isBirthdayGuest) {
+              try {
+                await birthdayService.eliminarNino(checkoutChild.id, (checkoutChild as any).refrescoEntregado || false, checkoutChild.childName);
+                showToast(`${checkoutChild.childName} retirado con éxito.`, 'success');
+                refreshData();
+              } catch (err) {
+                console.error(err);
+                showToast('Error al retirar al peke del cumpleaños.', 'error');
+              }
+            } else {
+              handleCheckout(checkoutChild.id);
+            }
+          }
           setCheckoutChild(null);
         }}
       />
@@ -1563,7 +1853,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
       {addToEventModal && (
         <div className={styles.modalOverlay}>
             <div className={styles.modal} style={{ maxWidth: '480px' }}>
-                <div className={styles.modalHeader} style={{ background: 'linear-gradient(135deg, #d97706, #b45309)', color: 'white', borderRadius: '1rem 1rem 0 0', padding: '1.5rem', border: 'none' }}>
+                <div className={styles.modalHeader} style={{ background: ((addToEventModal as any).isCumpleanos) ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : 'linear-gradient(135deg, #d97706, #b45309)', color: 'white', borderRadius: '1rem 1rem 0 0', padding: '1.5rem', border: 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <FontAwesomeIcon icon={faBirthdayCake} style={{ fontSize: '1.8rem' }} />
                         <div>
@@ -1580,11 +1870,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                             className={styles.input} 
                             placeholder="Ej. Juanito Pérez" 
                             value={newPekeName}
-                            onChange={(e) => setNewPekeName(e.target.value)}
+                            onChange={(e) => setNewPekeName(toTitleCase(e.target.value))}
                             autoFocus
                         />
                     </div>
-                    <div style={{ marginTop: '2rem', fontSize: '0.75rem', color: '#92400e', background: '#fffbeb', padding: '1rem', borderRadius: '12px', border: '1px solid #fef3c7', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                    {((addToEventModal as any).isCumpleanos) && (
+                        <div className={styles.formGroup} style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', marginBottom: '0.6rem', display: 'block' }}>Paquete del Peke</label>
+                            <select
+                                value={modalSelectedPackageId}
+                                onChange={(e) => setModalSelectedPackageId(e.target.value)}
+                                className={styles.input}
+                                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.9rem' }}
+                            >
+                                <option value="">-- Paquete --</option>
+                                {Object.entries(
+                                    paquetesDisponibles.filter(p => p.es_privado).reduce((acc, p) => {
+                                        const isComida = p.nombre.toLowerCase().includes('comida');
+                                        const groupName = isComida ? `${p.area} (Con Comida)` : p.area;
+                                        if (!acc[groupName]) acc[groupName] = [];
+                                        acc[groupName].push(p);
+                                        return acc;
+                                    }, {} as Record<string, any[]>)
+                                ).map(([area, pkgs]) => (
+                                    <optgroup key={area} label={area}>
+                                        {pkgs.sort((a, b) => a.duracion_minutos - b.duracion_minutos).map(p => (
+                                            <option key={p.id} value={p.id}>{p.nombre} (${p.precio})</option>
+                                        ))}
+                                    </optgroup>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    <div style={{ 
+                      marginTop: '2rem', 
+                      fontSize: '0.75rem', 
+                      color: ((addToEventModal as any).isCumpleanos) ? '#6d28d9' : '#92400e', 
+                      background: ((addToEventModal as any).isCumpleanos) ? '#f5f3ff' : '#fffbeb', 
+                      padding: '1rem', 
+                      borderRadius: '12px', 
+                      border: `1px solid ${((addToEventModal as any).isCumpleanos) ? '#ddd6fe' : '#fef3c7'}`, 
+                      display: 'flex', 
+                      gap: '0.75rem', 
+                      alignItems: 'flex-start' 
+                    }}>
                         <FontAwesomeIcon icon={faBell} style={{ marginTop: '2px' }} />
                         <span><strong>Nota de Sincronización:</strong> {addToEventModal.eventEndTime ? `El tiempo de este peke terminará automáticamente a las ${addToEventModal.eventEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} junto con todo el evento.` : 'El tiempo del evento comenzará a correr a partir de este primer ingreso.'}</span>
                     </div>
@@ -1602,27 +1931,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                         className="btn btn-primary" 
                         style={{ 
                             flex: 1.5, 
-                            background: 'linear-gradient(135deg, #d97706, #b45309)', 
+                            background: ((addToEventModal as any).isCumpleanos) 
+                              ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' 
+                              : 'linear-gradient(135deg, #d97706, #b45309)', 
                             border: 'none', 
                             fontWeight: 800,
-                            boxShadow: '0 4px 12px rgba(180, 83, 9, 0.3)'
+                            boxShadow: ((addToEventModal as any).isCumpleanos) 
+                              ? '0 4px 12px rgba(109, 40, 217, 0.3)' 
+                              : '0 4px 12px rgba(180, 83, 9, 0.3)'
                         }}
-                        disabled={!newPekeName || isRefreshing}
+                        disabled={!newPekeName || isRefreshing || (((addToEventModal as any).isCumpleanos) && !modalSelectedPackageId)}
                         onClick={async () => {
                             if (!newPekeName) return;
                             setIsRefreshing(true);
                             try {
-                                await addChildToPrivateEvent({
-                                    childName: newPekeName,
-                                    childAge: 0, // Age is now omitted, using default
-                                    tutorId: addToEventModal.tutorId,
-                                    packageId: addToEventModal.packageId,
-                                    area: addToEventModal.area,
-                                    transaccionId: addToEventModal.transaccionId,
-                                    eventEndTime: addToEventModal.eventEndTime,
-                                    durationMinutes: (addToEventModal as any).durationMinutes
-                                });
-                                showToast(`${newPekeName} ingresó al evento con éxito.`, 'success');
+                                if ((addToEventModal as any).isCumpleanos) {
+                                    const pkgId = modalSelectedPackageId || addToEventModal.packageId;
+                                    const selectedPkg = paquetesDisponibles.find(p => p.id === pkgId);
+                                    const cost = selectedPkg ? selectedPkg.precio : 0;
+                                    await birthdayService.ingresarNino(addToEventModal.transaccionId, newPekeName, true, pkgId, cost);
+                                    showToast(`${newPekeName} ingresó al cumpleaños con éxito.`, 'success');
+                                } else {
+                                    await addChildToPrivateEvent({
+                                        childName: newPekeName,
+                                        childAge: 0, // Age is now omitted, using default
+                                        tutorId: addToEventModal.tutorId,
+                                        packageId: addToEventModal.packageId,
+                                        area: addToEventModal.area,
+                                        transaccionId: addToEventModal.transaccionId,
+                                        eventEndTime: addToEventModal.eventEndTime,
+                                        durationMinutes: (addToEventModal as any).durationMinutes
+                                    });
+                                    showToast(`${newPekeName} ingresó al evento con éxito.`, 'success');
+                                }
                                 setAddToEventModal(null);
                                 refreshData();
                             } catch (error) {
@@ -1634,6 +1975,101 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                         }}
                     >
                         {isRefreshing ? 'Registrando...' : 'Confirmar Ingreso'}
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* ✏️ MODAL PARA EDITAR PAQUETE DE INVITADO CUMPLEAÑOS */}
+      {editingPekePackage && (
+        <div className={styles.modalOverlay}>
+            <div className={styles.modal} style={{ maxWidth: '440px' }}>
+                <div className={styles.modalHeader} style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: 'white', borderRadius: '1rem 1rem 0 0', padding: '1.5rem', border: 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '1.5rem' }}>✏️</span>
+                        <div style={{ textAlign: 'left' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'white', fontWeight: 800 }}>Editar Invitado</h3>
+                            <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>Niño: {editingPekePackage.childName}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className={styles.modalBody} style={{ padding: '2rem 1.5rem' }}>
+                    <div className={styles.formGroup} style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
+                        <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', marginBottom: '0.6rem', display: 'block' }}>Nombre del Niño</label>
+                        <input
+                            type="text"
+                            value={editPekeName}
+                            onChange={(e) => setEditPekeName(toTitleCase(e.target.value))}
+                            className={styles.input}
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                        />
+                    </div>
+                    <div className={styles.formGroup} style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
+                        <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', marginBottom: '0.6rem', display: 'block' }}>Selecciona el Nuevo Paquete</label>
+                        <select
+                            value={newPekePackageId}
+                            onChange={(e) => setNewPekePackageId(e.target.value)}
+                            className={styles.input}
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.9rem' }}
+                        >
+                            <option value="">-- Paquete --</option>
+                            {Object.entries(
+                                paquetesDisponibles.filter(p => p.es_privado).reduce((acc, p) => {
+                                    const isComida = p.nombre.toLowerCase().includes('comida');
+                                    const groupName = isComida ? `${p.area} (Con Comida)` : p.area;
+                                    if (!acc[groupName]) acc[groupName] = [];
+                                    acc[groupName].push(p);
+                                    return acc;
+                                }, {} as Record<string, any[]>)
+                            ).map(([area, pkgs]) => (
+                                <optgroup key={area} label={area}>
+                                    {pkgs.sort((a, b) => a.duracion_minutos - b.duracion_minutos).map(p => (
+                                        <option key={p.id} value={p.id}>{p.nombre} (${p.precio})</option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className={styles.modalFooter} style={{ padding: '1.25rem 1.5rem', background: '#f8fafc', gap: '1rem' }}>
+                    <button 
+                        className="btn btn-ghost" 
+                        style={{ flex: 1, fontWeight: 700 }} 
+                        onClick={() => setEditingPekePackage(null)}
+                        disabled={isRefreshing}
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        className="btn btn-primary" 
+                        style={{ 
+                            flex: 1.5, 
+                            background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', 
+                            border: 'none', 
+                            fontWeight: 800,
+                            boxShadow: '0 4px 12px rgba(109, 40, 217, 0.3)'
+                        }}
+                        disabled={!newPekePackageId || !editPekeName.trim() || isRefreshing}
+                        onClick={async () => {
+                            if (!newPekePackageId || !editPekeName.trim()) return;
+                            setIsRefreshing(true);
+                            try {
+                                const selectedPkg = paquetesDisponibles.find(p => p.id === newPekePackageId);
+                                const cost = selectedPkg ? selectedPkg.precio : 0;
+                                await birthdayService.updateNino(editingPekePackage.ninoId, editPekeName.trim(), newPekePackageId, cost);
+                                showToast('Invitado actualizado con éxito.', 'success');
+                                setEditingPekePackage(null);
+                                refreshData();
+                            } catch (error) {
+                                console.error(error);
+                                showToast('Error al actualizar el paquete.', 'error');
+                            } finally {
+                                setIsRefreshing(false);
+                            }
+                        }}
+                    >
+                        {isRefreshing ? 'Guardando...' : 'Guardar Cambios'}
                     </button>
                 </div>
             </div>

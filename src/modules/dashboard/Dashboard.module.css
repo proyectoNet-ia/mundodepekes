@@ -165,7 +165,7 @@
 
 .searchIcon {
   position: absolute;
-  left: 1.25rem;
+  left: 1.35rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-tertiary);
@@ -175,8 +175,8 @@
 
 .searchInput {
   width: 100%;
-  padding: 1rem 1rem 1rem 3.2rem; /* Increased vertical padding from 0.75rem to 1rem (~20%+) */
-  background: var(--bg-tertiary);
+  padding: 1.25rem 1rem 1.25rem 3.5rem; /* Increased vertical padding to make it taller */
+  background: white; /* Changed background to white */
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   font-size: 1.1rem; /* Increased font size for better readability */

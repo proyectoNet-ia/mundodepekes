@@ -131,6 +131,53 @@ function App() {
         <div className="layout" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <SystemBar />
             
+            {localStorage.getItem('modo_entrenamiento') === 'true' && (
+                <div style={{ 
+                    background: '#dc2626', 
+                    color: 'white', 
+                    textAlign: 'center', 
+                    padding: '10px 16px', 
+                    fontSize: '0.9rem', 
+                    fontWeight: 'bold',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    fontFamily: 'Inter, sans-serif'
+                }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>⚠️</span> MODO ENTRENAMIENTO ACTIVO
+                    </span>
+                    <span style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'normal' }}>
+                        Las transacciones, ventas y movimientos de caja se simulan localmente y NO afectan la base de datos real
+                    </span>
+                    <button 
+                        onClick={() => {
+                            localStorage.setItem('modo_entrenamiento', 'false');
+                            window.location.reload();
+                        }}
+                        style={{ 
+                            background: 'white', 
+                            color: '#dc2626', 
+                            border: 'none', 
+                            borderRadius: '4px', 
+                            padding: '4px 12px', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 'bold', 
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#fecaca'}
+                        onMouseOut={(e) => e.currentTarget.style.background = 'white'}
+                    >
+                        Desactivar y Volver a Real
+                    </button>
+                </div>
+            )}
+            
             <div className="main-layout">
                 {user && <Navigation activeTab={activeTab} setActiveTab={setActiveTab} userRole={user.role} user={user} />}
                 

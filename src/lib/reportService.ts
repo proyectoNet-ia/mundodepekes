@@ -174,6 +174,25 @@ export class ReportService {
 
         const gastos = shiftExpenses?.reduce((acc, e) => acc + (Number(e.monto) || 0), 0) || 0;
 
+        // 3.5. Obtener Cumpleaños Liquidados en el Turno
+        const { data: birthdayEvents } = await supabase
+            .from('eventos_cumpleanos')
+            .select(`
+                *,
+                paquetes(nombre)
+            `)
+            .eq('arqueo_id', session.id);
+
+        const birthdayIds = birthdayEvents?.map(b => b.id) || [];
+        let allKids: any[] = [];
+        if (birthdayIds.length > 0) {
+            const { data: kidsData } = await supabase
+                .from('ninos_cumpleanos')
+                .select('*, paquetes(nombre, area)')
+                .in('cumpleanos_id', birthdayIds);
+            allKids = kidsData || [];
+        }
+
         // 4. Obtener Productos Vendidos en el Corte
         let soldProducts: { nombre: string; cantidad: number; categoria?: string }[] = [];
         try {
@@ -424,6 +443,54 @@ export class ReportService {
                 });
             }
 
+            // Tabla 2.7: Detalle de Cumpleaños en el Corte
+            if (birthdayEvents && birthdayEvents.length > 0) {
+                const cumpleY = (doc as any).lastAutoTable.finalY + 15;
+                doc.setTextColor(30, 41, 59);
+                doc.setFontSize(12);
+                doc.text('DETALLE DE CUMPLEAÑOS EN EL CORTE', 14, cumpleY);
+                
+                const cumpleRows = birthdayEvents.map(b => {
+                    const eventKids = allKids.filter(k => k.cumpleanos_id === b.id);
+                    const kidsNames = eventKids.map(k => `• ${k.nombre_nino} (${k.paquetes?.nombre || 'Base'})`).join('\n') || 'Ninguno registrado';
+                    
+                    const registeredCount = eventKids.length;
+                    const totalKidsCount = b.cant_ninos || registeredCount || 0;
+                    const extraKidsCount = Math.max(0, totalKidsCount - registeredCount);
+                    const kidsSummary = `${totalKidsCount} total (${registeredCount} en lista` + (extraKidsCount > 0 ? `, ${extraKidsCount} extras` : '') + `)`;
+
+                    const extrasList = Array.isArray(b.extras_liquidados) 
+                        ? b.extras_liquidados.map((e: any) => `• ${e.cantidad}x ${e.nombre}`).join('\n') 
+                        : 'Sin extras';
+
+                    return [
+                        `Festejado: ${b.nombre_festejado}\nCliente: ${b.nombre_cliente} (${b.telefono_cliente})`,
+                        `${b.paquetes?.nombre || 'Paquete Base'}\n($ ${b.precio_por_nino.toFixed(2)} / niño)`,
+                        `Pekes en lista:\n${kidsNames}\n\nResumen:\n${kidsSummary}`,
+                        `$ ${b.anticipo_pagado.toFixed(2)} (${b.metodo_pago_anticipo})`,
+                        extrasList,
+                        `$ ${b.total_final.toFixed(2)}`
+                    ];
+                });
+
+                autoTable(doc, {
+                    startY: cumpleY + 4,
+                    head: [['Evento / Cliente', 'Paquete Base', 'Niños y Desglose', 'Anticipo', 'Ventas Extras', 'Total Final']],
+                    body: cumpleRows,
+                    theme: 'grid',
+                    headStyles: { fillColor: [147, 51, 234] }, // Púrpura para cumpleaños
+                    styles: { cellPadding: 3, fontSize: 8 },
+                    columnStyles: {
+                        0: { cellWidth: 35 },
+                        1: { cellWidth: 20 },
+                        2: { cellWidth: 50 },
+                        3: { cellWidth: 25 },
+                        4: { cellWidth: 35 },
+                        5: { cellWidth: 20 }
+                    }
+                });
+            }
+
             // Tabla 3: Detalle de Transacciones (Salto de página si es necesario)
             doc.addPage();
             doc.setTextColor(30, 41, 59);
@@ -516,6 +583,51 @@ export class ReportService {
                         f: folio,
                         m: info.total,
                         p: info.details.length > 0 ? info.details.join(' | ') : 'Sin productos'
+                    });
+                });
+            }
+
+            // Hoja: Detalle de Cumpleaños
+            if (birthdayEvents && birthdayEvents.length > 0) {
+                const wsCumple = workbook.addWorksheet('Detalle de Cumpleaños');
+                wsCumple.columns = [
+                    { header: 'Festejado', key: 'festejado', width: 25 },
+                    { header: 'Cliente', key: 'cliente', width: 25 },
+                    { header: 'Teléfono', key: 'telefono', width: 15 },
+                    { header: 'Paquete Base', key: 'paquete', width: 20 },
+                    { header: 'Total Niños', key: 'total_ninos', width: 15 },
+                    { header: 'Niños Registrados', key: 'ninos_lista', width: 45 },
+                    { header: 'Anticipo Pagado', key: 'anticipo', width: 15 },
+                    { header: 'Ventas Extras', key: 'extras', width: 45 },
+                    { header: 'Total Cobrado', key: 'total', width: 15 }
+                ];
+                
+                // Header style
+                const headerRow = wsCumple.getRow(1);
+                headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                headerRow.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF9333EA' } // Purple
+                };
+
+                birthdayEvents.forEach(b => {
+                    const eventKids = allKids.filter(k => k.cumpleanos_id === b.id);
+                    const kidsNames = eventKids.map(k => `${k.nombre_nino} (${k.paquetes?.nombre || 'Base'})`).join(', ');
+                    const extrasList = Array.isArray(b.extras_liquidados) 
+                        ? b.extras_liquidados.map((e: any) => `${e.cantidad}x ${e.nombre} ($${e.total})`).join(', ') 
+                        : 'Sin extras';
+                    
+                    wsCumple.addRow({
+                        festejado: b.nombre_festejado,
+                        cliente: b.nombre_cliente,
+                        telefono: b.telefono_cliente,
+                        paquete: `${b.paquetes?.nombre || 'Paquete Base'} ($ ${b.precio_por_nino.toFixed(2)})`,
+                        total_ninos: b.cant_ninos || eventKids.length,
+                        ninos_lista: kidsNames,
+                        anticipo: b.anticipo_pagado,
+                        extras: extrasList,
+                        total: b.total_final
                     });
                 });
             }
