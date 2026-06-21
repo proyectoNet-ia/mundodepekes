@@ -1473,6 +1473,9 @@ loadData();
                                                 <button onClick={handleReiniciarTiempo} className="btn btn-secondary" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
                                                     ⏰ Reiniciar Tiempo
                                                 </button>
+                                                <button onClick={handleCancelarEvento} className="btn btn-danger" style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }} disabled={isManaging}>
+                                                    ❌ Cancelar Evento
+                                                </button>
                                             </div>
                                         )}
                                     </div>
