@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { type UserProfile } from '../../lib/authService';
-import { birthdayService, type Cumpleanos } from '../../lib/birthdayService';
+import { birthdayService, type Cumpleanos, type NinoCumpleanos } from '../../lib/birthdayService';
 import { useToast } from '../../components/Toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCakeCandles, faPlus, faTimes, faTrash, faPlay, faCheck, faPen } from '@fortawesome/free-solid-svg-icons';

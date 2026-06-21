@@ -227,7 +227,7 @@ const proxySupabaseFrom = (table: string) => {
       }
     },
     
-    catch: (onrejected: any) => {
+    catch: (_onrejected?: any) => {
       return Promise.resolve();
     }
   };

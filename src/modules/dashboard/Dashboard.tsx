@@ -1405,10 +1405,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                           if (!acc[area]) acc[area] = [];
                           acc[area].push(s);
                           return acc;
-                        }, {});
+                        }, {} as Record<string, any[]>);
                         
                         const FIXED_AREA_ORDER = ['Mundo de Pekes', 'Trampolín Park', 'Área Mixta'];
-                        const sortedEntries = Object.entries(grouped).sort(([areaA], [areaB]) => {
+                        const sortedEntries = (Object.entries(grouped) as [string, any[]][]).sort(([areaA], [areaB]) => {
                           const idxA = FIXED_AREA_ORDER.indexOf(areaA);
                           const idxB = FIXED_AREA_ORDER.indexOf(areaB);
                           const valA = idxA === -1 ? 999 : idxA;
@@ -1884,21 +1884,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.9rem' }}
                             >
                                 <option value="">-- Paquete --</option>
-                                {Object.entries(
-                                    paquetesDisponibles.filter(p => p.es_privado).reduce((acc, p) => {
-                                        const isComida = p.nombre.toLowerCase().includes('comida');
-                                        const groupName = isComida ? `${p.area} (Con Comida)` : p.area;
-                                        if (!acc[groupName]) acc[groupName] = [];
-                                        acc[groupName].push(p);
-                                        return acc;
-                                    }, {} as Record<string, any[]>)
-                                ).map(([area, pkgs]) => (
-                                    <optgroup key={area} label={area}>
-                                        {pkgs.sort((a, b) => a.duracion_minutos - b.duracion_minutos).map(p => (
-                                            <option key={p.id} value={p.id}>{p.nombre} (${p.precio})</option>
-                                        ))}
-                                    </optgroup>
-                                ))}
+                                {(Object.entries(
+                                     paquetesDisponibles.filter(p => p.es_privado).reduce((acc: Record<string, any[]>, p) => {
+                                         const isComida = p.nombre.toLowerCase().includes('comida');
+                                         const groupName = isComida ? `${p.area} (Con Comida)` : p.area;
+                                         if (!acc[groupName]) acc[groupName] = [];
+                                         acc[groupName].push(p);
+                                         return acc;
+                                     }, {} as Record<string, any[]>)
+                                 ) as [string, any[]][]).map(([area, pkgs]) => (
+                                     <optgroup key={area} label={area}>
+                                         {pkgs.sort((a: any, b: any) => a.duracion_minutos - b.duracion_minutos).map((p: any) => (
+                                             <option key={p.id} value={p.id}>{p.nombre} (${p.precio})</option>
+                                         ))}
+                                     </optgroup>
+                                 ))}
                             </select>
                         </div>
                     )}
@@ -2014,17 +2014,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.9rem' }}
                         >
                             <option value="">-- Paquete --</option>
-                            {Object.entries(
-                                paquetesDisponibles.filter(p => p.es_privado).reduce((acc, p) => {
+                            {(Object.entries(
+                                paquetesDisponibles.filter(p => p.es_privado).reduce((acc: Record<string, any[]>, p) => {
                                     const isComida = p.nombre.toLowerCase().includes('comida');
                                     const groupName = isComida ? `${p.area} (Con Comida)` : p.area;
                                     if (!acc[groupName]) acc[groupName] = [];
                                     acc[groupName].push(p);
                                     return acc;
                                 }, {} as Record<string, any[]>)
-                            ).map(([area, pkgs]) => (
+                            ) as [string, any[]][]).map(([area, pkgs]) => (
                                 <optgroup key={area} label={area}>
-                                    {pkgs.sort((a, b) => a.duracion_minutos - b.duracion_minutos).map(p => (
+                                    {pkgs.sort((a: any, b: any) => a.duracion_minutos - b.duracion_minutos).map((p: any) => (
                                         <option key={p.id} value={p.id}>{p.nombre} (${p.precio})</option>
                                     ))}
                                 </optgroup>
