@@ -172,6 +172,13 @@ const proxySupabaseFrom = (table: string) => {
         else if (queryAction === 'update') {
           let mockRows = getMockRows();
           
+          if (mockRows.length === 0 && ['paquetes', 'inventario', 'config_sistema'].includes(table)) {
+            const { data, error } = await rawSupabase.from(table).select('*');
+            if (!error && data) {
+              mockRows = data;
+            }
+          }
+          
           mockRows = mockRows.map(r => {
             let matches = true;
             filters.forEach(f => {
@@ -191,6 +198,13 @@ const proxySupabaseFrom = (table: string) => {
         
         else if (queryAction === 'delete') {
           let mockRows = getMockRows();
+          
+          if (mockRows.length === 0 && ['paquetes', 'inventario', 'config_sistema'].includes(table)) {
+            const { data, error } = await rawSupabase.from(table).select('*');
+            if (!error && data) {
+              mockRows = data;
+            }
+          }
           const remaining: any[] = [];
           const deleted: any[] = [];
           
