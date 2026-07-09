@@ -576,15 +576,49 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
     }
   };
 
+  const eventHasFood = React.useMemo(() => {
+      if (!selectedEvento) return false;
+      const eventPkg = getEventPackageInfo(selectedEvento);
+      if (eventPkg?.nombre.toLowerCase().includes('comida')) return true;
+      return ninosCumple.some(n => {
+          let nPkg = null;
+          if (n.paquete_id) {
+              nPkg = paquetesPrivados.find(p => p.id === n.paquete_id);
+          }
+          return nPkg?.nombre.toLowerCase().includes('comida');
+      });
+  }, [selectedEvento, ninosCumple, paquetesPrivados]);
+
   const openLiquidarModal = () => {
       setShowLiquidar(true);
       if (selectedEvento) {
-          const paqueteSeleccionado = getEventPackageInfo(selectedEvento);
-          if (paqueteSeleccionado?.nombre.toLowerCase().includes('comida')) {
+          let ninosConComida = 0;
+          ninosCumple.forEach(n => {
+              let nPkg = null;
+              if (n.paquete_id) {
+                  nPkg = paquetesPrivados.find(p => p.id === n.paquete_id);
+              }
+              if (!nPkg) {
+                  nPkg = getEventPackageInfo(selectedEvento);
+              }
+              if (nPkg?.nombre.toLowerCase().includes('comida')) {
+                  ninosConComida++;
+              }
+          });
+
+          // Si el total de niños pagados es mayor que los registrados, y el paquete del evento tiene comida
+          const eventPkg = getEventPackageInfo(selectedEvento);
+          if (eventPkg?.nombre.toLowerCase().includes('comida') && totalNinos > ninosCumple.length) {
+              ninosConComida += (totalNinos - ninosCumple.length);
+          }
+
+          if (ninosConComida > 0) {
               const refresco = inventory.find(i => i.nombre.toLowerCase().includes('refresco') || i.categoria.toLowerCase().includes('refresco'));
               if (refresco) {
-                  setBebidasIncluidas([{ item: refresco, qty: totalNinos }]);
+                  setBebidasIncluidas([{ item: refresco, qty: ninosConComida }]);
               }
+          } else {
+              setBebidasIncluidas([]);
           }
       }
   };
@@ -1641,7 +1675,7 @@ loadData();
                                 </div>
                             </div>
 
-                            {getEventPackageInfo(selectedEvento)?.nombre.toLowerCase().includes('comida') && (
+                            {eventHasFood && (
                                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1.5rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
                                     <h4 style={{ margin: '0 0 0.5rem 0', color: '#166534', fontWeight: 'bold' }}>🥤 Bebidas Incluidas en el Paquete</h4>
                                     <p style={{ fontSize: '0.9rem', color: '#166534', marginTop: 0, marginBottom: '1rem' }}>Estas bebidas se descontarán del inventario, pero <strong>NO</strong> se cobrarán en el total.</p>
