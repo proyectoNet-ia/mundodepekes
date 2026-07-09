@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { stockService } from './stockService';
 
 export interface Cumpleanos {
     id: string;
@@ -191,37 +190,13 @@ export const birthdayService = {
             
         if (error) throw error;
 
-        // Descontar inventario automáticamente (1 refresco)
-        if (descuentaRefresco) {
-            try {
-                const inventario = await stockService.getInventory();
-                const refresco = inventario.find(i => i.nombre.toLowerCase().includes('refresco') || i.categoria.toLowerCase().includes('refresco'));
-                
-                if (refresco) {
-                    await stockService.recordMovement(refresco.id, 1, 'salida', `Consumo automático cumpleaños (Niño: ${nombreNino})`);
-                }
-            } catch (err) {
-                console.error("Error al descontar refresco automáticamente:", err);
-            }
-        }
+
 
         return data as NinoCumpleanos;
     },
 
-    async eliminarNino(ninoId: string, refresco_entregado: boolean, nombreNino: string) {
-        // Si se le descontó refresco, lo regresamos al inventario
-        if (refresco_entregado) {
-            try {
-                const inventario = await stockService.getInventory();
-                const refresco = inventario.find(i => i.nombre.toLowerCase().includes('refresco') || i.categoria.toLowerCase().includes('refresco'));
-                
-                if (refresco) {
-                    await stockService.recordMovement(refresco.id, 1, 'entrada', `Ajuste por eliminación de niño en cumpleaños (${nombreNino})`);
-                }
-            } catch (err) {
-                console.error("Error al devolver refresco automáticamente:", err);
-            }
-        }
+    async eliminarNino(ninoId: string, _refresco_entregado: boolean, _nombreNino: string) {
+
 
         const { error } = await supabase
             .from('ninos_cumpleanos')
