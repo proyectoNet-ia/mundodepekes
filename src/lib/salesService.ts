@@ -452,3 +452,67 @@ export const registerInventorySale = async (data: {
     return { success: true, isOffline: true, localId };
   }
 };
+
+export const mergeCustomers = async (sourceId: string, destinationId: string): Promise<{ success: boolean; error?: any }> => {
+  try {
+    // 1. Transfer children (ninos)
+    const { error: errorNinos } = await supabase
+      .from('ninos')
+      .update({ cliente_id: destinationId })
+      .eq('cliente_id', sourceId);
+      
+    if (errorNinos) throw errorNinos;
+
+    // 2. Transfer transactions (transacciones)
+    const { error: errorTrans } = await supabase
+      .from('transacciones')
+      .update({ cliente_id: destinationId })
+      .eq('cliente_id', sourceId);
+
+    if (errorTrans) throw errorTrans;
+
+    // 3. Transfer presales (preventas)
+    const { error: errorPrev } = await supabase
+      .from('preventas')
+      .update({ cliente_id: destinationId })
+      .eq('cliente_id', sourceId);
+
+    if (errorPrev) throw errorPrev;
+
+    // 4. Sum up visits from source to destination
+    const { data: sourceCust, error: sErr } = await supabase.from('clientes').select('visitas_acumuladas, nombre').eq('id', sourceId).single();
+    const { data: destCust, error: dErr } = await supabase.from('clientes').select('visitas_acumuladas, nombre').eq('id', destinationId).single();
+    
+    if (sErr || dErr) throw (sErr || dErr);
+
+    const newVisits = (sourceCust?.visitas_acumuladas || 0) + (destCust?.visitas_acumuladas || 0);
+    const { error: updateCustErr } = await supabase
+      .from('clientes')
+      .update({ visitas_acumuladas: newVisits })
+      .eq('id', destinationId);
+      
+    if (updateCustErr) throw updateCustErr;
+
+    // 5. Delete source customer
+    const { error: errorDelete } = await supabase
+      .from('clientes')
+      .delete()
+      .eq('id', sourceId);
+
+    if (errorDelete) throw errorDelete;
+
+    // 6. Log audit event
+    await AuditService.log({
+      accion: 'ANULACION',
+      modulo: 'ADMIN',
+      descripcion: `Fusión de cliente: Se fusionó el cliente "${sourceCust?.nombre}" (ID: ${sourceId.substring(0,8)}) en "${destCust?.nombre}" (ID: ${destinationId.substring(0,8)}).`,
+      metadatos: { sourceId, destinationId, sourceName: sourceCust?.nombre, destName: destCust?.nombre }
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error merging customers:', err);
+    return { success: false, error: err };
+  }
+};
+

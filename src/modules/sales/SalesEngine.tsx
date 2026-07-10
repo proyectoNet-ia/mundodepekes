@@ -4,7 +4,7 @@ import { omniSearch, registerFullEntry, type SearchResult } from '../../lib/sale
 import { getPackages, type Package } from '../../lib/packageService';
 import { stockService, type StockItem } from '../../lib/stockService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUserPlus, faChild, faCreditCard, faMoneyBillWave, faLock, faSpinner, faPhone, faTicketAlt, faClock, faBirthdayCake, faTrash, faPlus, faExclamationTriangle, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUserPlus, faChild, faCreditCard, faMoneyBillWave, faLock, faSpinner, faPhone, faTicketAlt, faClock, faBirthdayCake, faTrash, faPlus, faExclamationTriangle, faEdit, faExchangeAlt } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { getActiveSession, openCash } from '../../lib/treasuryService';
 import { PrinterService } from '../../lib/printerService';
@@ -14,6 +14,7 @@ import { StatusModal } from '../../components/StatusModal';
 import { getActiveSessions, consumeScheduledEvent } from '../../lib/sessionService';
 import { PINModal } from '../../components/PINModal';
 import { supabase } from '../../lib/supabase';
+import { MergeCustomersModal } from '../../components/MergeCustomersModal';
 
 // Types
 type SalesStep = 'BUSQUEDA' | 'CLIENTE' | 'VERIFICACION' | 'NINO' | 'PAQUETE' | 'ACCESORIOS' | 'PAGO';
@@ -200,6 +201,7 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
   const [secondaryPrefixes, setSecondaryPrefixes] = useState<string[]>([]);
   const [isNewRegistration, setIsNewRegistration] = useState(false);
   const [guestLimit, setGuestLimit] = useState<number>(15); // Default common limit
+  const [mergeSource, setMergeSource] = useState<SearchResult | null>(null);
 
   // Verificación WhatsApp
   const [vCode, setVCode] = useState('');
@@ -688,6 +690,39 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                                         <div className={styles.resStats}>
                                             <span className={styles.visits}>{res.visitsCount} Visitas</span>
                                             {res.enListaNegra && <span className={styles.blacklist}>LISTA NEGRA</span>}
+                                            {res.type === 'tutor' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setMergeSource(res);
+                                                    }}
+                                                    style={{
+                                                        marginTop: '6px',
+                                                        padding: '4px 8px',
+                                                        fontSize: '0.7rem',
+                                                        fontWeight: 700,
+                                                        background: '#f1f5f9',
+                                                        border: '1px solid #cbd5e1',
+                                                        borderRadius: '6px',
+                                                        color: '#475569',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        transition: 'background 0.2s, color 0.2s'
+                                                    }}
+                                                    onMouseOver={el => {
+                                                        el.currentTarget.style.background = '#e2e8f0';
+                                                        el.currentTarget.style.color = '#1e293b';
+                                                    }}
+                                                    onMouseOut={el => {
+                                                        el.currentTarget.style.background = '#f1f5f9';
+                                                        el.currentTarget.style.color = '#475569';
+                                                    }}
+                                                >
+                                                    <FontAwesomeIcon icon={faExchangeAlt} /> Fusionar
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -1278,6 +1313,18 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
             onClose={() => setShowPinModal(false)} 
             onSuccess={handleAuthorizedSuccess} 
             actionDescription="Ingreso Lista Negra" 
+        />
+        <MergeCustomersModal
+            isOpen={mergeSource !== null}
+            sourceCustomer={mergeSource ? { id: mergeSource.id, name: mergeSource.name || mergeSource.childName || '', phone: mergeSource.phone, visitsCount: mergeSource.visitsCount } : null}
+            onClose={() => setMergeSource(null)}
+            onSuccess={async () => {
+                if (searchTerm.trim()) {
+                    const res = await omniSearch(searchTerm);
+                    setSearchResults(res);
+                }
+            }}
+            otherSearchResults={searchResults || []}
         />
     </div>
   );

@@ -4,8 +4,9 @@ import styles from './Records.module.css';
 import { supabase } from '../../lib/supabase';
 import { getActiveSessions } from '../../lib/sessionService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash, faCheckCircle, faPhone, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUser, faChild, faEllipsisV, faTimes, faTicket, faChevronLeft, faChevronRight, faLock, faPlus, faTrash, faEdit, faUserSlash, faCheckCircle, faPhone, faUserPlus, faExchangeAlt } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../components/Toast';
+import { MergeCustomersModal } from '../../components/MergeCustomersModal';
 
 // Capitaliza nombres propios respetando preposiciones en español
 const LOWERCASE_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'y', 'e', 'o', 'a', 'en']);
@@ -126,6 +127,7 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
     const [editPrefixes, setEditPrefixes] = useState<string[]>([]);
     const [isSaving, setIsSaving]   = useState(false);
     const [activeChildIds, setActiveChildIds] = useState<Set<string>>(new Set());
+    const [mergeSource, setMergeSource] = useState<RecordData | null>(null);
 
     // New Registration states
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
@@ -187,7 +189,8 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                             details: kidsObs || 'Sin observaciones',
                             tutorPhone: c.telefono,
                             isBlacklisted: false,
-                            allKidsActive: allKidsActive
+                            allKidsActive: allKidsActive,
+                            visits: c.visitas_acumuladas || 0
                         };
                     })];
                     if (filter === 'tutors') setTotal(count || 0);
@@ -489,12 +492,17 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                                                 <FontAwesomeIcon icon={faEllipsisV} />
                                             </button>
                                             {menuOpenId === item.id && (
-                                                <div className={styles.contextMenu} style={{ top: menuPos.top - window.scrollY, right: menuPos.right }}>
-                                                    <button className={styles.menuItem} onClick={() => handleEditClick(item)}>
-                                                        <FontAwesomeIcon icon={faEdit} /> Editar
-                                                    </button>
-                                                </div>
-                                            )}
+                                                 <div className={styles.contextMenu} style={{ top: menuPos.top - window.scrollY, right: menuPos.right }}>
+                                                     <button className={styles.menuItem} onClick={() => handleEditClick(item)}>
+                                                         <FontAwesomeIcon icon={faEdit} /> Editar
+                                                     </button>
+                                                     {item.type === 'tutor' && (
+                                                         <button className={styles.menuItem} onClick={() => { setMenuOpenId(null); setMergeSource(item); }}>
+                                                             <FontAwesomeIcon icon={faExchangeAlt} /> Fusionar
+                                                         </button>
+                                                     )}
+                                                 </div>
+                                             )}
                                         </div>
                                     </div>
                                 </td>
@@ -751,6 +759,12 @@ export const Records: React.FC<RecordsProps> = ({ onEntry }) => {
                     </div>
                 </div>
             )}
+            <MergeCustomersModal
+                isOpen={mergeSource !== null}
+                sourceCustomer={mergeSource ? { id: mergeSource.id, name: mergeSource.name, phone: mergeSource.tutorPhone, visitsCount: mergeSource.visits } : null}
+                onClose={() => setMergeSource(null)}
+                onSuccess={fetchData}
+            />
         </div>
     );
 };
