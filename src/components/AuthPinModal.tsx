@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styles from './AuthPinModal.module.css';
 import { authService, type UserProfile } from '../lib/authService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -18,6 +18,15 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
     const [isValidating, setIsValidating] = useState(false);
     const [isRemoteMode, setIsRemoteMode] = useState(false);
     const [isWaitingRemote, setIsWaitingRemote] = useState(false);
+    const subRef = useRef<any>(null);
+
+    useEffect(() => {
+        return () => {
+            if (subRef.current) {
+                subRef.current.unsubscribe();
+            }
+        };
+    }, []);
 
     if (!isOpen) return null;
 
@@ -55,7 +64,7 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
             
             
             // Suscribirse a la respuesta en tiempo real
-            authRequestService.subscribeToRequest(req.id, (updatedReq) => {
+            subRef.current = authRequestService.subscribeToRequest(req.id, (updatedReq) => {
                 if (updatedReq.estado === 'aprobada') {
                     // Si se aprueba, buscamos el perfil del autorizador (simulado o real)
                     onAuthorized({ id: updatedReq.autorizador_id || '', email: 'Supervisor Remoto', role: 'supervisor' });
@@ -63,6 +72,10 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
                 } else if (updatedReq.estado === 'rechazada') {
                     setError('Solicitud rechazada por el Supervisor.');
                     setIsWaitingRemote(false);
+                    if (subRef.current) {
+                        subRef.current.unsubscribe();
+                        subRef.current = null;
+                    }
                 }
             });
 
@@ -73,6 +86,10 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
     };
 
     const resetState = () => {
+        if (subRef.current) {
+            subRef.current.unsubscribe();
+            subRef.current = null;
+        }
         setPin('');
         setError('');
         setIsRemoteMode(false);
@@ -142,7 +159,13 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
                                     <h3>Esperando al Supervisor...</h3>
                                     <p>Tu solicitud ha sido enviada. Por favor espera a que se apruebe remotamente.</p>
                                     {error && <div className={styles.errorMessage}>{error}</div>}
-                                    <button className={styles.cancelRemoteBtn} onClick={() => setIsWaitingRemote(false)}>
+                                    <button className={styles.cancelRemoteBtn} onClick={() => {
+                                        if (subRef.current) {
+                                            subRef.current.unsubscribe();
+                                            subRef.current = null;
+                                        }
+                                        setIsWaitingRemote(false);
+                                    }}>
                                         Cancelar y usar PIN físico
                                     </button>
                                 </div>

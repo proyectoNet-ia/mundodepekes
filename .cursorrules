@@ -1,0 +1,12 @@
+# Reglas de Desarrollo - Mundo de Pekes
+
+## 1. Reglas Generales y Optimización
+* **Ahorro de recursos:** Entregar snippets modulares, no reescribir archivos de más de 50 líneas. Evitar saludos, cortesías y explicaciones teóricas redundantes.
+* **Consistencia Visual (Tailwind CSS):** Queda estrictamente prohibido usar alertas y confirmaciones nativas del navegador (`alert()`, `confirm()`). Reutilizar los componentes visuales existentes (modales, toast).
+* **Fuentes:** Utilizar combinaciones tipográficas de Google Fonts cargadas de forma limpia. No usar fuentes genéricas de sistema.
+* **Iconografía:** Font Awesome es la biblioteca exclusiva de iconos.
+
+## 2. Supabase y Base de Datos (Eficiencia y Seguridad)
+* **Selectores específicos:** Prohibido usar `select('*')` en tablas con múltiples columnas. Definir siempre selectores de campos requeridos (ej. `select('id, nombre')`).
+* **Tiempo Real:** Usar `supabase.channel()` para monitoreo en vivo, asegurando la desuscripción (`channel.unsubscribe()`) al desmontar el componente (limpieza en `useEffect`).
+* **Seguridad RLS:** Asegurar políticas RLS activas en cada tabla nueva o modificada. No exponer `SUPABASE_SERVICE_ROLE_KEY` en el cliente.
