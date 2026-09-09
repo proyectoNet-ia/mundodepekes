@@ -249,5 +249,120 @@ export const birthdayService = {
         } catch (e) {
             console.error("Fallo al ejecutar registrarTransaccionFinanciera:", e);
         }
+    },
+
+    async getTransaccionLiquidacion(evento: Cumpleanos) {
+        if (!evento.arqueo_id) return null;
+        try {
+            // 1. Buscar por bitácora de auditoría vinculada al festejo
+            const { data: logs } = await supabase
+                .from('bitacora_auditoria')
+                .select('*')
+                .ilike('descripcion', `%${evento.nombre_festejado}%`)
+                .order('fecha', { ascending: false })
+                .limit(5);
+
+            if (logs && logs.length > 0) {
+                for (const log of logs) {
+                    const txId = log.metadatos?.transaction_id;
+                    if (txId) {
+                        const { data: tx } = await supabase
+                            .from('transacciones')
+                            .select('*')
+                            .eq('id', txId)
+                            .single();
+                        if (tx) return tx;
+                    }
+                }
+            }
+
+            // 2. Fallback: buscar transacción en el arqueo con el paquete_id
+            if (evento.paquete_id) {
+                const { data: txs } = await supabase
+                    .from('transacciones')
+                    .select('*')
+                    .eq('arqueo_id', evento.arqueo_id)
+                    .eq('paquete_id', evento.paquete_id)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                if (txs && txs.length > 0) return txs[0];
+            }
+        } catch (e) {
+            console.error("Error al buscar transacción de liquidación:", e);
+        }
+        return null;
+    },
+
+    async ajustarLiquidacionAdmin(
+        eventoId: string, 
+        params: {
+            nombre_festejado?: string;
+            nombre_cliente?: string;
+            telefono_cliente?: string;
+            anticipo_pagado?: number;
+            metodo_pago_anticipo?: string;
+            metodo_pago_liquidacion?: string;
+            adminName?: string;
+            adminId?: string;
+        }
+    ) {
+        const { AuditService } = await import('./auditService');
+        
+        // 1. Obtener datos actuales del evento
+        const { data: currentEvent, error: evErr } = await supabase
+            .from('eventos_cumpleanos')
+            .select('*')
+            .eq('id', eventoId)
+            .single();
+            
+        if (evErr) throw evErr;
+
+        // 2. Actualizar evento
+        const updateEventData: any = {};
+        if (params.nombre_festejado !== undefined) updateEventData.nombre_festejado = params.nombre_festejado;
+        if (params.nombre_cliente !== undefined) updateEventData.nombre_cliente = params.nombre_cliente;
+        if (params.telefono_cliente !== undefined) updateEventData.telefono_cliente = params.telefono_cliente;
+        if (params.anticipo_pagado !== undefined) updateEventData.anticipo_pagado = params.anticipo_pagado;
+        if (params.metodo_pago_anticipo !== undefined) updateEventData.metodo_pago_anticipo = params.metodo_pago_anticipo;
+
+        const { error: updErr } = await supabase
+            .from('eventos_cumpleanos')
+            .update(updateEventData)
+            .eq('id', eventoId);
+            
+        if (updErr) throw updErr;
+
+        // 3. Si se especificó cambio de método de pago de liquidación, actualizar la transacción
+        let txUpdated: any = null;
+        if (params.metodo_pago_liquidacion && currentEvent.arqueo_id) {
+            const tx = await this.getTransaccionLiquidacion(currentEvent);
+            if (tx) {
+                const { data: updatedTx, error: txErr } = await supabase
+                    .from('transacciones')
+                    .update({ metodo_pago: params.metodo_pago_liquidacion })
+                    .eq('id', tx.id)
+                    .select()
+                    .single();
+                if (!txErr) txUpdated = updatedTx;
+            }
+        }
+
+        // 4. Registrar en bitácora de auditoría
+        await AuditService.log({
+            usuario_id: params.adminId,
+            accion: 'ADMIN' as any,
+            modulo: 'ADMIN',
+            descripcion: `Ajuste administrativo de cumpleaños (${currentEvent.nombre_festejado}) por ${params.adminName || 'Admin'}`,
+            metadatos: {
+                evento_id: eventoId,
+                cambios: {
+                    ...params,
+                    transaccion_id: txUpdated?.id,
+                    metodo_liquidacion_nuevo: params.metodo_pago_liquidacion
+                }
+            }
+        });
+
+        return true;
     }
 };

@@ -3,7 +3,7 @@ import { type UserProfile } from '../../lib/authService';
 import { birthdayService, type Cumpleanos, type NinoCumpleanos } from '../../lib/birthdayService';
 import { useToast } from '../../components/Toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCakeCandles, faPlus, faTimes, faTrash, faPlay, faCheck, faPen } from '@fortawesome/free-solid-svg-icons';
+import { faCakeCandles, faPlus, faTimes, faTrash, faPlay, faCheck, faPen, faPrint, faGear } from '@fortawesome/free-solid-svg-icons';
 import { getPackages, type Package } from '../../lib/packageService';
 import { stockService, type StockItem } from '../../lib/stockService';
 import { PrinterService } from '../../lib/printerService';
@@ -105,6 +105,17 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
   const [searchItem, setSearchItem] = useState('');
   const [bebidasIncluidas, setBebidasIncluidas] = useState<{ item: StockItem, qty: number }[]>([]);
   const [searchIncluido, setSearchIncluido] = useState('');
+
+  // Estados para Ajuste Administrativo de Liquidación
+  const [showAdminAdjustModal, setShowAdminAdjustModal] = useState(false);
+  const [liquidationTx, setLiquidationTx] = useState<any>(null);
+  const [adminMetodoLiq, setAdminMetodoLiq] = useState('Tarjeta');
+  const [adminMetodoAnticipo, setAdminMetodoAnticipo] = useState('tarjeta');
+  const [adminAnticipo, setAdminAnticipo] = useState<number>(0);
+  const [adminFestejado, setAdminFestejado] = useState('');
+  const [adminTutor, setAdminTutor] = useState('');
+  const [adminTelefono, setAdminTelefono] = useState('');
+  const [isAdminAdjusting, setIsAdminAdjusting] = useState(false);
 
   // Estados para Registro de Invitados
   const [ninosCumple, setNinosCumple] = useState<NinoCumpleanos[]>([]);
@@ -365,6 +376,7 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
   const openEvento = async (evento: Cumpleanos) => {
       setSelectedEvento(evento);
       setShowLiquidar(false);
+      setShowAdminAdjustModal(false);
       
       const savedExtras = localStorage.getItem(`cumpleanos_extras_${evento.id}`);
       if (savedExtras) {
@@ -384,15 +396,143 @@ export const Birthdays: React.FC<Props> = ({ user, onCancel, initialSelectedId, 
       setIsEditing(false); // Reiniciar modo edición
       setNewGuestName('');
       setNewGuestPackageId(evento.paquete_id || '');
+
+      // Inicializar datos para posible ajuste administrativo
+      setAdminFestejado(evento.nombre_festejado || '');
+      setAdminTutor(evento.nombre_cliente || '');
+      setAdminTelefono(evento.telefono_cliente || '');
+      setAdminAnticipo(evento.anticipo_pagado || 0);
+      setAdminMetodoAnticipo(evento.metodo_pago_anticipo || 'efectivo');
+
       try {
           const ninos = await birthdayService.getDetallesEvento(evento.id);
           setNinosCumple(ninos);
-          setTotalNinos(ninos.length || 10);
+          setTotalNinos(ninos.length || evento.cant_ninos || 10);
       } catch (err) {
           console.error("Error al cargar niños del cumpleaños", err);
           setNinosCumple([]);
-          setTotalNinos(10);
+          setTotalNinos(evento.cant_ninos || 10);
       }
+
+      if (evento.estado === 'liquidado') {
+          try {
+              const tx = await birthdayService.getTransaccionLiquidacion(evento);
+              setLiquidationTx(tx);
+              if (tx?.metodo_pago) {
+                  setAdminMetodoLiq(tx.metodo_pago);
+              }
+          } catch (e) {
+              console.error("Error al obtener transacción de liquidación:", e);
+          }
+      } else {
+          setLiquidationTx(null);
+      }
+  };
+
+  const handleReimprimirTicket = async () => {
+    if (!selectedEvento) return;
+    try {
+      const settings = JSON.parse(localStorage.getItem('printer_settings') || '{}');
+      if (!settings.ticketPrinter?.address) {
+        showToast('No hay impresora de tickets configurada.', 'warning');
+        return;
+      }
+      const ticketItems: any[] = [];
+      const ninosCount = selectedEvento.cant_ninos || totalNinos;
+      if (ninosCumple.length > 0) {
+        ninosCumple.forEach(n => {
+          ticketItems.push({
+            nino: n.nombre_nino,
+            nombre: n.paquetes?.nombre || 'Paquete Cumpleaños',
+            precio: n.costo_unitario ?? selectedEvento.precio_por_nino
+          });
+        });
+        if (ninosCount > ninosCumple.length) {
+          ticketItems.push({
+            nino: 'Extra(s)',
+            nombre: `${ninosCount - ninosCumple.length} niño(s) extra(s) base`,
+            precio: (ninosCount - ninosCumple.length) * selectedEvento.precio_por_nino
+          });
+        }
+      } else {
+        ticketItems.push({
+          nino: selectedEvento.nombre_festejado,
+          nombre: `Paquete Base (${ninosCount} niños)`,
+          precio: ninosCount * selectedEvento.precio_por_nino
+        });
+      }
+
+      const ticketAccesorios = Array.isArray(selectedEvento.extras_liquidados) 
+        ? selectedEvento.extras_liquidados.map((e: any) => ({
+            cantidad: e.cantidad || e.qty || 1,
+            concepto: e.nombre || e.item?.nombre,
+            pUnit: e.precio || e.item?.precio_venta || 0,
+            importe: (e.precio || e.item?.precio_venta || 0) * (e.cantidad || e.qty || 1)
+          }))
+        : [];
+
+      const subtotalReal = selectedEvento.total_final || (selectedEvento.precio_por_nino * ninosCount);
+      const cobradoFinal = Math.max(0, subtotalReal - (selectedEvento.anticipo_pagado || 0));
+      const payMethod = liquidationTx?.metodo_pago || 'Tarjeta/Efectivo';
+
+      const ticketData = {
+        folio: `CUMPLE-${selectedEvento.id.substring(0, 8).toUpperCase()}`,
+        cliente: selectedEvento.nombre_cliente,
+        telefono: selectedEvento.telefono_cliente,
+        items: ticketItems,
+        accesorios: ticketAccesorios,
+        subtotal: subtotalReal,
+        iva: 0,
+        total: subtotalReal,
+        paymentMethod: payMethod,
+        mensaje: `REIMPRESION - Liquidacion de evento de ${selectedEvento.nombre_festejado}\nAnticipo Aplicado: -$${(selectedEvento.anticipo_pagado || 0).toFixed(2)}\nCobrado: $${cobradoFinal.toFixed(2)}\n¡Gracias por celebrar con nosotros!`
+      };
+
+      const original = PrinterService.formatEpsonTicket(ticketData as any, false);
+      await PrinterService.printRaw(original, 'TICKET');
+      showToast('Comprobante reimpreso correctamente.', 'success');
+    } catch (err) {
+      console.error("Error al reimprimir:", err);
+      showToast('Error al intentar reimprimir el comprobante.', 'error');
+    }
+  };
+
+  const handleAdminAdjustSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEvento) return;
+    setIsAdminAdjusting(true);
+    try {
+      await birthdayService.ajustarLiquidacionAdmin(selectedEvento.id, {
+        nombre_festejado: adminFestejado.trim(),
+        nombre_cliente: adminTutor.trim(),
+        telefono_cliente: adminTelefono.replace(/\D/g, ''),
+        anticipo_pagado: Number(adminAnticipo) || 0,
+        metodo_pago_anticipo: adminMetodoAnticipo,
+        metodo_pago_liquidacion: adminMetodoLiq,
+        adminName: user.nombre_completo || user.email || 'Admin',
+        adminId: user.id
+      });
+      showToast('Ajuste administrativo aplicado exitosamente.', 'success');
+      setShowAdminAdjustModal(false);
+      await loadData();
+      
+      const updatedEv: Cumpleanos = {
+        ...selectedEvento,
+        nombre_festejado: adminFestejado.trim(),
+        nombre_cliente: adminTutor.trim(),
+        telefono_cliente: adminTelefono.replace(/\D/g, ''),
+        anticipo_pagado: Number(adminAnticipo) || 0,
+        metodo_pago_anticipo: adminMetodoAnticipo
+      };
+      setSelectedEvento(updatedEv);
+      const tx = await birthdayService.getTransaccionLiquidacion(updatedEv);
+      setLiquidationTx(tx);
+    } catch (err: any) {
+      console.error("Error al guardar ajuste administrativo:", err);
+      showToast('Error al guardar el ajuste: ' + (err.message || 'Error desconocido'), 'error');
+    } finally {
+      setIsAdminAdjusting(false);
+    }
   };
 
   const startEditing = () => {
@@ -1457,7 +1597,7 @@ loadData();
                             </div>
                         </form>
                     ) : !showLiquidar ? (
-                        <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                        <div style={{ textAlign: 'center', padding: selectedEvento.estado === 'liquidado' ? '0.5rem 0.5rem 1.5rem' : '2rem 1rem' }}>
                             {selectedEvento.estado === 'agendado' ? (
                                 <>
                                     <div style={{ marginBottom: '2rem', color: '#64748b' }}>
@@ -1481,6 +1621,216 @@ loadData();
                                         )}
                                     </div>
                                 </>
+                            ) : selectedEvento.estado === 'liquidado' ? (
+                                <div style={{ textAlign: 'left' }}>
+                                    {/* Banner de Estado Liquidado */}
+                                    <div style={{ 
+                                        background: '#f0fdf4', 
+                                        border: '1px solid #bbf7d0', 
+                                        borderRadius: '12px', 
+                                        padding: '1.25rem', 
+                                        marginBottom: '1.5rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '1rem',
+                                        flexWrap: 'wrap'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a', fontSize: '1.25rem', flexShrink: 0 }}>
+                                                <FontAwesomeIcon icon={faCheck} />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#166534' }}>
+                                                    Evento Finalizado y Liquidado
+                                                </div>
+                                                <p style={{ margin: '2px 0 0 0', color: '#15803d', fontSize: '0.85rem' }}>
+                                                    El evento fue procesado con éxito y el saldo final quedó saldado en caja.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {user.role !== 'cajero' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setAdminFestejado(selectedEvento.nombre_festejado || '');
+                                                    setAdminTutor(selectedEvento.nombre_cliente || '');
+                                                    setAdminTelefono(selectedEvento.telefono_cliente || '');
+                                                    setAdminAnticipo(selectedEvento.anticipo_pagado || 0);
+                                                    setAdminMetodoAnticipo(selectedEvento.metodo_pago_anticipo || 'efectivo');
+                                                    setAdminMetodoLiq(liquidationTx?.metodo_pago || 'Tarjeta');
+                                                    setShowAdminAdjustModal(true);
+                                                }}
+                                                style={{
+                                                    background: '#3b82f6',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    padding: '0.5rem 1rem',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.85rem',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.5rem',
+                                                    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)'
+                                                }}
+                                            >
+                                                <FontAwesomeIcon icon={faGear} /> ⚙️ Ajustar Información / Pagos (Admin)
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Tarjetas de Resumen Financiero */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Total del Evento</span>
+                                            <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#1e293b', marginTop: '0.25rem' }}>
+                                                ${(selectedEvento.total_final || (selectedEvento.precio_por_nino * (selectedEvento.cant_ninos || totalNinos))).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                            </div>
+                                            <span style={{ fontSize: '0.75rem', color: '#7c3aed', fontWeight: 600 }}>
+                                                {selectedEvento.cant_ninos || totalNinos} niños (${selectedEvento.precio_por_nino}/niño)
+                                            </span>
+                                        </div>
+
+                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Anticipo Pagado</span>
+                                            <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#0284c7', marginTop: '0.25rem' }}>
+                                                ${(selectedEvento.anticipo_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                            </div>
+                                            <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 600, textTransform: 'capitalize' }}>
+                                                Método: {selectedEvento.metodo_pago_anticipo || 'Efectivo'}
+                                            </span>
+                                        </div>
+
+                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Liquidación Cobrada</span>
+                                            <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#16a34a', marginTop: '0.25rem' }}>
+                                                ${Math.max(0, (selectedEvento.total_final || (selectedEvento.precio_por_nino * (selectedEvento.cant_ninos || totalNinos))) - (selectedEvento.anticipo_pagado || 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                            </div>
+                                            <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 600 }}>
+                                                Método: {liquidationTx?.metodo_pago || 'Registrado en Turno'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Extras Liquidados si los hubo */}
+                                    {Array.isArray(selectedEvento.extras_liquidados) && selectedEvento.extras_liquidados.length > 0 && (
+                                        <div style={{ marginBottom: '1.5rem', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '10px', padding: '1rem' }}>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#b45309', marginBottom: '0.5rem' }}>
+                                                🍿 Extras y Consumos Liquidados:
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                {selectedEvento.extras_liquidados.map((e: any, idx: number) => (
+                                                    <span key={idx} style={{ background: '#fef3c7', color: '#92400e', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600 }}>
+                                                        {e.cantidad || e.qty}x {e.nombre || e.item?.nombre} (${((e.precio || e.item?.precio_venta || 0) * (e.cantidad || e.qty || 1)).toFixed(2)})
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Registro de Niños Invitados (Solo Lectura) */}
+                                    <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '1.25rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                            <h3 style={{ margin: 0, fontSize: '1rem', color: '#1e293b', fontWeight: 800 }}>
+                                                🧒 Pekes Invitados Asistentes ({ninosCumple.length})
+                                            </h3>
+                                        </div>
+
+                                        {ninosCumple.length === 0 ? (
+                                            <p style={{ color: '#64748b', fontStyle: 'italic', fontSize: '0.85rem', margin: 0 }}>
+                                                No se registraron nombres individuales (se liquidó por paquete base de {selectedEvento.cant_ninos || totalNinos} niños).
+                                            </p>
+                                        ) : (
+                                            <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', padding: '0.5rem', background: '#f8fafc' }}>
+                                                <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                                                    {(() => {
+                                                        const grouped = ninosCumple.reduce((acc: Record<string, typeof ninosCumple>, n) => {
+                                                            const rawArea = n.paquetes?.area || getEventPackageInfo(selectedEvento)?.area || 'Área Base';
+                                                            const area = AREA_MAP[rawArea] || rawArea;
+                                                            if (!acc[area]) acc[area] = [];
+                                                            acc[area].push(n);
+                                                            return acc;
+                                                        }, {});
+
+                                                        const FIXED_AREA_ORDER = ['Mundo de Pekes', 'Trampolín Park', 'Área Mixta'];
+                                                        const sortedEntries = Object.entries(grouped).sort(([areaA], [areaB]) => {
+                                                            const idxA = FIXED_AREA_ORDER.indexOf(areaA);
+                                                            const idxB = FIXED_AREA_ORDER.indexOf(areaB);
+                                                            const valA = idxA === -1 ? 999 : idxA;
+                                                            const valB = idxB === -1 ? 999 : idxB;
+                                                            return valA - valB;
+                                                        });
+
+                                                        return sortedEntries.map(([area, areaGuests]) => (
+                                                            <React.Fragment key={area}>
+                                                                <div style={{ gridColumn: 'span 2', fontSize: '0.75rem', fontWeight: 800, color: '#7c3aed', background: '#f5f3ff', padding: '4px 10px', borderRadius: '6px', textAlign: 'left', marginTop: '0.25rem', borderLeft: '3px solid #6d28d9' }}>
+                                                                    📍 {area} ({areaGuests.length})
+                                                                </div>
+                                                                {areaGuests.map((n) => {
+                                                                    const pkgName = n.paquetes?.nombre || getEventPackageInfo(selectedEvento)?.nombre || 'Paquete Base';
+                                                                    return (
+                                                                        <div 
+                                                                            key={n.id} 
+                                                                            style={{ 
+                                                                                display: 'flex', 
+                                                                                justifyContent: 'space-between',
+                                                                                alignItems: 'center', 
+                                                                                padding: '6px 10px', 
+                                                                                background: '#fff', 
+                                                                                border: '1px solid #e2e8f0', 
+                                                                                borderRadius: '6px', 
+                                                                                fontSize: '0.85rem' 
+                                                                            }}
+                                                                        >
+                                                                            <span style={{ fontWeight: 600, color: '#1e293b' }}>🧒 {n.nombre_nino}</span>
+                                                                            <span style={{ fontSize: '0.7rem', color: '#7c3aed', background: '#f5f3ff', padding: '1px 5px', borderRadius: '4px' }}>{pkgName}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </React.Fragment>
+                                                        ));
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Botón de Reimprimir Ticket */}
+                                    <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                                        <button
+                                            type="button"
+                                            onClick={handleReimprimirTicket}
+                                            className="btn btn-secondary"
+                                            style={{
+                                                background: '#f1f5f9',
+                                                color: '#334155',
+                                                border: '1px solid #cbd5e1',
+                                                padding: '0.75rem 1.5rem',
+                                                borderRadius: '8px',
+                                                fontWeight: 700,
+                                                fontSize: '0.9rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <FontAwesomeIcon icon={faPrint} /> 🖨️ Reimprimir Comprobante de Liquidación
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : selectedEvento.estado === 'cancelado' ? (
+                                <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '1.5rem', color: '#b91c1c' }}>
+                                        <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>❌</div>
+                                        <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: 800 }}>Evento Cancelado</h3>
+                                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#991b1b' }}>
+                                            Este evento fue cancelado y no tiene operaciones pendientes ni en curso.
+                                        </p>
+                                    </div>
+                                </div>
                             ) : (
                                 <>
                                     <div style={{ marginBottom: '2rem' }}>
@@ -2061,10 +2411,131 @@ loadData();
                       >
                           {isManaging ? 'Guardando...' : 'Guardar Cambios'}
                       </button>
-                  </div>
-              </div>
-          </div>
-        )}
-     </div>
-  );
+                   </div>
+               </div>
+           </div>
+         )}
+
+         {/* ⚙️ MODAL DE AJUSTE ADMINISTRATIVO DE PAGOS/LIQUIDACIÓN */}
+         {showAdminAdjustModal && selectedEvento && (
+           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '1rem' }}>
+               <div style={{ background: '#fff', borderRadius: '16px', maxWidth: '500px', width: '100%', padding: '1.75rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)', border: '1px solid #e2e8f0' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+                       <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#1e293b', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                           <FontAwesomeIcon icon={faGear} style={{ color: '#3b82f6' }} /> Ajuste Administrativo de Pagos
+                       </h3>
+                       <button type="button" onClick={() => setShowAdminAdjustModal(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '1.2rem', cursor: 'pointer' }}>
+                           <FontAwesomeIcon icon={faTimes} />
+                       </button>
+                   </div>
+
+                   <form onSubmit={handleAdminAdjustSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                       <div>
+                           <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
+                               💳 Método de Pago de la Liquidación Final:
+                           </label>
+                           <select
+                               value={adminMetodoLiq}
+                               onChange={(e) => setAdminMetodoLiq(e.target.value)}
+                               style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontWeight: 600, color: '#1e293b' }}
+                           >
+                               <option value="Tarjeta">Tarjeta (Crédito / Débito / Terminal)</option>
+                               <option value="Efectivo">Efectivo</option>
+                               <option value="Transferencia">Transferencia Bancaria</option>
+                           </select>
+                           <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
+                               * Actualiza directamente la transacción contable asociada en el arqueo de caja.
+                           </span>
+                       </div>
+
+                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                           <div>
+                               <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
+                                   Anticipo Pagado ($)
+                               </label>
+                               <input
+                                   type="number"
+                                   step="0.01"
+                                   min="0"
+                                   value={adminAnticipo}
+                                   onChange={(e) => setAdminAnticipo(Number(e.target.value))}
+                                   style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                               />
+                           </div>
+                           <div>
+                               <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
+                                   Método Anticipo
+                               </label>
+                               <select
+                                   value={adminMetodoAnticipo}
+                                   onChange={(e) => setAdminMetodoAnticipo(e.target.value)}
+                                   style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}
+                               >
+                                   <option value="efectivo">Efectivo</option>
+                                   <option value="tarjeta">Tarjeta</option>
+                               </select>
+                           </div>
+                       </div>
+
+                       <div>
+                           <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
+                               Nombre del Festejado(a)
+                           </label>
+                           <input
+                               type="text"
+                               value={adminFestejado}
+                               onChange={(e) => setAdminFestejado(e.target.value)}
+                               style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                           />
+                       </div>
+
+                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                           <div>
+                               <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
+                                   Tutor / Cliente
+                               </label>
+                               <input
+                                   type="text"
+                                   value={adminTutor}
+                                   onChange={(e) => setAdminTutor(e.target.value)}
+                                   style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                               />
+                           </div>
+                           <div>
+                               <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, fontSize: '0.85rem', color: '#334155' }}>
+                                   Teléfono
+                               </label>
+                               <input
+                                   type="text"
+                                   value={adminTelefono}
+                                   onChange={(e) => setAdminTelefono(formatPhone(e.target.value))}
+                                   style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                               />
+                           </div>
+                       </div>
+
+                       <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                           <button
+                               type="button"
+                               onClick={() => setShowAdminAdjustModal(false)}
+                               className="btn btn-ghost"
+                               disabled={isAdminAdjusting}
+                           >
+                               Cancelar
+                           </button>
+                           <button
+                               type="submit"
+                               className="btn btn-primary"
+                               style={{ background: '#3b82f6', fontWeight: 700 }}
+                               disabled={isAdminAdjusting}
+                           >
+                               {isAdminAdjusting ? 'Guardando...' : 'Guardar Ajuste'}
+                           </button>
+                       </div>
+                   </form>
+               </div>
+           </div>
+         )}
+      </div>
+   );
 };
