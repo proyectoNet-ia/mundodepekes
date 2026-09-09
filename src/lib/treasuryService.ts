@@ -82,7 +82,21 @@ export const getActiveSession = async (): Promise<CashSession | null> => {
 export const openCash = async (montoInicial: number): Promise<CashSession> => {
   const existing = await getActiveSession();
   if (existing && existing.id && !existing.id.startsWith('OFFLINE-')) {
-    return existing; // Ya está abierta, retornarla para evitar duplicados
+    // Verificar si la sesión existente es de un día previo (más de 18 horas)
+    const aperturaTime = new Date(existing.fecha_apertura).getTime();
+    const hoursOld = (Date.now() - aperturaTime) / (1000 * 60 * 60);
+    if (hoursOld < 18) {
+      return existing; // Ya está abierta legítimamente hoy
+    }
+    // Si tiene más de 18 horas, la cerramos automáticamente para no arrastrar días anteriores
+    await supabase
+      .from('arqueos_caja')
+      .update({
+        fecha_cierre: new Date().toISOString(),
+        estado: 'corte_cerrado',
+        observaciones: 'Auto-cerrado por caducidad (>18h sin corte formal)'
+      })
+      .eq('id', existing.id);
   }
 
   const { data, error } = await supabase
@@ -353,6 +367,21 @@ export const closeCash = async (id: string, data: {
     : `Turno finalizado. Efectivo Real: $${data.realEfectivo.toFixed(2)} | Tarjeta Real: $${data.realTarjeta.toFixed(2)}.`;
 
   await notificationsService.notify('cash_close', title, msg, { arqueo_id: id, diferenciaEfectivo, diferenciaTarjeta, estado: estadoFinal });
+
+  // Limpieza defensiva: cerrar cualquier otra sesión duplicada que pudiera haber quedado abierta
+  try {
+    await supabase
+      .from('arqueos_caja')
+      .update({
+        fecha_cierre: new Date().toISOString(),
+        estado: 'corte_cerrado',
+        observaciones: 'Auto-cerrado defensivo por cierre de turno principal'
+      })
+      .eq('estado', 'abierta')
+      .neq('id', id);
+  } catch (cleanErr) {
+    console.warn('Advertencia en limpieza defensiva de sesiones huérfanas:', cleanErr);
+  }
 
   return { success: true, estado: estadoFinal };
 };
