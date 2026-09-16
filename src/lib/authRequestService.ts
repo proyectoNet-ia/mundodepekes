@@ -25,15 +25,35 @@ export const authRequestService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('No hay sesión activa');
 
+    // Resolver alias amigable para el solicitante
+    let aliasSolicitante = req.solicitante_nombre || '';
+    if (!aliasSolicitante) {
+      try {
+        const { authService } = await import('./authService');
+        const profile = await authService.getCurrentUser();
+        aliasSolicitante = profile?.nombre_completo || '';
+      } catch (e) {}
+    }
+    if (!aliasSolicitante) {
+      const em = (user.email || '').toLowerCase();
+      if (em.includes('gerente')) aliasSolicitante = 'Gerente Operativo';
+      else if (em.includes('admin_roster')) aliasSolicitante = 'Andrea Bañales';
+      else if (em.includes('admin')) aliasSolicitante = 'Fernando Admin';
+      else if (em.includes('cajero')) aliasSolicitante = 'Fanny';
+      else if (em.includes('andrea1')) aliasSolicitante = 'Andrea Rodríguez';
+      else if (em.includes('supervisor')) aliasSolicitante = 'Supervisor de Turno';
+      else aliasSolicitante = user.email?.split('@')[0] || 'Cajero';
+    }
+
     const { data, error } = await supabase
       .from('solicitudes_autorizacion')
       .insert([{
         ...req,
         solicitante_id: user.id,
-        solicitante_nombre: user.email?.split('@')[0] || 'Cajero',
+        solicitante_nombre: aliasSolicitante,
         estado: 'pendiente'
       }])
-      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
+      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id, metadata')
       .single();
 
     if (error) throw error;
@@ -48,7 +68,7 @@ export const authRequestService = {
     // ✅ Notificación persistente con detalles de cantidad y tipo
     await notificationsService.notify(
       'auth_request',
-      `🔐 Firma Requerida: ${user.email?.split('@')[0] || 'Cajero'}`,
+      `🔐 Firma Requerida: ${aliasSolicitante}`,
       req.descripcion || `Solicitud de autorización para: ${req.accion_tipo}`,
       { solicitud_id: data.id, solicitante: user.email, solicitante_id: user.id }
     );
@@ -63,7 +83,7 @@ export const authRequestService = {
         .from('solicitudes_autorizacion')
         .update({ estado: 'cancelada' })
         .eq('id', requestId)
-        .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
+        .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id, metadata')
         .maybeSingle();
 
       if (error) throw error;
@@ -127,7 +147,7 @@ export const authRequestService = {
       try {
         const { data, error } = await supabase
           .from('solicitudes_autorizacion')
-          .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
+          .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id, metadata')
           .eq('id', requestId)
           .maybeSingle();
 
@@ -154,7 +174,7 @@ export const authRequestService = {
     
     const { data, error } = await supabase
       .from('solicitudes_autorizacion')
-      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
+      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id, metadata')
       .eq('estado', 'pendiente')
       .gte('created_at', twelveHoursAgo)
       .order('created_at', { ascending: false });
@@ -210,7 +230,7 @@ export const authRequestService = {
       .from('solicitudes_autorizacion')
       .update({ estado: status, autorizador_id: autorizadorId })
       .eq('id', requestId)
-      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
+      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id, metadata')
       .single();
 
     if (error) throw error;

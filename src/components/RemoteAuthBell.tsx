@@ -34,6 +34,62 @@ const playChime = () => {
     }
 };
 
+// Resolver alias amigable de usuario a partir de nombres o correos registrados
+const resolveUserAlias = (rawName?: string): string => {
+    if (!rawName) return 'Usuario';
+    const lower = rawName.toLowerCase();
+    if (lower.includes('gerente')) return 'Gerente Operativo';
+    if (lower.includes('admin_roster')) return 'Andrea Bañales';
+    if (lower.includes('admin')) return 'Fernando Admin';
+    if (lower.includes('cajero')) return 'Fanny';
+    if (lower.includes('andrea1')) return 'Andrea Rodríguez';
+    if (lower.includes('supervisor')) return 'Supervisor de Turno';
+    if (lower.includes('analista')) return 'Analista de Datos';
+    return rawName;
+};
+
+// Extrae y estructura los campos de ajuste de stock y motivos
+const parseAuthRequestDetails = (req: AuthRequest) => {
+    const meta = req.metadata || {};
+    const desc = req.descripcion || '';
+    const isStock = req.accion_tipo?.toLowerCase().includes('stock') || req.accion_tipo?.toLowerCase().includes('ajuste') || meta.item_id || desc.includes('Existencia actual:');
+
+    if (isStock) {
+        let stockActual = meta.stock_actual !== undefined ? meta.stock_actual : null;
+        if (stockActual === null) {
+            const matchStock = desc.match(/Existencia actual:\s*(\d+)/i);
+            if (matchStock) stockActual = matchStock[1];
+        }
+
+        let motivo = meta.motivo || '';
+        if (!motivo) {
+            const matchMotivo = desc.match(/Motivo:\s*(.+)$/i);
+            if (matchMotivo) motivo = matchMotivo[1].trim();
+        }
+
+        let detalleStock = req.accion_tipo || '';
+        if (detalleStock.toLowerCase().startsWith('ajuste de stock:')) {
+            detalleStock = detalleStock.replace(/ajuste de stock:\s*/i, '').trim();
+        }
+
+        return {
+            isStock: true,
+            title: 'AJUSTE DE STOCK:',
+            detalle: detalleStock,
+            stockActual: stockActual !== null ? stockActual : 0,
+            motivo: motivo || 'Ajuste manual de inventario'
+        };
+    }
+
+    return {
+        isStock: false,
+        title: req.accion_tipo || 'SOLICITUD DE AUTORIZACIÓN',
+        detalle: desc,
+        stockActual: null,
+        motivo: meta.motivo || desc
+    };
+};
+
 export const RemoteAuthBell: React.FC = () => {
     const { showToast } = useToast();
     const [user, setUser] = useState<UserProfile | null>(null);
@@ -134,17 +190,18 @@ export const RemoteAuthBell: React.FC = () => {
                         // 🚫 CANDADO DE SEGURIDAD: El solicitante NUNCA debe recibir ni auto-aprobar su propia solicitud
                         if (newReq.solicitante_id === user.id) return;
 
+                        const alias = resolveUserAlias(newReq.solicitante_nombre);
                         setPendingRequests(prev => {
                             if (prev.some(r => r.id === newReq.id)) return prev;
                             return [newReq, ...prev];
                         });
                         playChime();
-                        showToast(`🔐 Firma Requerida: ${newReq.solicitante_nombre}`, 'info');
+                        showToast(`🔐 Firma Requerida: ${alias}`, 'info');
                         setActiveTab('auth');
                         handleTogglePanel(true);
 
                         if (Notification.permission === 'granted') {
-                            new Notification(`🔐 Firma Requerida: ${newReq.solicitante_nombre}`, {
+                            new Notification(`🔐 Firma Requerida: ${alias}`, {
                                 body: newReq.descripcion || `Solicitud para: ${newReq.accion_tipo}`,
                                 icon: '/favicon.ico'
                             });
@@ -379,11 +436,14 @@ export const RemoteAuthBell: React.FC = () => {
                                 pendingRequests.map(req => {
                                     const isEntrada = req.accion_tipo?.toUpperCase().includes('ENTRADA') || req.descripcion?.toUpperCase().includes('ENTRADA');
                                     const isSalida = req.accion_tipo?.toUpperCase().includes('SALIDA') || req.descripcion?.toUpperCase().includes('SALIDA');
+                                    const alias = resolveUserAlias(req.solicitante_nombre);
+                                    const parsed = parseAuthRequestDetails(req);
+
                                     return (
                                         <div key={req.id} className={styles.card}>
                                             <div className={styles.cardInfo}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
-                                                    <strong>{req.solicitante_nombre}</strong>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                                                    <strong style={{ fontSize: '0.95rem', color: '#0f172a', fontWeight: 800 }}>{alias}</strong>
                                                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                                                         {isEntrada && (
                                                             <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, border: '1px solid #bbf7d0' }}>
@@ -398,11 +458,36 @@ export const RemoteAuthBell: React.FC = () => {
                                                         <small style={{ color: '#0284c7', fontWeight: 900, background: '#e0f2fe', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem' }}>FIRMA</small>
                                                     </div>
                                                 </div>
-                                                <span className={styles.actionType}>{req.accion_tipo}</span>
-                                                <p style={{ margin: '6px 0 10px 0', fontSize: '0.82rem', color: '#334155', fontWeight: 500, lineHeight: 1.4 }}>
-                                                    {req.descripcion}
-                                                </p>
+
+                                                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', margin: '6px 0 12px 0' }}>
+                                                    <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.02em' }}>
+                                                        {parsed.title}
+                                                    </div>
+
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', marginBottom: '4px' }}>
+                                                        {parsed.detalle}
+                                                    </div>
+
+                                                    {parsed.isStock && (
+                                                        <div style={{ fontSize: '0.78rem', color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{ fontWeight: 800, color: '#64748b' }}>EXISTENCIA ACTUAL:</span>
+                                                            <span style={{ background: '#e2e8f0', padding: '1px 7px', borderRadius: '4px', fontWeight: 800, color: '#0f172a' }}>
+                                                                {parsed.stockActual}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed #cbd5e1' }}>
+                                                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
+                                                            MOTIVO:
+                                                        </span>
+                                                        <p style={{ margin: 0, fontSize: '0.82rem', color: '#334155', fontWeight: 600 }}>
+                                                            {parsed.motivo}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
+
                                             <div className={styles.actions}>
                                                 <button className={styles.rejectBtn} onClick={() => handleRespond(req.id, 'rechazada')} title="Rechazar Solicitud">
                                                     <FontAwesomeIcon icon={faBan} /> Rechazar
@@ -414,7 +499,6 @@ export const RemoteAuthBell: React.FC = () => {
                                         </div>
                                     );
                                 })
-
                             )
                         ) : (
                             notifications.length === 0 ? (
