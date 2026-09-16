@@ -7,10 +7,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       workbox: {
-        maximumFileSizeToCacheInBytes: 5000000 // 5 MB para evitar error de caché
+        maximumFileSizeToCacheInBytes: 5000000, // 5 MB para evitar error de caché
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: false
       },
       manifest: {
         name: 'PekePark Admin OS',

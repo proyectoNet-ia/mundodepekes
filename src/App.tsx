@@ -15,6 +15,7 @@ import { Stock } from './modules/stock/Stock';
 import { InventoryPOS } from './modules/sales/InventoryPOS';
 import { ToastProvider } from './components/Toast';
 import { RemoteAuthBell } from './components/RemoteAuthBell';
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
 import { PortalPage } from './modules/portal/PortalPage';
 import { Birthdays } from './modules/birthdays/Birthdays';
 
@@ -230,6 +231,8 @@ function App() {
             </div>
             {/* Campana de Autorizaciones Global */}
             <RemoteAuthBell />
+            {/* Alerta de Actualización e Instalación PWA */}
+            <PwaUpdatePrompt />
         </div>
     </ToastProvider>
   );
