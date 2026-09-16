@@ -188,6 +188,17 @@ export const authRequestService = {
       }
     });
 
+    // Marcar como leídas las notificaciones asociadas a solicitudes de firma
+    try {
+      await supabase
+        .from('notificaciones')
+        .update({ read: true })
+        .eq('type', 'auth_request')
+        .eq('read', false);
+    } catch (e) {
+      console.warn('Error al marcar notificaciones como leídas:', e);
+    }
+
     return data;
   }
 };

@@ -97,16 +97,12 @@ export const notificationsService = {
     },
 
     /**
-     * Marca todas las notificaciones como leídas para el usuario actual
+     * Marca todas las notificaciones pendientes como leídas
      */
     async markAllAsRead() {
-        const { data: authData } = await supabase.auth.getUser();
-        if (!authData?.user?.id) return;
-
         const { error } = await supabase
             .from('notificaciones')
             .update({ read: true })
-            .eq('user_id', authData.user.id)
             .eq('read', false);
         
         if (error) throw error;

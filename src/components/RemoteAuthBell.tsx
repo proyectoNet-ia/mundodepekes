@@ -47,13 +47,8 @@ export const RemoteAuthBell: React.FC = () => {
         setShowPanel(nextOpen);
 
         if (nextOpen) {
-            // 1.5s de delay para que el usuario vea el resaltado antes de que desaparezca
-            if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
-            markReadTimerRef.current = setTimeout(() => {
-                autoMarkAllRead();
-            }, 1500);
-        } else {
-            if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
+            // Marcar leídas de inmediato para limpiar la campana
+            autoMarkAllRead();
         }
     }, [autoMarkAllRead]);
 
@@ -190,6 +185,7 @@ export const RemoteAuthBell: React.FC = () => {
         try {
             await authRequestService.respondToRequest(id, status, user.id);
             setPendingRequests(prev => prev.filter(r => r.id !== id));
+            setNotifications(prev => prev.map(n => n.type === 'auth_request' ? { ...n, read: true, readAt: Date.now() } : n));
             showToast(`Solicitud ${status} correctamente.`, 'success');
         } catch (e) {
             showToast('Error al responder la solicitud.', 'error');
