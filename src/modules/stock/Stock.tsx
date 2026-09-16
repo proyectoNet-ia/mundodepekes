@@ -96,11 +96,14 @@ export const Stock: React.FC = () => {
             await loadData();
             setIsAdjustOpen(false);
         } catch (error) {
+            console.error('Error al aplicar ajuste:', error);
             showToast('Hubo un problema al guardar el ajuste de stock.', 'error', 'Error de Guardado');
         } finally {
             setIsSaving(false);
+            setIsAuthOpen(false);
         }
     };
+
 
     const isAdmin = currentUser?.role === 'admin';
 
@@ -541,7 +544,21 @@ export const Stock: React.FC = () => {
                 </div>
             )}
 
-            <AuthPinModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onAuthorized={handleAuthorized} actionLabel={`Autorizar ajuste de stock: ${selectedItem?.nombre}`} />
+            <AuthPinModal 
+                isOpen={isAuthOpen} 
+                onClose={() => setIsAuthOpen(false)} 
+                onAuthorized={handleAuthorized} 
+                actionLabel={`Ajuste de Stock: ${adjustType === 'entrada' ? 'ENTRADA (+)' : 'SALIDA (-)'} ${adjustQty} pza(s) - ${selectedItem?.nombre}`}
+                description={`Solicitud de ${adjustType.toUpperCase()} de ${adjustQty} unidad(es) de "${selectedItem?.nombre}". Existencia actual: ${selectedItem?.cantidad || 0}. Motivo: ${adjustReason.trim() || 'Ajuste manual de inventario'}`}
+                metadata={{
+                    tipo: adjustType,
+                    cantidad: adjustQty,
+                    producto: selectedItem?.nombre,
+                    item_id: selectedItem?.id,
+                    stock_actual: selectedItem?.cantidad,
+                    motivo: adjustReason.trim() || 'Ajuste manual de inventario'
+                }}
+            />
 
             <ConfirmDialog
                 isOpen={!!deletingItem}

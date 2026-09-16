@@ -8,11 +8,13 @@ import { authRequestService } from '../lib/authRequestService';
 interface AuthPinModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAuthorized: (authorizer: UserProfile) => void;
+    onAuthorized: (authorizer: UserProfile) => Promise<void> | void;
     actionLabel: string;
+    description?: string;
+    metadata?: any;
 }
 
-export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onAuthorized, actionLabel }) => {
+export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onAuthorized, actionLabel, description, metadata }) => {
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [isValidating, setIsValidating] = useState(false);
@@ -28,6 +30,22 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
         };
     }, []);
 
+    const resetState = () => {
+        if (subRef.current) {
+            subRef.current.unsubscribe();
+            subRef.current = null;
+        }
+        setPin('');
+        setError('');
+        setIsRemoteMode(false);
+        setIsWaitingRemote(false);
+    };
+
+    const handleClose = () => {
+        resetState();
+        onClose();
+    };
+
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -40,9 +58,8 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
         try {
             const authorizer = await authService.validateManagerPin(pin);
             if (authorizer) {
-                onAuthorized(authorizer);
-                setPin('');
-                setIsRemoteMode(false);
+                await onAuthorized(authorizer);
+                resetState();
             } else {
                 setError('PIN Incorrecto o sin permisos de Supervisor.');
             }
@@ -59,10 +76,16 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
         try {
             const req = await authRequestService.createRequest({
                 accion_tipo: actionLabel,
-                descripcion: `Solicitud de autorización para: ${actionLabel}`
+                descripcion: description || `Solicitud de autorización para: ${actionLabel}`,
+                metadata: metadata
             });
+
             
-            
+            if (subRef.current) {
+                subRef.current.unsubscribe();
+                subRef.current = null;
+            }
+
             // Suscribirse a la respuesta en tiempo real
             subRef.current = authRequestService.subscribeToRequest(req.id, async (updatedReq) => {
                 if (updatedReq.estado === 'aprobada') {
@@ -93,8 +116,11 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
                             console.warn('Error resolviendo perfil del autorizador:', e);
                         }
                     }
-                    onAuthorized(authorizerProfile);
-                    resetState();
+                    try {
+                        await onAuthorized(authorizerProfile);
+                    } finally {
+                        resetState();
+                    }
                 } else if (updatedReq.estado === 'rechazada') {
                     setError('Solicitud rechazada por el Supervisor.');
                     setIsWaitingRemote(false);
@@ -111,17 +137,6 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
         }
     };
 
-    const resetState = () => {
-        if (subRef.current) {
-            subRef.current.unsubscribe();
-            subRef.current = null;
-        }
-        setPin('');
-        setError('');
-        setIsRemoteMode(false);
-        setIsWaitingRemote(false);
-    };
-
     const addDigit = (digit: string) => {
         if (pin.length < 6) setPin(prev => prev + digit);
     };
@@ -135,8 +150,9 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
                         <h3>Autorización Requerida</h3>
                         <p>{actionLabel}</p>
                     </div>
-                    <button onClick={onClose} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
+                    <button onClick={handleClose} className={styles.closeBtn}><FontAwesomeIcon icon={faTimes} /></button>
                 </div>
+
 
                 <div className={styles.tabs}>
                     <button className={!isRemoteMode ? styles.activeTab : ''} onClick={() => setIsRemoteMode(false)}>Directo (PIN)</button>

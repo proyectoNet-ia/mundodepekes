@@ -13,12 +13,12 @@ export interface AuthRequest {
   metadata?: any;
 }
 
-// Canal global para eventos instantáneos (Broadcast)
+// Canal global para eventos instantáneos de firmas (Broadcast)
 const globalAuthChannel = supabase.channel('global-auth-events');
 globalAuthChannel.subscribe();
 
 export const authRequestService = {
-  // Crear una nueva solicitud (Cajero)
+  // Crear una nueva solicitud (Cajero / Gerente)
   async createRequest(req: Partial<AuthRequest>) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('No hay sesión activa');
@@ -31,31 +31,31 @@ export const authRequestService = {
         solicitante_nombre: user.email?.split('@')[0] || 'Cajero',
         estado: 'pendiente'
       }])
-      .select()
+      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
       .single();
 
     if (error) throw error;
 
-    // ✅ EMISIÓN ULTRA-RÁPIDA (BROADCAST)
-    // No espera a la DB, se envía de inmediato a todos los navegadores abiertos
+    // ✅ EMISIÓN ULTRA-RÁPIDA (BROADCAST EN CANAL GLOBAL)
     globalAuthChannel.send({
       type: 'broadcast',
       event: 'new_request',
       payload: data
     });
 
-    // ✅ Notificación persistente
+    // ✅ Notificación persistente con detalles de cantidad y tipo
     await notificationsService.notify(
       'auth_request',
       `🔐 Firma Requerida: ${user.email?.split('@')[0] || 'Cajero'}`,
-      `Solicitud de autorización para: ${req.accion_tipo}`,
+      req.descripcion || `Solicitud de autorización para: ${req.accion_tipo}`,
       { solicitud_id: data.id, solicitante: user.email }
     );
+
 
     return data;
   },
 
-  // Escuchar cambios en una solicitud específica (Cajero espera)
+  // Escuchar cambios en una solicitud específica (Cajero / Gerente espera)
   subscribeToRequest(requestId: string, onUpdate: (req: AuthRequest) => void) {
     let isDone = false;
 
@@ -87,25 +87,17 @@ export const authRequestService = {
       )
       .subscribe();
 
-    // 2. Escuchar en el canal global de broadcast
-    const globalBroadcastHandler = (payload: any) => {
-      if (payload.payload?.id === requestId) {
-        handleUpdate(payload.payload as AuthRequest);
-      }
-    };
-    globalAuthChannel.on('broadcast', { event: 'request_response' }, globalBroadcastHandler);
-
-    // 3. Resilient Polling Fallback (cada 1.5s por si WebSockets o Realtime sufren delay)
+    // 2. Resilient Polling Fallback (cada 1.5s con selector específico de columnas)
     const pollInterval = setInterval(async () => {
       if (isDone) return;
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('solicitudes_autorizacion')
-          .select('*')
+          .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
           .eq('id', requestId)
-          .single();
+          .maybeSingle();
 
-        if (data && data.estado !== 'pendiente') {
+        if (!error && data && data.estado !== 'pendiente') {
           handleUpdate(data as AuthRequest);
         }
       } catch (err) {
@@ -117,18 +109,18 @@ export const authRequestService = {
       unsubscribe: () => {
         isDone = true;
         clearInterval(pollInterval);
-        reqChannel.unsubscribe();
+        supabase.removeChannel(reqChannel);
       }
     };
   },
 
-  // Obtener solicitudes pendientes de las últimas 12 horas (Supervisor)
+  // Obtener solicitudes pendientes de las últimas 12 horas (Supervisor / Admin)
   async getPendingRequests() {
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
     
     const { data, error } = await supabase
       .from('solicitudes_autorizacion')
-      .select('*')
+      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
       .eq('estado', 'pendiente')
       .gte('created_at', twelveHoursAgo)
       .order('created_at', { ascending: false });
@@ -137,10 +129,10 @@ export const authRequestService = {
     return data as AuthRequest[];
   },
 
-  // Escuchar nuevas solicitudes entrantes (Supervisor escucha)
+  // Escuchar nuevas solicitudes entrantes (Supervisor / Admin escucha en tiempo real)
   subscribeToNewRequests(onNew: (req: AuthRequest) => void) {
-    return supabase
-      .channel('new-auth-requests')
+    const channel = supabase.channel('global-auth-requests-listener');
+    return channel
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'solicitudes_autorizacion' },
@@ -153,24 +145,26 @@ export const authRequestService = {
         'broadcast',
         { event: 'new_request' },
         (payload) => {
-          onNew(payload.payload as AuthRequest);
+          if (payload.payload) {
+            onNew(payload.payload as AuthRequest);
+          }
         }
       )
       .subscribe();
   },
 
-  // Aprobar o rechazar solicitud (Supervisor actua)
+  // Aprobar o rechazar solicitud (Supervisor / Admin actúa)
   async respondToRequest(requestId: string, status: 'aprobada' | 'rechazada', autorizadorId: string) {
     const { data, error } = await supabase
       .from('solicitudes_autorizacion')
       .update({ estado: status, autorizador_id: autorizadorId })
       .eq('id', requestId)
-      .select()
+      .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
       .single();
 
     if (error) throw error;
 
-    // ✅ EMISIÓN ULTRA-RÁPIDA DE RESPUESTA EN CANAL GLOBAL Y ESPECÍFICO
+    // ✅ EMISIÓN ULTRA-RÁPIDA EN CANAL GLOBAL Y ESPECÍFICO
     globalAuthChannel.send({
       type: 'broadcast',
       event: 'request_response',
@@ -184,11 +178,13 @@ export const authRequestService = {
           type: 'broadcast',
           event: 'request_response',
           payload: data
+        }).then(() => {
+          setTimeout(() => supabase.removeChannel(specificChannel), 2000);
         });
       }
     });
 
-    // Marcar como leídas las notificaciones asociadas a solicitudes de firma
+    // Marcar como leídas las notificaciones asociadas
     try {
       await supabase
         .from('notificaciones')
@@ -202,3 +198,4 @@ export const authRequestService = {
     return data;
   }
 };
+

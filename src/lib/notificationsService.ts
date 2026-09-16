@@ -23,18 +23,22 @@ export const notificationsService = {
      */
     async notify(type: NotificationType, title: string, message: string, metadata?: any) {
         try {
-            // 🚫 DEDUPLICACIÓN INTELIGENTE: No enviar si hay una alerta igual sin leer
-            const { data: existing } = await supabase
-                .from('notificaciones')
-                .select('id')
-                .eq('type', type)
-                .eq('title', title)
-                .eq('read', false)
-                .limit(1)
-                .maybeSingle();
+            // 🚫 DEDUPLICACIÓN INTELIGENTE:
+            // Para alertas operativas de inventario/caja, evitar alertas duplicadas sin leer.
+            // Para solicitudes de firma ('auth_request'), no bloquear si pertenecen a solicitudes distintas.
+            if (type !== 'auth_request') {
+                const { data: existing } = await supabase
+                    .from('notificaciones')
+                    .select('id')
+                    .eq('type', type)
+                    .eq('title', title)
+                    .eq('read', false)
+                    .limit(1)
+                    .maybeSingle();
 
-            if (existing) {
-                return { success: true, skipped: true };
+                if (existing) {
+                    return { success: true, skipped: true };
+                }
             }
 
             const { data: authData } = await supabase.auth.getUser();
@@ -50,12 +54,12 @@ export const notificationsService = {
                     metadata,
                     read: false
                 }])
-                .select()
+                .select('id, created_at, type, title, message, user_id, read, metadata')
                 .single();
 
             if (error) throw error;
             
-            // ✅ Emisión ultra-rápida (Broadcast)
+            // ✅ Emisión ultra-rápida (Broadcast en canal unificado)
             globalNotifChannel.send({
                 type: 'broadcast',
                 event: 'new_notification',
@@ -76,10 +80,10 @@ export const notificationsService = {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         const { data, error } = await supabase
             .from('notificaciones')
-                .select('*')
-                .gte('created_at', twentyFourHoursAgo)
-                .order('created_at', { ascending: false })
-                .limit(limit);
+            .select('id, created_at, type, title, message, user_id, read, metadata')
+            .gte('created_at', twentyFourHoursAgo)
+            .order('created_at', { ascending: false })
+            .limit(limit);
         
         if (error) return [];
         return data as Notification[];
@@ -113,17 +117,24 @@ export const notificationsService = {
      */
     subscribe(callback: (notification: Notification) => void) {
         return supabase
-            .channel('public:notificaciones')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones' }, payload => {
-                callback(payload.new as Notification);
-            })
+            .channel('global-notif-events-listener')
+            .on(
+                'postgres_changes', 
+                { event: 'INSERT', schema: 'public', table: 'notificaciones' }, 
+                payload => {
+                    callback(payload.new as Notification);
+                }
+            )
             .on(
                 'broadcast',
                 { event: 'new_notification' },
                 (payload) => {
-                    callback(payload.payload as Notification);
+                    if (payload.payload) {
+                        callback(payload.payload as Notification);
+                    }
                 }
             )
             .subscribe();
     }
 };
+

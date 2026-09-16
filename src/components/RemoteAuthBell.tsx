@@ -7,6 +7,7 @@ import { faBell, faTimes, faCheck, faBan, faInfoCircle, faBoxOpen, faUnlockAlt }
 import { useToast } from './Toast';
 import { notificationsService, type Notification } from '../lib/notificationsService';
 import { stockService, type StockItem } from '../lib/stockService';
+import { supabase } from '../lib/supabase';
 
 export const RemoteAuthBell: React.FC = () => {
     const { showToast } = useToast();
@@ -77,7 +78,7 @@ export const RemoteAuthBell: React.FC = () => {
 
             if (canSeeAuthRequests(currUser.role)) {
                 if (authChannelRef.current) {
-                    authChannelRef.current.unsubscribe();
+                    supabase.removeChannel(authChannelRef.current);
                 }
                 authChannelRef.current = authRequestService.subscribeToNewRequests((newReq) => {
                     setPendingRequests(prev => {
@@ -91,7 +92,7 @@ export const RemoteAuthBell: React.FC = () => {
             }
 
             if (opsChannelRef.current) {
-                opsChannelRef.current.unsubscribe();
+                supabase.removeChannel(opsChannelRef.current);
             }
             opsChannelRef.current = notificationsService.subscribe(async (notification) => {
                 if (!allowedTypes.includes(notification.type)) return;
@@ -167,17 +168,18 @@ export const RemoteAuthBell: React.FC = () => {
         return () => {
             subscription.unsubscribe();
             if (authChannelRef.current) {
-                authChannelRef.current.unsubscribe();
+                supabase.removeChannel(authChannelRef.current);
                 authChannelRef.current = null;
             }
             if (opsChannelRef.current) {
-                opsChannelRef.current.unsubscribe();
+                supabase.removeChannel(opsChannelRef.current);
                 opsChannelRef.current = null;
             }
             if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
             clearInterval(sweepInterval);
         };
     }, []);
+
 
     if (!user) return null;
 
@@ -256,26 +258,45 @@ export const RemoteAuthBell: React.FC = () => {
                             pendingRequests.length === 0 ? (
                                 <div className={styles.empty}>No hay firmas requeridas.</div>
                             ) : (
-                                pendingRequests.map(req => (
-                                    <div key={req.id} className={styles.card}>
-                                        <div className={styles.cardInfo}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <strong>{req.solicitante_nombre}</strong>
-                                                <small style={{ color: '#0284c7', fontWeight: 900 }}>SOLICITUD</small>
+                                pendingRequests.map(req => {
+                                    const isEntrada = req.accion_tipo?.toUpperCase().includes('ENTRADA') || req.descripcion?.toUpperCase().includes('ENTRADA');
+                                    const isSalida = req.accion_tipo?.toUpperCase().includes('SALIDA') || req.descripcion?.toUpperCase().includes('SALIDA');
+                                    return (
+                                        <div key={req.id} className={styles.card}>
+                                            <div className={styles.cardInfo}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
+                                                    <strong>{req.solicitante_nombre}</strong>
+                                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                        {isEntrada && (
+                                                            <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, border: '1px solid #bbf7d0' }}>
+                                                                + ENTRADA
+                                                            </span>
+                                                        )}
+                                                        {isSalida && (
+                                                            <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, border: '1px solid #fecaca' }}>
+                                                                - SALIDA
+                                                            </span>
+                                                        )}
+                                                        <small style={{ color: '#0284c7', fontWeight: 900, background: '#e0f2fe', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem' }}>FIRMA</small>
+                                                    </div>
+                                                </div>
+                                                <span className={styles.actionType}>{req.accion_tipo}</span>
+                                                <p style={{ margin: '6px 0 10px 0', fontSize: '0.82rem', color: '#334155', fontWeight: 500, lineHeight: 1.4 }}>
+                                                    {req.descripcion}
+                                                </p>
                                             </div>
-                                            <span className={styles.actionType}>{req.accion_tipo}</span>
-                                            <p>{req.descripcion}</p>
+                                            <div className={styles.actions}>
+                                                <button className={styles.rejectBtn} onClick={() => handleRespond(req.id, 'rechazada')} title="Rechazar Solicitud">
+                                                    <FontAwesomeIcon icon={faBan} /> Rechazar
+                                                </button>
+                                                <button className={styles.approveBtn} onClick={() => handleRespond(req.id, 'aprobada')} title="Aprobar Solicitud">
+                                                    <FontAwesomeIcon icon={faCheck} /> Aprobar
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className={styles.actions}>
-                                            <button className={styles.rejectBtn} onClick={() => handleRespond(req.id, 'rechazada')}>
-                                                <FontAwesomeIcon icon={faBan} />
-                                            </button>
-                                            <button className={styles.approveBtn} onClick={() => handleRespond(req.id, 'aprobada')}>
-                                                <FontAwesomeIcon icon={faCheck} /> Aprobar
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
+
                             )
                         ) : (
                             notifications.length === 0 ? (

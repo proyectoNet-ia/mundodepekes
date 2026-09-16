@@ -1,8 +1,23 @@
-# Antigravity & Cursor Rules - Mundo de Pekes
+# Antigravity General Resource & Execution Optimization Rules
 
-## Estándares del Proyecto
-- Framework: React 19 + TypeScript + Vite + CSS Modules / Tailwind.
-- Backend & DB: Supabase (PostgreSQL, Realtime, RLS).
-- Iconos: FontAwesome (@fortawesome/react-fontawesome) exclusivamente.
-- Seguridad: RLS estricto en todas las tablas públicas. Nunca exponer Service Role Key en frontend.
-- Eficiencia: Modularidad alta, sin duplicar consultas ni reimprimir archivos masivos.
+## 0. Directiva de Automatización de Proyecto y Bienvenida (Meta-Rule)
+- Al iniciar una nueva sesión de trabajo, saluda brevemente y presenta de inmediato tu Lista de Pendientes (Checklist de Producción) basada en un escaneo rápido del repositorio.
+- Si el proyecto no tiene un archivo `.cursorrules` en su raíz, incluye como primer pendiente su generación autónoma.
+
+## 1. Protocolo de Análisis y Reducción de Consumo (Local-First)
+- ANTES de generar código o ejecutar comandos, realiza un escaneo selectivo. Respeta estrictamente el archivo `.gitignore` y omite carpetas pesadas (`node_modules`, `dist`, `.next`, `build`).
+
+## 2. Prevención de Bucles Infinitos y Cuidado de Créditos (Vercel & GitHub)
+- Tienes un límite estricto de DOS (2) intentos para corregir un error de compilación de forma autónoma. Si al segundo intento falla, DETÉN la ejecución inmediatamente. Presenta un reporte de inmediato.
+
+## 3. Principio de Evaluación Previa (Dry Run First)
+- Para cualquier cambio en cualquier repositorio, debes proponer primero un plan de implementación teórico en formato Markdown (`optimization_plan.md`). No modifiques archivos sin autorización explicita. El despliegue a producción solo se realizará bajo comando explícito del usuario.
+
+## 4. Reglas Estrictas para Supabase y Base de Datos (Eficiencia)
+- Asegura la eficiencia: evita selectores masivos (`select=*`), elimina consultas duplicadas y fomenta el uso de estados locales o cachés en el frontend.
+- Sustituye el "polling" repetitivo por conexiones en tiempo real (`supabase.channel()`) limpiando el canal al desmontar el componente.
+
+## 5. Estándar de Iconos y UI
+- Font Awesome es la librería de iconos exclusiva para todos los proyectos.
+- Prohibido el uso de `alert()` o `confirm()` nativos.
+- Respuestas de alta densidad, técnicas y directas.
