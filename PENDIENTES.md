@@ -52,6 +52,7 @@
 ### Fase 10 — Verificación & Seguridad
 - [x] **Verificación de WhatsApp**: Integración de OTP de 6 dígitos para validación de clientes en el portal público.
 - [x] **Configuración de Impresoras**: Nuevo módulo de configuración para dispositivos TICKET y WRISTBAND.
+- [x] **Firmas y Notificaciones Realtime Resilientes**: Unificación de canales de WebSockets, sincronización inmediata, gestión de cancelaciones y alertas sonoras.
 
 ---
 

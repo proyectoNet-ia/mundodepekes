@@ -8,13 +8,15 @@ export interface AuthRequest {
   solicitante_nombre: string;
   accion_tipo: string;
   descripcion: string;
-  estado: 'pendiente' | 'aprobada' | 'rechazada';
+  estado: 'pendiente' | 'aprobada' | 'rechazada' | 'cancelada';
   autorizador_id?: string;
   metadata?: any;
 }
 
+const AUTH_CHANNEL_NAME = 'global-auth-events';
+
 // Canal global para eventos instantáneos de firmas (Broadcast)
-const globalAuthChannel = supabase.channel('global-auth-events');
+const globalAuthChannel = supabase.channel(AUTH_CHANNEL_NAME);
 globalAuthChannel.subscribe();
 
 export const authRequestService = {
@@ -36,7 +38,7 @@ export const authRequestService = {
 
     if (error) throw error;
 
-    // ✅ EMISIÓN ULTRA-RÁPIDA (BROADCAST EN CANAL GLOBAL)
+    // ✅ EMISIÓN ULTRA-RÁPIDA (BROADCAST EN CANAL GLOBAL UNIFICADO)
     globalAuthChannel.send({
       type: 'broadcast',
       event: 'new_request',
@@ -51,8 +53,40 @@ export const authRequestService = {
       { solicitud_id: data.id, solicitante: user.email }
     );
 
-
     return data;
+  },
+
+  // Cancelar una solicitud pendiente (Cajero / Gerente cancela para usar PIN)
+  async cancelRequest(requestId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('solicitudes_autorizacion')
+        .update({ estado: 'cancelada' })
+        .eq('id', requestId)
+        .select('id, created_at, solicitante_id, solicitante_nombre, accion_tipo, descripcion, estado, autorizador_id')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      // ✅ Emisión de cancelación en canal global
+      globalAuthChannel.send({
+        type: 'broadcast',
+        event: 'request_cancelled',
+        payload: data || { id: requestId, estado: 'cancelada' }
+      });
+
+      // Marcar como leídas las notificaciones asociadas
+      await supabase
+        .from('notificaciones')
+        .update({ read: true })
+        .eq('type', 'auth_request')
+        .eq('read', false);
+
+      return data;
+    } catch (e) {
+      console.warn('Error al cancelar solicitud remota:', e);
+      return null;
+    }
   },
 
   // Escuchar cambios en una solicitud específica (Cajero / Gerente espera)
@@ -129,9 +163,9 @@ export const authRequestService = {
     return data as AuthRequest[];
   },
 
-  // Escuchar nuevas solicitudes entrantes (Supervisor / Admin escucha en tiempo real)
-  subscribeToNewRequests(onNew: (req: AuthRequest) => void) {
-    const channel = supabase.channel('global-auth-requests-listener');
+  // Escuchar nuevas solicitudes entrantes y cancelaciones (Supervisor / Admin escucha en tiempo real)
+  subscribeToNewRequests(onNew: (req: AuthRequest) => void, onUpdateOrCancel?: (req: AuthRequest) => void) {
+    const channel = supabase.channel(AUTH_CHANNEL_NAME);
     return channel
       .on(
         'postgres_changes',
@@ -142,11 +176,28 @@ export const authRequestService = {
         }
       )
       .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'solicitudes_autorizacion' },
+        (payload) => {
+          const req = payload.new as AuthRequest;
+          if (onUpdateOrCancel) onUpdateOrCancel(req);
+        }
+      )
+      .on(
         'broadcast',
         { event: 'new_request' },
         (payload) => {
-          if (payload.payload) {
+          if (payload.payload && payload.payload.estado === 'pendiente') {
             onNew(payload.payload as AuthRequest);
+          }
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'request_cancelled' },
+        (payload) => {
+          if (payload.payload && onUpdateOrCancel) {
+            onUpdateOrCancel(payload.payload as AuthRequest);
           }
         }
       )

@@ -21,24 +21,33 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
     const [isRemoteMode, setIsRemoteMode] = useState(false);
     const [isWaitingRemote, setIsWaitingRemote] = useState(false);
     const subRef = useRef<any>(null);
+    const activeRequestIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         return () => {
             if (subRef.current) {
                 subRef.current.unsubscribe();
             }
+            if (activeRequestIdRef.current) {
+                authRequestService.cancelRequest(activeRequestIdRef.current).catch(() => {});
+            }
         };
     }, []);
 
     const resetState = () => {
+        const reqId = activeRequestIdRef.current;
         if (subRef.current) {
             subRef.current.unsubscribe();
             subRef.current = null;
         }
+        activeRequestIdRef.current = null;
         setPin('');
         setError('');
         setIsRemoteMode(false);
         setIsWaitingRemote(false);
+        if (reqId) {
+            authRequestService.cancelRequest(reqId).catch(() => {});
+        }
     };
 
     const handleClose = () => {
@@ -80,6 +89,7 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
                 metadata: metadata
             });
 
+            activeRequestIdRef.current = req.id;
             
             if (subRef.current) {
                 subRef.current.unsubscribe();
@@ -123,6 +133,13 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
                     }
                 } else if (updatedReq.estado === 'rechazada') {
                     setError('Solicitud rechazada por el Supervisor.');
+                    setIsWaitingRemote(false);
+                    if (subRef.current) {
+                        subRef.current.unsubscribe();
+                        subRef.current = null;
+                    }
+                } else if (updatedReq.estado === 'cancelada') {
+                    setError('Solicitud cancelada.');
                     setIsWaitingRemote(false);
                     if (subRef.current) {
                         subRef.current.unsubscribe();
@@ -202,11 +219,16 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
                                     <p>Tu solicitud ha sido enviada. Por favor espera a que se apruebe remotamente.</p>
                                     {error && <div className={styles.errorMessage}>{error}</div>}
                                     <button className={styles.cancelRemoteBtn} onClick={() => {
+                                        const reqId = activeRequestIdRef.current;
                                         if (subRef.current) {
                                             subRef.current.unsubscribe();
                                             subRef.current = null;
                                         }
+                                        activeRequestIdRef.current = null;
                                         setIsWaitingRemote(false);
+                                        if (reqId) {
+                                            authRequestService.cancelRequest(reqId).catch(() => {});
+                                        }
                                     }}>
                                         Cancelar y usar PIN físico
                                     </button>

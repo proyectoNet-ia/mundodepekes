@@ -13,8 +13,10 @@ export interface Notification {
     metadata?: any;
 }
 
+const NOTIF_CHANNEL_NAME = 'global-notif-events';
+
 // Canal global para notificaciones instantáneas (Broadcast)
-const globalNotifChannel = supabase.channel('global-notif-events');
+const globalNotifChannel = supabase.channel(NOTIF_CHANNEL_NAME);
 globalNotifChannel.subscribe();
 
 export const notificationsService = {
@@ -117,7 +119,7 @@ export const notificationsService = {
      */
     subscribe(callback: (notification: Notification) => void) {
         return supabase
-            .channel('global-notif-events-listener')
+            .channel(NOTIF_CHANNEL_NAME)
             .on(
                 'postgres_changes', 
                 { event: 'INSERT', schema: 'public', table: 'notificaciones' }, 

@@ -9,6 +9,31 @@ import { notificationsService, type Notification } from '../lib/notificationsSer
 import { stockService, type StockItem } from '../lib/stockService';
 import { supabase } from '../lib/supabase';
 
+// Reproductor de alerta sonora discreta mediante Web Audio API
+const playChime = () => {
+    try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const playTone = (freq: number, start: number, dur: number) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+            gain.gain.setValueAtTime(0.15, ctx.currentTime + start);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + start);
+            osc.stop(ctx.currentTime + start + dur);
+        };
+        playTone(587.33, 0, 0.12); // D5
+        playTone(880, 0.14, 0.22);  // A5
+    } catch (e) {
+        // Ignorado si la política de autoplay del navegador lo bloquea antes de interacción
+    }
+};
+
 export const RemoteAuthBell: React.FC = () => {
     const { showToast } = useToast();
     const [user, setUser] = useState<UserProfile | null>(null);
@@ -53,62 +78,116 @@ export const RemoteAuthBell: React.FC = () => {
         }
     }, [autoMarkAllRead]);
 
-    const init = async () => {
+    // Gestión del usuario actual y permisos de notificación
+    useEffect(() => {
         if (Notification.permission === 'default') {
-            await Notification.requestPermission();
+            Notification.requestPermission().catch(() => {});
         }
 
-        const currUser = await authService.getCurrentUser();
-        setUser(currUser);
+        authService.getCurrentUser().then(currUser => {
+            if (currUser) setUser(currUser);
+        });
 
-        if (currUser) {
-            const allowedTypes = getAllowedTypes(currUser.role);
+        const { data: { subscription } } = authService.onAuthStateChange((newUser) => {
+            setUser(newUser);
+        });
 
-            if (canSeeAuthRequests(currUser.role)) {
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, []);
+
+    // Suscripciones en tiempo real y sondeo resiliente reactivos al usuario
+    useEffect(() => {
+        if (!user) return;
+
+        let isMounted = true;
+        let pollInterval: ReturnType<typeof setInterval> | null = null;
+        const allowedTypes = getAllowedTypes(user.role);
+
+        const initSubscriptions = async () => {
+            // 1. Carga inicial de datos
+            if (canSeeAuthRequests(user.role)) {
                 const initialAuth = await authRequestService.getPendingRequests();
-                setPendingRequests(initialAuth);
+                if (isMounted) setPendingRequests(initialAuth);
             } else {
                 setActiveTab('ops');
             }
 
             const initialOps = await notificationsService.getRecent(15);
-            // Mostrar solo no leídas al iniciar (las leídas previas ya no se cargan)
-            const filtered = initialOps.filter(n => allowedTypes.includes(n.type) && !n.read);
-            setNotifications(filtered);
+            if (isMounted) {
+                const filtered = initialOps.filter(n => allowedTypes.includes(n.type) && !n.read);
+                setNotifications(filtered);
+            }
 
-            if (canSeeAuthRequests(currUser.role)) {
+            // 2. Suscripción en Tiempo Real para Solicitudes de Firma (Admin/Supervisor/Gerente)
+            if (canSeeAuthRequests(user.role)) {
                 if (authChannelRef.current) {
                     supabase.removeChannel(authChannelRef.current);
                 }
-                authChannelRef.current = authRequestService.subscribeToNewRequests((newReq) => {
-                    setPendingRequests(prev => {
-                        // Deduplicar (por si llega por broadcast y luego por postgres_changes)
-                        if (prev.some(r => r.id === newReq.id)) return prev;
-                        return [newReq, ...prev];
-                    });
-                    showToast(`Firma Requerida: ${newReq.solicitante_nombre}`, 'info');
-                    setActiveTab('auth');
-                });
+                authChannelRef.current = authRequestService.subscribeToNewRequests(
+                    // On New Request
+                    (newReq) => {
+                        if (!isMounted) return;
+                        setPendingRequests(prev => {
+                            if (prev.some(r => r.id === newReq.id)) return prev;
+                            return [newReq, ...prev];
+                        });
+                        playChime();
+                        showToast(`🔐 Firma Requerida: ${newReq.solicitante_nombre}`, 'info');
+                        setActiveTab('auth');
+                        handleTogglePanel(true);
+
+                        if (Notification.permission === 'granted') {
+                            new Notification(`🔐 Firma Requerida: ${newReq.solicitante_nombre}`, {
+                                body: newReq.descripcion || `Solicitud para: ${newReq.accion_tipo}`,
+                                icon: '/favicon.ico'
+                            });
+                        }
+                        if (navigator.vibrate) {
+                            navigator.vibrate([150, 80, 150]);
+                        }
+                    },
+                    // On Update or Cancel
+                    (updatedReq) => {
+                        if (!isMounted) return;
+                        if (updatedReq.estado !== 'pendiente') {
+                            setPendingRequests(prev => prev.filter(r => r.id !== updatedReq.id));
+                            if (updatedReq.estado === 'cancelada') {
+                                showToast('Solicitud cancelada por el solicitante', 'info');
+                            }
+                        }
+                    }
+                );
             }
 
+            // 3. Suscripción en Tiempo Real para Notificaciones Operativas
             if (opsChannelRef.current) {
                 supabase.removeChannel(opsChannelRef.current);
             }
             opsChannelRef.current = notificationsService.subscribe(async (notification) => {
+                if (!isMounted) return;
                 if (!allowedTypes.includes(notification.type)) return;
 
-                if (notification.type === 'auth_request' && canSeeAuthRequests(currUser.role)) {
-                    // No hace falta re-fetchear todo, el authChannel ya debió capturarlo
-                    // Solo abrimos el panel para alertar al supervisor
-                    handleTogglePanel(true);
-                    setActiveTab('auth');
+                if (notification.type === 'auth_request' && canSeeAuthRequests(user.role)) {
+                    // Refrescar lista de firmas de inmediato para consistencia total
+                    const currentPending = await authRequestService.getPendingRequests();
+                    if (isMounted) {
+                        setPendingRequests(currentPending);
+                        playChime();
+                        handleTogglePanel(true);
+                        setActiveTab('auth');
+                    }
                 } else {
                     // Si el panel ya está abierto, marcar como leída de inmediato
                     if (panelOpenRef.current) {
                         setNotifications(prev => [{ ...notification, read: true, readAt: Date.now() }, ...prev]);
                         await notificationsService.markAsRead(notification.id);
                     } else {
-                        setNotifications(prev => [notification, ...prev]);
+                        setNotifications(prev => {
+                            if (prev.some(n => n.id === notification.id)) return prev;
+                            return [notification, ...prev];
+                        });
                     }
                     showToast(notification.title, 'warning');
                     if (!panelOpenRef.current) setActiveTab('ops');
@@ -126,47 +205,67 @@ export const RemoteAuthBell: React.FC = () => {
                 }
             });
 
-            if (currUser.role !== 'cajero') {
-                const auditStock = async () => {
-                    try {
-                        const items: StockItem[] = await stockService.getInventory();
-                        const lowItems = items.filter((i: StockItem) => i.cantidad <= (i.minimo_alert || 5));
-                        if (lowItems.length > 0) {
-                            const hasRecent = initialOps.some(n =>
-                                n.type === 'low_stock' &&
-                                n.message.includes(`${lowItems.length} productos`) &&
-                                !n.read
+            // 4. Auditoría de inventario inicial para staff no-cajero
+            if (user.role !== 'cajero') {
+                try {
+                    const items: StockItem[] = await stockService.getInventory();
+                    const lowItems = items.filter((i: StockItem) => i.cantidad <= (i.minimo_alert || 5));
+                    if (lowItems.length > 0) {
+                        const hasRecent = initialOps.some(n =>
+                            n.type === 'low_stock' &&
+                            n.message.includes(`${lowItems.length} productos`) &&
+                            !n.read
+                        );
+                        if (!hasRecent) {
+                            await notificationsService.notify(
+                                'low_stock',
+                                '📦 Alerta de Inventario',
+                                `Se han detectado ${lowItems.length} productos con stock crítico. Revise existencias.`,
+                                { items: lowItems.map(i => i.nombre) }
                             );
-                            if (!hasRecent) {
-                                await notificationsService.notify(
-                                    'low_stock',
-                                    '📦 Alerta de Inventario',
-                                    `Se han detectado ${lowItems.length} productos con stock crítico. Revise existencias.`,
-                                    { items: lowItems.map(i => i.nombre) }
-                                );
-                            }
                         }
-                    } catch (e) { console.warn('Error en auditoría de inicio:', e); }
-                };
-                auditStock();
+                    }
+                } catch (e) {
+                    console.warn('Error en auditoría de inicio:', e);
+                }
             }
-        }
-    };
 
-    useEffect(() => {
-        const { data: { subscription } } = authService.onAuthStateChange((newUser) => {
-            setUser(newUser);
-        });
+            // 5. 🛡️ Sondeo de Respaldo Resiliente (Cada 5s para supervisores/administradores)
+            if (canSeeAuthRequests(user.role)) {
+                pollInterval = setInterval(async () => {
+                    if (!isMounted || !navigator.onLine) return;
+                    try {
+                        const freshRequests = await authRequestService.getPendingRequests();
+                        if (isMounted) {
+                            setPendingRequests(prev => {
+                                const newArrived = freshRequests.filter(fr => !prev.some(p => p.id === fr.id));
+                                if (newArrived.length > 0) {
+                                    playChime();
+                                    showToast(`🔐 ${newArrived.length} nueva(s) firma(s) pendiente(s)`, 'info');
+                                }
+                                return freshRequests;
+                            });
+                        }
+                    } catch (e) {
+                        // Silencioso en caso de error de red transitorio
+                    }
+                }, 5000);
+            }
+        };
 
-        init();
+        initSubscriptions();
 
         // 🧹 Limpiador automático: remueve de la lista notificaciones leídas hace más de 30s
         const sweepInterval = setInterval(() => {
-            setNotifications(prev => prev.filter(n => !n.read || !n.readAt || (Date.now() - n.readAt < 30000)));
+            if (isMounted) {
+                setNotifications(prev => prev.filter(n => !n.read || !n.readAt || (Date.now() - n.readAt < 30000)));
+            }
         }, 5000);
 
         return () => {
-            subscription.unsubscribe();
+            isMounted = false;
+            if (pollInterval) clearInterval(pollInterval);
+            clearInterval(sweepInterval);
             if (authChannelRef.current) {
                 supabase.removeChannel(authChannelRef.current);
                 authChannelRef.current = null;
@@ -176,9 +275,8 @@ export const RemoteAuthBell: React.FC = () => {
                 opsChannelRef.current = null;
             }
             if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
-            clearInterval(sweepInterval);
         };
-    }, []);
+    }, [user, handleTogglePanel, showToast]);
 
 
     if (!user) return null;
