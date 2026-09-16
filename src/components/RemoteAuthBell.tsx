@@ -50,15 +50,17 @@ export const RemoteAuthBell: React.FC = () => {
     const authChannelRef = useRef<any>(null);
     const opsChannelRef = useRef<any>(null);
 
-    // Tipos de notificaciones permitidas según rol
+    // Tipos de notificaciones permitidas según rol (auth_request solo para Admin y Supervisor)
     const getAllowedTypes = (role?: string): string[] => {
-        if (role === 'cajero') return ['cash_open', 'cash_close', 'expense'];
-        return ['cash_open', 'cash_close', 'low_stock', 'expense', 'auth_request'];
+        if (role === 'admin' || role === 'supervisor') {
+            return ['cash_open', 'cash_close', 'low_stock', 'expense', 'auth_request'];
+        }
+        return ['cash_open', 'cash_close', 'low_stock', 'expense'];
     };
 
-    // ¿El rol puede ver la tab de firmas (solicitudes de autorización)?
+    // ¿El rol puede ver la tab de firmas (solicitudes de autorización)? Exclusivo Admin y Supervisor
     const canSeeAuthRequests = (role?: string) =>
-        role === 'admin' || role === 'supervisor' || role === 'gerente';
+        role === 'admin' || role === 'supervisor';
 
     // Marca todas las no-leídas como leídas en BD y en estado local
     const autoMarkAllRead = useCallback(async () => {
@@ -106,10 +108,10 @@ export const RemoteAuthBell: React.FC = () => {
         const allowedTypes = getAllowedTypes(user.role);
 
         const initSubscriptions = async () => {
-            // 1. Carga inicial de datos
+            // 1. Carga inicial de datos (filtrando cualquier solicitud propia por seguridad)
             if (canSeeAuthRequests(user.role)) {
                 const initialAuth = await authRequestService.getPendingRequests();
-                if (isMounted) setPendingRequests(initialAuth);
+                if (isMounted) setPendingRequests(initialAuth.filter(r => r.solicitante_id !== user.id));
             } else {
                 setActiveTab('ops');
             }
@@ -120,7 +122,7 @@ export const RemoteAuthBell: React.FC = () => {
                 setNotifications(filtered);
             }
 
-            // 2. Suscripción en Tiempo Real para Solicitudes de Firma (Admin/Supervisor/Gerente)
+            // 2. Suscripción en Tiempo Real para Solicitudes de Firma (Admin/Supervisor)
             if (canSeeAuthRequests(user.role)) {
                 if (authChannelRef.current) {
                     supabase.removeChannel(authChannelRef.current);
@@ -129,6 +131,9 @@ export const RemoteAuthBell: React.FC = () => {
                     // On New Request
                     (newReq) => {
                         if (!isMounted) return;
+                        // 🚫 CANDADO DE SEGURIDAD: El solicitante NUNCA debe recibir ni auto-aprobar su propia solicitud
+                        if (newReq.solicitante_id === user.id) return;
+
                         setPendingRequests(prev => {
                             if (prev.some(r => r.id === newReq.id)) return prev;
                             return [newReq, ...prev];
@@ -169,14 +174,22 @@ export const RemoteAuthBell: React.FC = () => {
                 if (!isMounted) return;
                 if (!allowedTypes.includes(notification.type)) return;
 
+                // 🚫 CANDADO DE SEGURIDAD: Ignorar notificaciones de firmas generadas por el propio usuario
+                if (notification.type === 'auth_request' && (notification.user_id === user.id || notification.metadata?.solicitante_id === user.id)) {
+                    return;
+                }
+
                 if (notification.type === 'auth_request' && canSeeAuthRequests(user.role)) {
-                    // Refrescar lista de firmas de inmediato para consistencia total
+                    // Refrescar lista de firmas de inmediato excluyendo solicitudes propias
                     const currentPending = await authRequestService.getPendingRequests();
                     if (isMounted) {
-                        setPendingRequests(currentPending);
-                        playChime();
-                        handleTogglePanel(true);
-                        setActiveTab('auth');
+                        const validPending = currentPending.filter(r => r.solicitante_id !== user.id);
+                        setPendingRequests(validPending);
+                        if (validPending.length > 0) {
+                            playChime();
+                            handleTogglePanel(true);
+                            setActiveTab('auth');
+                        }
                     }
                 } else {
                     // Si el panel ya está abierto, marcar como leída de inmediato
@@ -237,13 +250,14 @@ export const RemoteAuthBell: React.FC = () => {
                     try {
                         const freshRequests = await authRequestService.getPendingRequests();
                         if (isMounted) {
+                            const validRequests = freshRequests.filter(r => r.solicitante_id !== user.id);
                             setPendingRequests(prev => {
-                                const newArrived = freshRequests.filter(fr => !prev.some(p => p.id === fr.id));
+                                const newArrived = validRequests.filter(fr => !prev.some(p => p.id === fr.id));
                                 if (newArrived.length > 0) {
                                     playChime();
                                     showToast(`🔐 ${newArrived.length} nueva(s) firma(s) pendiente(s)`, 'info');
                                 }
-                                return freshRequests;
+                                return validRequests;
                             });
                         }
                     } catch (e) {
@@ -283,6 +297,12 @@ export const RemoteAuthBell: React.FC = () => {
 
     const handleRespond = async (id: string, status: 'aprobada' | 'rechazada') => {
         try {
+            // Seguridad: verificar que el usuario no esté aprobando su propia solicitud
+            const targetReq = pendingRequests.find(r => r.id === id);
+            if (targetReq && targetReq.solicitante_id === user.id) {
+                showToast('Error de seguridad: no puedes auto-aprobar tus propias solicitudes.', 'error');
+                return;
+            }
             await authRequestService.respondToRequest(id, status, user.id);
             setPendingRequests(prev => prev.filter(r => r.id !== id));
             setNotifications(prev => prev.map(n => n.type === 'auth_request' ? { ...n, read: true, readAt: Date.now() } : n));

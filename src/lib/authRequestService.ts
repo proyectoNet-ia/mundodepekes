@@ -50,7 +50,7 @@ export const authRequestService = {
       'auth_request',
       `🔐 Firma Requerida: ${user.email?.split('@')[0] || 'Cajero'}`,
       req.descripcion || `Solicitud de autorización para: ${req.accion_tipo}`,
-      { solicitud_id: data.id, solicitante: user.email }
+      { solicitud_id: data.id, solicitante: user.email, solicitante_id: user.id }
     );
 
     return data;
