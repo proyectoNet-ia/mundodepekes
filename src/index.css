@@ -50,21 +50,7 @@
   --shadow-sm: 0 1px 3px rgba(0, 27, 72, 0.05);
   --shadow-md: 0 4px 12px rgba(0, 27, 72, 0.08);
   --shadow-lg: 0 12px 24px rgba(0, 27, 72, 0.12);
-}
-
-/* Dark Mode Variables */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
-    
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --text-tertiary: #94a3b8;
-    
-    --border-color: #334155;
-  }
+  color-scheme: light;
 }
 
 * {

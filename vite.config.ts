@@ -17,6 +17,8 @@ export default defineConfig({
         short_name: 'PekePark',
         description: 'Sistema Operativo de Gestión Infantíl',
         theme_color: '#ff6b00',
+        background_color: '#ffffff',
+        display: 'standalone',
         icons: [
           {
             src: 'pwa-192x192.png',
