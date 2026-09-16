@@ -57,23 +57,69 @@ export const authRequestService = {
 
   // Escuchar cambios en una solicitud específica (Cajero espera)
   subscribeToRequest(requestId: string, onUpdate: (req: AuthRequest) => void) {
-    return supabase
+    let isDone = false;
+
+    const handleUpdate = (req: AuthRequest) => {
+      if (isDone) return;
+      if (req && req.id === requestId && req.estado !== 'pendiente') {
+        isDone = true;
+        clearInterval(pollInterval);
+        onUpdate(req);
+      }
+    };
+
+    // 1. Canal dedicado para Postgres Changes + Broadcast
+    const reqChannel = supabase
       .channel(`auth-req-${requestId}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'solicitudes_autorizacion', filter: `id=eq.${requestId}` },
-        (payload) => onUpdate(payload.new as AuthRequest)
+        (payload) => handleUpdate(payload.new as AuthRequest)
       )
       .on(
         'broadcast',
         { event: 'request_response' },
         (payload) => {
-          if (payload.payload.id === requestId) {
-            onUpdate(payload.payload as AuthRequest);
+          if (payload.payload?.id === requestId) {
+            handleUpdate(payload.payload as AuthRequest);
           }
         }
       )
       .subscribe();
+
+    // 2. Escuchar en el canal global de broadcast
+    const globalBroadcastHandler = (payload: any) => {
+      if (payload.payload?.id === requestId) {
+        handleUpdate(payload.payload as AuthRequest);
+      }
+    };
+    globalAuthChannel.on('broadcast', { event: 'request_response' }, globalBroadcastHandler);
+
+    // 3. Resilient Polling Fallback (cada 1.5s por si WebSockets o Realtime sufren delay)
+    const pollInterval = setInterval(async () => {
+      if (isDone) return;
+      try {
+        const { data } = await supabase
+          .from('solicitudes_autorizacion')
+          .select('*')
+          .eq('id', requestId)
+          .single();
+
+        if (data && data.estado !== 'pendiente') {
+          handleUpdate(data as AuthRequest);
+        }
+      } catch (err) {
+        // Silencioso durante polling
+      }
+    }, 1500);
+
+    return {
+      unsubscribe: () => {
+        isDone = true;
+        clearInterval(pollInterval);
+        reqChannel.unsubscribe();
+      }
+    };
   },
 
   // Obtener solicitudes pendientes de las últimas 12 horas (Supervisor)
@@ -92,7 +138,6 @@ export const authRequestService = {
   },
 
   // Escuchar nuevas solicitudes entrantes (Supervisor escucha)
-  // NOTA: No usar filter en INSERT — Supabase Realtime no lo soporta sin replica identity configurada
   subscribeToNewRequests(onNew: (req: AuthRequest) => void) {
     return supabase
       .channel('new-auth-requests')
@@ -108,7 +153,6 @@ export const authRequestService = {
         'broadcast',
         { event: 'new_request' },
         (payload) => {
-          // El broadcast llega ANTES que el postgres_changes
           onNew(payload.payload as AuthRequest);
         }
       )
@@ -126,11 +170,24 @@ export const authRequestService = {
 
     if (error) throw error;
 
-    // ✅ EMISIÓN ULTRA-RÁPIDA DE RESPUESTA
+    // ✅ EMISIÓN ULTRA-RÁPIDA DE RESPUESTA EN CANAL GLOBAL Y ESPECÍFICO
     globalAuthChannel.send({
       type: 'broadcast',
       event: 'request_response',
       payload: data
     });
+
+    const specificChannel = supabase.channel(`auth-req-${requestId}`);
+    specificChannel.subscribe((subStatus) => {
+      if (subStatus === 'SUBSCRIBED') {
+        specificChannel.send({
+          type: 'broadcast',
+          event: 'request_response',
+          payload: data
+        });
+      }
+    });
+
+    return data;
   }
 };

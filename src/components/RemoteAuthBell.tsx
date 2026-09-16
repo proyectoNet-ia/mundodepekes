@@ -32,7 +32,7 @@ export const RemoteAuthBell: React.FC = () => {
 
     // ¿El rol puede ver la tab de firmas (solicitudes de autorización)?
     const canSeeAuthRequests = (role?: string) =>
-        role === 'admin' || role === 'supervisor';
+        role === 'admin' || role === 'supervisor' || role === 'gerente';
 
     // Marca todas las no-leídas como leídas en BD y en estado local
     const autoMarkAllRead = useCallback(async () => {

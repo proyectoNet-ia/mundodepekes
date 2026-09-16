@@ -74,30 +74,51 @@ export const authService = {
                 const { data: { user }, error } = await supabase.auth.getUser();
                 if (error || !user) return null;
 
-                // Maestro Hardcoded: Si es el dueño, asume rol total sin importar la base de datos
+                // Maestro Hardcoded: Si es el dueño, asume rol total sin importar la base de datos pero conservando su nombre
                 if (user.email === 'admin@mundodepekes.com') {
-                    return {
+                    const { data: adminProfile } = await supabase
+                        .from('perfiles')
+                        .select('nombre_completo')
+                        .or(`id.eq.${user.id},email.eq.${user.email}`)
+                        .maybeSingle();
+
+                    const finalProfile = {
                         id: user.id,
                         email: user.email,
-                        role: 'admin' as UserRole
+                        role: 'admin' as UserRole,
+                        nombre_completo: adminProfile?.nombre_completo || 'Fernando Admin'
                     };
+                    localStorage.setItem('cached_user_profile', JSON.stringify(finalProfile));
+                    return finalProfile;
                 }
 
                 const { data: profile, error: dbError } = await supabase
                     .from('perfiles')
                     .select('rol_slug, nombre_completo')
-                    .eq('id', user.id)
-                    .single();
+                    .or(`id.eq.${user.id},email.eq.${user.email}`)
+                    .maybeSingle();
 
                 if (dbError) {
                     console.error('Error obteniendo perfil desde BD (RLS O Vacío):', dbError);
                 }
 
+                const resolveAlias = (email: string) => {
+                    const em = email.toLowerCase();
+                    if (em.includes('admin_roster')) return 'Andrea Bañales';
+                    if (em.includes('admin')) return 'Fernando Admin';
+                    if (em.includes('cajero')) return 'Fanny';
+                    if (em.includes('andrea1')) return 'Andrea Rodríguez';
+                    if (em.includes('gerente')) return 'Gerente Operativo';
+                    if (em.includes('supervisor')) return 'Supervisor de Turno';
+                    if (em.includes('analista')) return 'Analista de Datos';
+                    return user.email?.split('@')[0] || 'Usuario';
+                };
+
                 const finalProfile = {
                     id: user.id,
                     email: user.email || '',
                     role: (profile?.rol_slug as UserRole) || 'cajero',
-                    nombre_completo: profile?.nombre_completo || 'Usuario'
+                    nombre_completo: profile?.nombre_completo || resolveAlias(user.email || '')
                 };
 
                 // Guardamos en caché para usarlo en caso de que la red falle después

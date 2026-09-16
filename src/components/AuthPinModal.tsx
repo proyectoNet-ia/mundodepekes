@@ -64,10 +64,36 @@ export const AuthPinModal: React.FC<AuthPinModalProps> = ({ isOpen, onClose, onA
             
             
             // Suscribirse a la respuesta en tiempo real
-            subRef.current = authRequestService.subscribeToRequest(req.id, (updatedReq) => {
+            subRef.current = authRequestService.subscribeToRequest(req.id, async (updatedReq) => {
                 if (updatedReq.estado === 'aprobada') {
-                    // Si se aprueba, buscamos el perfil del autorizador (simulado o real)
-                    onAuthorized({ id: updatedReq.autorizador_id || '', email: 'Supervisor Remoto', role: 'supervisor' });
+                    // Obtener el perfil real del autorizador para registrar su alias
+                    let authorizerProfile: UserProfile = { 
+                        id: updatedReq.autorizador_id || '', 
+                        email: 'supervisor@mundodepekes.com', 
+                        role: 'supervisor',
+                        nombre_completo: 'Supervisor'
+                    };
+                    if (updatedReq.autorizador_id) {
+                        try {
+                            const { supabase } = await import('../lib/supabase');
+                            const { data: prof } = await supabase
+                                .from('perfiles')
+                                .select('id, email, rol_slug, nombre_completo')
+                                .eq('id', updatedReq.autorizador_id)
+                                .maybeSingle();
+                            if (prof) {
+                                authorizerProfile = {
+                                    id: prof.id,
+                                    email: prof.email,
+                                    role: (prof.rol_slug as any) || 'supervisor',
+                                    nombre_completo: prof.nombre_completo || prof.email.split('@')[0]
+                                };
+                            }
+                        } catch (e) {
+                            console.warn('Error resolviendo perfil del autorizador:', e);
+                        }
+                    }
+                    onAuthorized(authorizerProfile);
                     resetState();
                 } else if (updatedReq.estado === 'rechazada') {
                     setError('Solicitud rechazada por el Supervisor.');

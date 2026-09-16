@@ -120,7 +120,9 @@ ALTER TABLE gastos_diarios ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public Gastos Access" ON gastos_diarios FOR ALL USING (true);
 
 -- 10. Vista de Rentabilidad (Opcional para reportes rápidos)
-CREATE OR REPLACE VIEW view_rentabilidad_diaria AS
+CREATE OR REPLACE VIEW view_rentabilidad_diaria
+WITH (security_invoker = true)
+AS
 WITH sales_daily AS (
     SELECT 
         fecha::date as dia,

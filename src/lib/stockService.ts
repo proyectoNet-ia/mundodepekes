@@ -19,6 +19,9 @@ export interface InventoryMovement {
     motivo: string;
     created_at: string;
     inventario?: { nombre: string };
+    usuario_nombre?: string;
+    usuario_email?: string;
+    usuario_rol?: string;
 }
 
 export const stockService = {
@@ -68,10 +71,34 @@ export const stockService = {
         return data || [];
     },
 
-    async recordMovement(itemId: string, qty: number, type: 'entrada' | 'salida' | 'ajuste', reason: string, isSync = false) {
+    async recordMovement(
+        itemId: string, 
+        qty: number, 
+        type: 'entrada' | 'salida' | 'ajuste', 
+        reason: string, 
+        isSync = false,
+        userInfo?: { nombre?: string; email?: string; rol?: string }
+    ) {
+        let userMeta = userInfo;
+        if (!userMeta) {
+            try {
+                const { authService } = await import('./authService');
+                const curr = await authService.getCurrentUser();
+                if (curr) {
+                    userMeta = {
+                        nombre: curr.nombre_completo || curr.email.split('@')[0],
+                        email: curr.email,
+                        rol: curr.role
+                    };
+                }
+            } catch (err) {
+                // Silencioso si auth no está listo
+            }
+        }
+
         if (!navigator.onLine && !isSync) {
             const { syncService } = await import('./syncService');
-            await syncService.enqueue('stock_adjustment', { itemId, qty, type, reason });
+            await syncService.enqueue('stock_adjustment', { itemId, qty, type, reason, userMeta });
             return;
         }
 
@@ -95,15 +122,33 @@ export const stockService = {
             
             if (updateError) throw updateError;
 
-            // 3. Log movement
-            const { error: logError } = await supabase
+            // 3. Log movement con trazabilidad de usuario
+            const insertPayload: any = {
+                item_id: itemId,
+                tipo: type,
+                cantidad: qty,
+                motivo: reason
+            };
+            if (userMeta?.nombre) insertPayload.usuario_nombre = userMeta.nombre;
+            if (userMeta?.email) insertPayload.usuario_email = userMeta.email;
+            if (userMeta?.rol) insertPayload.usuario_rol = userMeta.rol;
+
+            let { error: logError } = await supabase
                 .from('movimientos_inventario')
-                .insert({
-                    item_id: itemId,
-                    tipo: type,
-                    cantidad: qty,
-                    motivo: reason
-                });
+                .insert(insertPayload);
+            
+            // Fallback resiliente en caso de que la migración SQL aún esté pendiente en Supabase
+            if (logError && logError.message?.includes('usuario_')) {
+                const fallback = await supabase
+                    .from('movimientos_inventario')
+                    .insert({
+                        item_id: itemId,
+                        tipo: type,
+                        cantidad: qty,
+                        motivo: reason
+                    });
+                logError = fallback.error;
+            }
             
             if (logError) throw logError;
 
@@ -120,7 +165,7 @@ export const stockService = {
             if (isSync) throw e;
             console.warn('⚠️ Error al registrar movimiento. Guardando en cola offline:', e);
             const { syncService } = await import('./syncService');
-            await syncService.enqueue('stock_adjustment', { itemId, qty, type, reason });
+            await syncService.enqueue('stock_adjustment', { itemId, qty, type, reason, userMeta });
         }
     },
 

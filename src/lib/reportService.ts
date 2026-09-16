@@ -195,6 +195,8 @@ export class ReportService {
 
         // 4. Obtener Productos Vendidos en el Corte
         let soldProducts: { nombre: string; cantidad: number; categoria?: string }[] = [];
+        const transactionProductsMap: Record<string, string[]> = {};
+
         try {
             const { data: movs } = await supabase
                 .from('movimientos_inventario')
@@ -224,6 +226,20 @@ export class ReportService {
                 const nombre = mov.inventario?.nombre || 'Producto Desconocido';
                 const categoriaDb = mov.inventario?.categoria || 'General';
                 const qty = Number(mov.cantidad) || 0;
+
+                // Asociar producto vendido a la transacción correspondiente
+                if (isSalidaVenta) {
+                    const itemDesc = `${qty > 1 ? `${qty}x ` : ''}${nombre}`;
+                    for (const t of (trans || [])) {
+                        const fullId = (t.id || '').toLowerCase();
+                        const shortId = (t.id ? t.id.substring(0, 8) : '').toLowerCase();
+                        if (motivo.toLowerCase().includes(fullId) || (shortId && motivo.toLowerCase().includes(shortId))) {
+                            if (!transactionProductsMap[t.id]) transactionProductsMap[t.id] = [];
+                            transactionProductsMap[t.id].push(itemDesc);
+                            break;
+                        }
+                    }
+                }
                 
                 let isCancelledSale = false;
                 let relatedFolio = '';
@@ -491,17 +507,39 @@ export class ReportService {
                 });
             }
 
+            // Helper para resolver descripción / productos de la transacción
+            const getTransactionConcept = (t: any): string => {
+                const clientName = (t.clientes?.nombre || '').trim();
+                if (clientName && clientName.toLowerCase() !== 'venta pos' && clientName.toLowerCase() !== 'publico general') {
+                    return clientName;
+                }
+
+                const items = transactionProductsMap[t.id];
+                if (items && items.length > 0) {
+                    return items.join(', ');
+                }
+
+                if (t.sesiones && t.sesiones.length > 0) {
+                    const pkgs = t.sesiones.map((s: any) => s.paquetes?.nombre || 'Boleto Acceso').filter(Boolean);
+                    if (pkgs.length > 0) {
+                        return pkgs.join(', ');
+                    }
+                }
+
+                return 'Venta en Tienda';
+            };
+
             // Tabla 3: Detalle de Transacciones (Salto de página si es necesario)
             doc.addPage();
             doc.setTextColor(30, 41, 59);
             doc.text('LISTADO DETALLADO DE TRANSACCIONES', 14, 20);
             autoTable(doc, {
                 startY: 25,
-                head: [['Hora', 'ID Folio', 'Cliente', 'Método / Estado', 'Total']],
+                head: [['Hora', 'ID Folio', 'Cliente / Concepto', 'Método / Estado', 'Total']],
                 body: (trans || []).map(t => [
                     new Date(t.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     t.id.substring(0, 8).toUpperCase(),
-                    t.clientes?.nombre || 'Venta POS',
+                    getTransactionConcept(t),
                     t.estado === 'cancelado' ? 'CANCELADO' : t.metodo_pago.toUpperCase(),
                     t.estado === 'cancelado' ? `(Anulado) $ ${t.total.toFixed(2)}` : `$ ${t.total.toFixed(2)}`
                 ]),
@@ -513,6 +551,28 @@ export class ReportService {
             const blob = doc.output('blob');
             saveAs(blob, `${filename}.pdf`);
         } else {
+            // Helper para resolver descripción / productos de la transacción en Excel
+            const getTransactionConceptExcel = (t: any): string => {
+                const clientName = (t.clientes?.nombre || '').trim();
+                if (clientName && clientName.toLowerCase() !== 'venta pos' && clientName.toLowerCase() !== 'publico general') {
+                    return clientName;
+                }
+
+                const items = transactionProductsMap[t.id];
+                if (items && items.length > 0) {
+                    return items.join(', ');
+                }
+
+                if (t.sesiones && t.sesiones.length > 0) {
+                    const pkgs = t.sesiones.map((s: any) => s.paquetes?.nombre || 'Boleto Acceso').filter(Boolean);
+                    if (pkgs.length > 0) {
+                        return pkgs.join(', ');
+                    }
+                }
+
+                return 'Venta en Tienda';
+            };
+
             // Excel detallado con 3 hojas
             const workbook = new ExcelJS.Workbook();
             
@@ -555,14 +615,14 @@ export class ReportService {
             wsTrans.columns = [
                 {header: 'Fecha/Hora', key: 'f', width: 25},
                 {header: 'Folio', key: 'id', width: 15},
-                {header: 'Cliente', key: 'c', width: 25},
+                {header: 'Cliente / Concepto', key: 'c', width: 35},
                 {header: 'Método/Estado', key: 'm', width: 15},
                 {header: 'Total Cobrado', key: 't', width: 15}
             ];
             wsTrans.addRows((trans || []).map(t => ({
                 f: new Date(t.fecha).toLocaleString(),
                 id: t.id.substring(0, 8).toUpperCase(),
-                c: t.clientes?.nombre || 'Venta POS',
+                c: getTransactionConceptExcel(t),
                 m: t.estado === 'cancelado' ? 'CANCELADO' : t.metodo_pago,
                 t: t.estado === 'cancelado' ? 0 : t.total
             })));

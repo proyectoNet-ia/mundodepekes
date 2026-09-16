@@ -33,7 +33,7 @@ class SyncService {
                     } else if (item.type === 'inventory_sale') {
                         await registerInventorySale(item.data, true);
                     } else if (item.type === 'stock_adjustment') {
-                        await stockService.recordMovement(item.data.itemId, item.data.qty, item.data.type, item.data.reason, true);
+                        await stockService.recordMovement(item.data.itemId, item.data.qty, item.data.type, item.data.reason, true, item.data.userMeta);
                     }
 
                     await OfflineDB.deletePending(item.id!);

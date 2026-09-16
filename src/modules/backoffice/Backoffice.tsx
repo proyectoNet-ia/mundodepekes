@@ -109,8 +109,11 @@ export const Backoffice: React.FC = () => {
             ...(emailChanged ? { email: updates.email } : {}) 
         };
 
-        const { error } = await supabase.from('perfiles').update(profileUpdates).eq('id', id);
+        const { data: updatedRows, error } = await supabase.from('perfiles').update(profileUpdates).eq('id', id).select();
         if (error) throw error;
+        if (!updatedRows || updatedRows.length === 0) {
+            throw new Error('No se pudo guardar el cambio en la base de datos. Por favor verifique las políticas RLS en Supabase.');
+        }
 
         await loadData();
         setEditingStaff(null);

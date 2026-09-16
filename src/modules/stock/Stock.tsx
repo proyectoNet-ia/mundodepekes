@@ -4,7 +4,7 @@ import { stockService, type StockItem, type InventoryMovement } from '../../lib/
 import { authService, type UserProfile } from '../../lib/authService';
 import { ReportService } from '../../lib/reportService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faArrowUp, faArrowDown, faTriangleExclamation, faSpinner, faCheck, faTimes, faShieldAlt, faFilePdf, faFileExcel, faBoxes, faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faArrowUp, faArrowDown, faTriangleExclamation, faSpinner, faCheck, faTimes, faShieldAlt, faFilePdf, faFileExcel, faBoxes, faPlus, faEdit, faTrash, faUser } from '@fortawesome/free-solid-svg-icons';
 import { AuthPinModal } from '../../components/AuthPinModal';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/Toast';
@@ -75,7 +75,12 @@ export const Stock: React.FC = () => {
         setIsAuthOpen(false);
         setIsSaving(true);
         try {
-            await stockService.recordMovement(selectedItem.id, adjustQty, adjustType, finalReason);
+            const authorMeta = {
+                nombre: authorizer.nombre_completo || authorizer.email.split('@')[0],
+                email: authorizer.email,
+                rol: authorizer.role
+            };
+            await stockService.recordMovement(selectedItem.id, adjustQty, adjustType, finalReason, false, authorMeta);
 
             if (currentUser) {
                 await authService.logSecurityEvent({
@@ -340,7 +345,32 @@ export const Stock: React.FC = () => {
                                                 <div className={styles.historyData}>
                                                     <strong>{move.tipo === 'entrada' ? '+' : '-'}{move.cantidad} {move.inventario?.nombre}</strong>
                                                     <span>{cleanMotivo}</span>
-                                                    <small>{shortDate}</small>
+                                                    <div className={styles.historyMetaRow}>
+                                                        <small>{shortDate}</small>
+                                                        {(() => {
+                                                            const raw = (move.usuario_nombre || '').trim();
+                                                            const email = (move.usuario_email || '').toLowerCase();
+                                                            let authorAlias = raw;
+                                                            if (!raw || ['admin', 'administrador', 'cajero', 'gerente', 'supervisor', 'analista', 'usuario'].includes(raw.toLowerCase())) {
+                                                                if (email.includes('admin_roster')) authorAlias = 'Andrea Bañales';
+                                                                else if (email.includes('admin')) authorAlias = 'Fernando Admin';
+                                                                else if (email.includes('cajero')) authorAlias = 'Fanny';
+                                                                else if (email.includes('andrea1')) authorAlias = 'Andrea Rodríguez';
+                                                                else if (email.includes('gerente')) authorAlias = 'Gerente Operativo';
+                                                                else if (email.includes('supervisor')) authorAlias = 'Supervisor de Turno';
+                                                                else if (email.includes('analista')) authorAlias = 'Analista de Datos';
+                                                                else if (raw.toLowerCase() === 'admin' || raw.toLowerCase() === 'administrador') authorAlias = 'Fernando Admin';
+                                                                else if (raw.toLowerCase() === 'cajero') authorAlias = 'Fanny';
+                                                                else if (move.motivo?.toLowerCase().includes('venta') || move.motivo?.toLowerCase().includes('consumo')) authorAlias = 'Venta en Caja';
+                                                                else authorAlias = raw || 'Sistema';
+                                                            }
+                                                            return (
+                                                                <span className={styles.historyAuthorBadge} title={move.usuario_email ? `${authorAlias} (${move.usuario_email})` : authorAlias}>
+                                                                    <FontAwesomeIcon icon={faUser} size="xs" /> {authorAlias}
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
