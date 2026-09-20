@@ -15,9 +15,18 @@ export interface Notification {
 
 const NOTIF_CHANNEL_NAME = 'global-notif-events';
 
-// Canal global para notificaciones instantáneas (Broadcast)
-const globalNotifChannel = supabase.channel(NOTIF_CHANNEL_NAME);
-globalNotifChannel.subscribe();
+// Helper para emisión de notificaciones instantáneas vía broadcast
+const sendNotifBroadcast = (event: string, payload: any) => {
+    try {
+        supabase.channel(NOTIF_CHANNEL_NAME).send({
+            type: 'broadcast',
+            event,
+            payload
+        });
+    } catch (err) {
+        console.debug('Error enviando broadcast de notificación:', err);
+    }
+};
 
 export const notificationsService = {
     /**
@@ -62,11 +71,7 @@ export const notificationsService = {
             if (error) throw error;
             
             // ✅ Emisión ultra-rápida (Broadcast en canal unificado)
-            globalNotifChannel.send({
-                type: 'broadcast',
-                event: 'new_notification',
-                payload: data
-            });
+            sendNotifBroadcast('new_notification', data);
 
             return { success: true, notification: data };
         } catch (error) {

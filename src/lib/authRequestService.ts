@@ -15,9 +15,18 @@ export interface AuthRequest {
 
 const AUTH_CHANNEL_NAME = 'global-auth-events';
 
-// Canal global para eventos instantáneos de firmas (Broadcast)
-const globalAuthChannel = supabase.channel(AUTH_CHANNEL_NAME);
-globalAuthChannel.subscribe();
+// Helper para emisión de eventos broadcast instantáneos
+const sendAuthBroadcast = (event: string, payload: any) => {
+  try {
+    supabase.channel(AUTH_CHANNEL_NAME).send({
+      type: 'broadcast',
+      event,
+      payload
+    });
+  } catch (err) {
+    console.debug('Error enviando broadcast de autorización:', err);
+  }
+};
 
 export const authRequestService = {
   // Crear una nueva solicitud (Cajero / Gerente)
@@ -59,11 +68,7 @@ export const authRequestService = {
     if (error) throw error;
 
     // ✅ EMISIÓN ULTRA-RÁPIDA (BROADCAST EN CANAL GLOBAL UNIFICADO)
-    globalAuthChannel.send({
-      type: 'broadcast',
-      event: 'new_request',
-      payload: data
-    });
+    sendAuthBroadcast('new_request', data);
 
     // ✅ Notificación persistente con detalles de cantidad y tipo
     await notificationsService.notify(
@@ -89,11 +94,7 @@ export const authRequestService = {
       if (error) throw error;
 
       // ✅ Emisión de cancelación en canal global
-      globalAuthChannel.send({
-        type: 'broadcast',
-        event: 'request_cancelled',
-        payload: data || { id: requestId, estado: 'cancelada' }
-      });
+      sendAuthBroadcast('request_cancelled', data || { id: requestId, estado: 'cancelada' });
 
       // Marcar como leídas las notificaciones asociadas
       await supabase
@@ -236,11 +237,7 @@ export const authRequestService = {
     if (error) throw error;
 
     // ✅ EMISIÓN ULTRA-RÁPIDA EN CANAL GLOBAL Y ESPECÍFICO
-    globalAuthChannel.send({
-      type: 'broadcast',
-      event: 'request_response',
-      payload: data
-    });
+    sendAuthBroadcast('request_response', data);
 
     const specificChannel = supabase.channel(`auth-req-${requestId}`);
     specificChannel.subscribe((subStatus) => {
