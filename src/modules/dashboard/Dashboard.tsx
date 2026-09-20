@@ -41,6 +41,7 @@ import { PresaleQueue } from './PresaleQueue';
 import { supabase } from '../../lib/supabase';
 import { confirmPresale } from '../../lib/presaleService';
 import { getActiveSession, getShiftProductsSoldSummary } from '../../lib/treasuryService';
+import { formatTime12H } from '../../lib/dateUtils';
 
 const AREA_MAP: Record<string, string> = {
   'Mundo de Pekes': 'Mundo de Pekes',
@@ -300,8 +301,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                         childId: `off-${item.id}-${idx}`,
                         childName: c.name,
                         area: c.area,
-                        startTime: startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        endTime: endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        startTime: formatTime12H(startTime),
+                        endTime: formatTime12H(endTime),
                         rawStartTime: startTime,
                         rawEndTime: endTime,
                         tutorContact: item.data.customer?.phone || '',
@@ -604,7 +605,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
               <span>{isRefreshing ? 'Actualizando...' : 'Refrescar'}</span>
             </button>
             {/* Indicador de actualización en tiempo real */}
-            <div className={styles.liveIndicator} title={`Actualizado: ${lastRefreshed.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}>
+            <div className={styles.liveIndicator} title={`Actualizado: ${formatTime12H(lastRefreshed, true)}`}>
               <span className={`${styles.liveDot} ${isRefreshing ? styles.liveDotRefreshing : ''}`} />
               <span className={styles.liveText}>En Vivo</span>
             </div>
@@ -1100,7 +1101,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                   remainMins = Math.max(0, Math.round((eventEnd - now) / 60000));
                   isExpiredEvent = remainMins === 0;
                   isCritical = remainMins > 0 && remainMins <= 10;
-                  endStr = event.eventEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  endStr = formatTime12H(event.eventEndTime);
               }
 
               return (
@@ -1858,7 +1859,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                         <FontAwesomeIcon icon={faBirthdayCake} style={{ fontSize: '1.8rem' }} />
                         <div>
                             <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'white', fontWeight: 800 }}>Ingreso a Evento</h3>
-                            <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>{addToEventModal.packageName} &bull; Fin {addToEventModal.eventEndTime ? addToEventModal.eventEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Por definir'}</p>
+                            <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>{addToEventModal.packageName} &bull; Fin {addToEventModal.eventEndTime ? formatTime12H(addToEventModal.eventEndTime) : 'Por definir'}</p>
                         </div>
                     </div>
                 </div>
@@ -1915,7 +1916,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                       alignItems: 'flex-start' 
                     }}>
                         <FontAwesomeIcon icon={faBell} style={{ marginTop: '2px' }} />
-                        <span><strong>Nota de Sincronización:</strong> {addToEventModal.eventEndTime ? `El tiempo de este peke terminará automáticamente a las ${addToEventModal.eventEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} junto con todo el evento.` : 'El tiempo del evento comenzará a correr a partir de este primer ingreso.'}</span>
+                        <span><strong>Nota de Sincronización:</strong> {addToEventModal.eventEndTime ? `El tiempo de este peke terminará automáticamente a las ${formatTime12H(addToEventModal.eventEndTime)} junto con todo el evento.` : 'El tiempo del evento comenzará a correr a partir de este primer ingreso.'}</span>
                     </div>
                 </div>
                 <div className={styles.modalFooter} style={{ padding: '1.25rem 1.5rem', background: '#f8fafc', gap: '1rem' }}>

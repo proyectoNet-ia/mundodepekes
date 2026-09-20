@@ -7,6 +7,7 @@ import { faCakeCandles, faPlus, faTimes, faTrash, faPlay, faCheck, faPen, faPrin
 import { getPackages, type Package } from '../../lib/packageService';
 import { stockService, type StockItem } from '../../lib/stockService';
 import { PrinterService } from '../../lib/printerService';
+import { formatTime12H } from '../../lib/dateUtils';
 
 interface Props {
   user: UserProfile;
@@ -45,11 +46,11 @@ const BirthdayProgressBar = ({ fechaInicio, horaInicio, duracionMinutos }: { fec
     return (
         <div style={{ marginTop: '1rem', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem', color: '#64748b' }}>
-                <span>Inicio: {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>Inicio: {formatTime12H(start)}</span>
                 <span style={{ fontWeight: 'bold', color }}>
                     {isExpired ? 'Tiempo expirado' : `${remainMins} min restantes`}
                 </span>
-                <span>Fin: {end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>Fin: {formatTime12H(end)}</span>
             </div>
             <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${progress}%`, background: color, transition: 'width 1s linear' }}></div>
@@ -2237,7 +2238,7 @@ loadData();
                                   const pkg = paquetesPrivados.find(p => p.id === selectedEvento.paquete_id);
                                   const dur = pkg?.duracion_minutos || 120;
                                   const end = new Date(start.getTime() + dur * 60000);
-                                  return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                  return formatTime12H(end);
                               })() : 'Por definir'}
                           </p>
                       </div>
@@ -2289,7 +2290,7 @@ loadData();
                                   const pkg = paquetesPrivados.find(p => p.id === selectedEvento.paquete_id);
                                   const dur = pkg?.duracion_minutos || 120;
                                   const end = new Date(start.getTime() + dur * 60000);
-                                  return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                  return formatTime12H(end);
                               })() : 'Por definir'} junto con todo el evento.
                           </span>
                       </div>

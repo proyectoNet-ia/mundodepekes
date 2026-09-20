@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { formatTime12H } from './dateUtils';
 
 export const getFullAnalytics = async (days = 7): Promise<any> => {
   const dateLimit = new Date();
@@ -125,7 +126,7 @@ export const getFullAnalytics = async (days = 7): Promise<any> => {
     return {
       id: sh.id,
       date: capitalizedDate,
-      time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: formatTime12H(d),
       fullDate: sh.fecha_apertura,
       inicial,
       ventas,

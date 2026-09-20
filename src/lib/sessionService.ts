@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { formatTime12H } from './dateUtils';
 
 export interface ActiveSession {
   id: string;
@@ -53,8 +54,8 @@ export const getActiveSessions = async (): Promise<ActiveSession[]> => {
       childName: s.ninos?.nombre || 'Desconocido',
       packageName: s.paquetes?.nombre || 'Paquete',
       packageId: s.paquete_id,
-      startTime: new Date(s.hora_inicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      endTime: new Date(s.hora_fin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      startTime: formatTime12H(s.hora_inicio),
+      endTime: formatTime12H(s.hora_fin),
       rawStartTime: new Date(s.hora_inicio),
       rawEndTime: new Date(s.hora_fin),
       area: s.area_actual,

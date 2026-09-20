@@ -8,6 +8,7 @@ import { faCashRegister, faLock, faLockOpen, faCheckCircle, faExclamationTriangl
 import { AuthPinModal } from '../../components/AuthPinModal';
 import type { UserProfile } from '../../lib/authService';
 import { PrinterService } from '../../lib/printerService';
+import { formatTime12H } from '../../lib/dateUtils';
 
 const formatMoney = (val: string) => {
     const clean = val.replace(/\D/g, '');
@@ -348,7 +349,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     <span className={styles.badgeOpen}><FontAwesomeIcon icon={faLockOpen} /> Turno Abierto</span>
                 </div>
                 <div className={styles.sessionMeta}>
-                    Iniciado el {activeSession ? new Date(activeSession.fecha_apertura).toLocaleDateString() : ''} a las {activeSession ? new Date(activeSession.fecha_apertura).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    Iniciado el {activeSession ? new Date(activeSession.fecha_apertura).toLocaleDateString() : ''} a las {activeSession ? formatTime12H(activeSession.fecha_apertura) : ''}
                 </div>
             </header>
 
@@ -669,7 +670,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                             {exp.tiene_comprobante && <FontAwesomeIcon icon={faReceipt} style={{ color: '#10b981', marginRight: '6px' }} title="Con Comprobante" />}
                                             {exp.descripcion}
                                         </span>
-                                        <small>{new Date(exp.fecha || exp.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                                        <small>{formatTime12H(exp.fecha || exp.id)}</small>
                                     </div>
                                     {isIncome ? (
                                         <strong className={styles.incomeAmount}>+${Math.abs(exp.monto).toFixed(2)}</strong>
@@ -762,7 +763,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                                                     <td>
                                                         <span className={styles.folioCell}>{tx.id.substring(0,8).toUpperCase()}</span>
                                                     </td>
-                                                    <td>{new Date(tx.fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                                                    <td>{formatTime12H(tx.fecha)}</td>
                                                     <td>
                                                         {tx.clientes?.nombre ? (
                                                             tx.clientes.nombre

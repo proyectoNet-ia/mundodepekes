@@ -8,6 +8,7 @@ import { useToast } from './Toast';
 import { notificationsService, type Notification } from '../lib/notificationsService';
 import { stockService, type StockItem } from '../lib/stockService';
 import { supabase } from '../lib/supabase';
+import { formatTime12H } from '../lib/dateUtils';
 
 // Reproductor de alerta sonora discreta mediante Web Audio API
 const playChime = () => {
@@ -517,7 +518,7 @@ export const RemoteAuthBell: React.FC = () => {
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                         <strong style={{ fontSize: '0.9rem' }}>{notif.title}</strong>
-                                                        <small style={{ color: '#94a3b8' }}>{new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                                                        <small style={{ color: '#94a3b8' }}>{formatTime12H(notif.created_at)}</small>
                                                     </div>
                                                     <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>{notif.message}</p>
                                                 </div>

@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { supabase } from './supabase';
+import { formatTime12H } from './dateUtils';
 
 export interface ReportColumn {
     header: string;
@@ -155,7 +156,7 @@ export class ReportService {
                 cancelledFolios.add(folio);
                 cancelledIds.add(t.id);
                 
-                const time = new Date(t.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const time = formatTime12H(t.fecha);
                 const accessDetails = t.sesiones?.map((s: any) => `1x ${s.paquetes?.nombre || 'Acceso'}`).join(', ') || '';
                 
                 cancelledDetailsMap[folio] = {
@@ -426,7 +427,7 @@ export class ReportService {
                 startY: expenseY + 4,
                 head: [['Hora', 'Concepto', 'Ticket', 'Monto']],
                 body: (shiftExpenses || []).map(e => [
-                    new Date(e.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    formatTime12H(e.created_at),
                     e.descripcion,
                     e.tiene_comprobante ? 'SI' : 'NO',
                     `$ ${e.monto.toFixed(2)}`
@@ -537,7 +538,7 @@ export class ReportService {
                 startY: 25,
                 head: [['Hora', 'ID Folio', 'Cliente / Concepto', 'Método / Estado', 'Total']],
                 body: (trans || []).map(t => [
-                    new Date(t.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    formatTime12H(t.fecha),
                     t.id.substring(0, 8).toUpperCase(),
                     getTransactionConcept(t),
                     t.estado === 'cancelado' ? 'CANCELADO' : t.metodo_pago.toUpperCase(),
@@ -605,7 +606,7 @@ export class ReportService {
                 {header: 'Importe', key: 'i', width: 15}
             ];
             wsExp.addRows((shiftExpenses || []).map(e => ({
-                h: new Date(e.created_at).toLocaleTimeString(),
+                h: formatTime12H(e.created_at),
                 c: e.descripcion,
                 t: e.tiene_comprobante ? 'SI' : 'NO',
                 i: e.monto

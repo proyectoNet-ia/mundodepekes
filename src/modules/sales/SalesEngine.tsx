@@ -15,6 +15,7 @@ import { getActiveSessions, consumeScheduledEvent } from '../../lib/sessionServi
 import { PINModal } from '../../components/PINModal';
 import { supabase } from '../../lib/supabase';
 import { MergeCustomersModal } from '../../components/MergeCustomersModal';
+import { formatTime12H } from '../../lib/dateUtils';
 
 // Types
 type SalesStep = 'BUSQUEDA' | 'CLIENTE' | 'VERIFICACION' | 'NINO' | 'PAQUETE' | 'ACCESORIOS' | 'PAGO';
@@ -555,8 +556,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                     nombre: availablePackages.find(p => p.id === c.package)?.nombre || 'Paquete',
                     precio: availablePackages.find(p => p.id === c.package)?.precio || 0,
                     duracion: availablePackages.find(p => p.id === c.package)?.duracion_minutos || 0,
-                    hora_entrada: new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    hora_salida: new Date(c.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    hora_entrada: formatTime12H(c.startTime),
+                    hora_salida: formatTime12H(c.endTime)
                 })),
                 accesorios: selectedAccessories.map(a => ({ cantidad: a.qty, concepto: a.name, pUnit: a.price, importe: a.qty * a.price })),
                 subtotal: total / 1.16,
@@ -590,8 +591,8 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                         paquete: pkg?.nombre || 'Paquete',
                         area: pkg?.area || 'Mundo de Pekes',
                         duracion: pkg?.duracion_minutos || 0,
-                        horaEntrada: new Date(c.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        horaSalida: new Date(c.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        horaEntrada: formatTime12H(c.startTime),
+                        horaSalida: formatTime12H(c.endTime),
                         folio: registration.transaction.id.substring(0,8).toUpperCase(),
                         telefono: (registration.transaction.phone || '').split(',')[0].trim(),
                         tutor: registration.transaction.customer
