@@ -133,13 +133,10 @@ const toTitleCase = (str: string): string => {
         .join(' ');
 };
 
-function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, timeoutMs = 5000, fallback: T): Promise<T> {
+function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, timeoutMs = 12000, fallback: T): Promise<T> {
   return Promise.race([
     Promise.resolve(promise),
-    new Promise<T>((resolve) => setTimeout(() => {
-      console.warn(`[Dashboard] Timeout de ${timeoutMs}ms alcanzado para petición de red.`);
-      resolve(fallback);
-    }, timeoutMs))
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs))
   ]);
 }
 
@@ -214,17 +211,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
 
     const safetyTimer = setTimeout(() => {
       setIsRefreshing(false);
-    }, 8000);
+    }, 15000);
 
     try {
       const [active, settings, privEvents, sCount, todayCount, cumples, paquetes] = await Promise.all([
-        withTimeout(getActiveSessions().catch(err => { console.error('Error fetching active sessions:', err); return []; }), 6000, []),
-        withTimeout(getSystemSettings().catch(err => { console.error('Error fetching settings:', err); return limits; }), 5000, limits),
-        withTimeout(getActivePrivateEvents().catch(err => { console.error('Error fetching private events:', err); return []; }), 6000, []),
-        withTimeout(getScheduledPrivateEventsCount().catch(err => { console.error('Error fetching scheduled private events count:', err); return 0; }), 5000, 0),
-        withTimeout(getTotalChildrenToday().catch(err => { console.error('Error fetching total children today:', err); return { total: 0, unique: 0 }; }), 5000, { total: 0, unique: 0 }),
-        withTimeout(birthdayService.getAgendadosYEnCurso().catch(err => { console.error('Error fetching active birthdays:', err); return []; }), 6000, []),
-        withTimeout(getPackages(true).catch(err => { console.error('Error fetching packages:', err); return []; }), 6000, [])
+        withTimeout(getActiveSessions().catch(err => { console.error('Error fetching active sessions:', err); return []; }), 12000, []),
+        withTimeout(getSystemSettings().catch(err => { console.error('Error fetching settings:', err); return limits; }), 10000, limits),
+        withTimeout(getActivePrivateEvents().catch(err => { console.error('Error fetching private events:', err); return []; }), 12000, []),
+        withTimeout(getScheduledPrivateEventsCount().catch(err => { console.error('Error fetching scheduled private events count:', err); return 0; }), 10000, 0),
+        withTimeout(getTotalChildrenToday().catch(err => { console.error('Error fetching total children today:', err); return { total: 0, unique: 0 }; }), 10000, { total: 0, unique: 0 }),
+        withTimeout(birthdayService.getAgendadosYEnCurso().catch(err => { console.error('Error fetching active birthdays:', err); return []; }), 12000, []),
+        withTimeout(getPackages(true).catch(err => { console.error('Error fetching packages:', err); return []; }), 12000, [])
       ]);
       setSessions(active || []);
       setLimits(settings || limits);
@@ -246,7 +243,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
               .from('ninos_cumpleanos')
               .select('*, paquetes(nombre, area)')
               .in('cumpleanos_id', filteredCumples.map(c => c.id)),
-            5000,
+            10000,
             { data: [], error: null } as any
           );
           
@@ -267,9 +264,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
 
       // Obtener productos vendidos durante el corte activo
       try {
-        const activeSession = await withTimeout(getActiveSession(), 5000, null);
+        const activeSession = await withTimeout(getActiveSession(), 10000, null);
         if (activeSession && activeSession.fecha_apertura) {
-          const prodSummary = await withTimeout(getShiftProductsSoldSummary(activeSession.fecha_apertura), 5000, []);
+          const prodSummary = await withTimeout(getShiftProductsSoldSummary(activeSession.fecha_apertura), 10000, []);
           setShiftProducts(prodSummary || []);
         } else {
           setShiftProducts([]);
