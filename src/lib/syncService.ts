@@ -82,9 +82,9 @@ class SyncService {
 
     onChange(callback: SyncCallback) {
         this.listeners.push(callback);
-        OfflineDB.init()
-            .then(() => OfflineDB.getPending())
-            .then(p => callback(p.length));
+        OfflineDB.getPending()
+            .then(p => callback(p.length))
+            .catch(() => callback(0));
         
         return () => {
             this.listeners = this.listeners.filter(l => l !== callback);
@@ -92,16 +92,31 @@ class SyncService {
     }
 
     private notify(count: number) {
-        this.listeners.forEach(l => l(count));
+        this.listeners.forEach(l => {
+            try {
+                l(count);
+            } catch (err) {
+                console.warn('Error in sync listener:', err);
+            }
+        });
     }
 
     async getPendingItems() {
-        return await OfflineDB.getPending();
+        try {
+            return await OfflineDB.getPending();
+        } catch (err) {
+            console.warn('⚠️ Error al obtener items pendientes de syncService:', err);
+            return [];
+        }
     }
 
     async getPendingCount() {
-        const p = await OfflineDB.getPending();
-        return p.length;
+        try {
+            const p = await OfflineDB.getPending();
+            return Array.isArray(p) ? p.length : 0;
+        } catch {
+            return 0;
+        }
     }
 }
 

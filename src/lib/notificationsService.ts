@@ -13,43 +13,29 @@ export interface Notification {
     metadata?: any;
 }
 
-const NOTIF_CHANNEL_NAME = 'global-notif-events';
-
-// Helper para emisión de notificaciones instantáneas vía broadcast
-const sendNotifBroadcast = (event: string, payload: any) => {
-    try {
-        supabase.channel(NOTIF_CHANNEL_NAME).send({
-            type: 'broadcast',
-            event,
-            payload
-        });
-    } catch (err) {
-        console.debug('Error enviando broadcast de notificación:', err);
-    }
-};
+const localBroadcast = typeof window !== 'undefined' && 'BroadcastChannel' in window 
+    ? new BroadcastChannel('mundodepekes_local_notifs') 
+    : null;
 
 export const notificationsService = {
     /**
-     * Registra una nueva notificación en DB y la emite en tiempo real
+     * Registra una nueva notificación en DB y la emite localmente entre pestañas
      */
     async notify(type: NotificationType, title: string, message: string, metadata?: any) {
         try {
             // 🚫 DEDUPLICACIÓN INTELIGENTE:
             // Para alertas operativas de inventario/caja, evitar alertas duplicadas sin leer.
-            // Para solicitudes de firma ('auth_request'), no bloquear si pertenecen a solicitudes distintas.
-            if (type !== 'auth_request') {
-                const { data: existing } = await supabase
-                    .from('notificaciones')
-                    .select('id')
-                    .eq('type', type)
-                    .eq('title', title)
-                    .eq('read', false)
-                    .limit(1)
-                    .maybeSingle();
+            const { data: existing } = await supabase
+                .from('notificaciones')
+                .select('id')
+                .eq('type', type)
+                .eq('title', title)
+                .eq('read', false)
+                .limit(1)
+                .maybeSingle();
 
-                if (existing) {
-                    return { success: true, skipped: true };
-                }
+            if (existing) {
+                return { success: true, skipped: true };
             }
 
             const { data: authData } = await supabase.auth.getUser();
@@ -70,8 +56,8 @@ export const notificationsService = {
 
             if (error) throw error;
             
-            // ✅ Emisión ultra-rápida (Broadcast en canal unificado)
-            sendNotifBroadcast('new_notification', data);
+            // ✅ Emisión local instantánea (sin WebSockets)
+            localBroadcast?.postMessage({ type: 'new_notification', payload: data });
 
             return { success: true, notification: data };
         } catch (error) {
@@ -84,64 +70,74 @@ export const notificationsService = {
      * Obtiene las notificaciones más recientes (Últimas 24 horas)
      */
     async getRecent(limit = 20) {
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const { data, error } = await supabase
-            .from('notificaciones')
-            .select('id, created_at, type, title, message, user_id, read, metadata')
-            .gte('created_at', twentyFourHoursAgo)
-            .order('created_at', { ascending: false })
-            .limit(limit);
-        
-        if (error) return [];
-        return data as Notification[];
+        try {
+            const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+            const { data, error } = await supabase
+                .from('notificaciones')
+                .select('id, created_at, type, title, message, user_id, read, metadata')
+                .gte('created_at', twentyFourHoursAgo)
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            
+            if (error) return [];
+            return (data || []) as Notification[];
+        } catch {
+            return [];
+        }
     },
 
     /**
      * Marca una notificación como leída
      */
     async markAsRead(id: string) {
-        const { error } = await supabase
-            .from('notificaciones')
-            .update({ read: true })
-            .eq('id', id);
-        if (error) throw error;
+        try {
+            const { error } = await supabase
+                .from('notificaciones')
+                .update({ read: true })
+                .eq('id', id);
+            if (error) throw error;
+        } catch (err) {
+            console.warn('Error marcando notificación como leída:', err);
+        }
     },
 
     /**
      * Marca todas las notificaciones pendientes como leídas
      */
     async markAllAsRead() {
-        const { error } = await supabase
-            .from('notificaciones')
-            .update({ read: true })
-            .eq('read', false);
-        
-        if (error) throw error;
+        try {
+            const { error } = await supabase
+                .from('notificaciones')
+                .update({ read: true })
+                .eq('read', false);
+            
+            if (error) throw error;
+        } catch (err) {
+            console.warn('Error marcando todas las notificaciones como leídas:', err);
+        }
     },
 
     /**
-     * Escucha notificaciones en tiempo real
+     * Escucha notificaciones locales entre pestañas
      */
     subscribe(callback: (notification: Notification) => void) {
-        return supabase
-            .channel(NOTIF_CHANNEL_NAME)
-            .on(
-                'postgres_changes', 
-                { event: 'INSERT', schema: 'public', table: 'notificaciones' }, 
-                payload => {
-                    callback(payload.new as Notification);
-                }
-            )
-            .on(
-                'broadcast',
-                { event: 'new_notification' },
-                (payload) => {
-                    if (payload.payload) {
-                        callback(payload.payload as Notification);
-                    }
-                }
-            )
-            .subscribe();
+        if (!localBroadcast) {
+            return { unsubscribe: () => {} };
+        }
+
+        const handler = (event: MessageEvent) => {
+            if (event.data?.type === 'new_notification' && event.data.payload) {
+                callback(event.data.payload as Notification);
+            }
+        };
+
+        localBroadcast.addEventListener('message', handler);
+
+        return {
+            unsubscribe: () => {
+                localBroadcast.removeEventListener('message', handler);
+            }
+        };
     }
 };
 

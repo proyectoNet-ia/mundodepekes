@@ -119,14 +119,19 @@ export const useResilience = () => {
     // Intervalo de barrido adicional de red (cada 3.5s)
     const speedInterval = setInterval(updateNetworkData, 3500);
 
-    // Sistema de Polling Directo para Ventas Offline (Cada 2 segundos)
+    // Sistema de Polling Directo para Ventas Offline (Cada 4 segundos)
     const offlinePollInterval = setInterval(async () => {
-        const count = await syncService.getPendingCount();
-        setStatus(prev => prev.pendingSyncCount === count ? prev : { ...prev, pendingSyncCount: count });
-    }, 2000);
+        try {
+            const count = await syncService.getPendingCount();
+            setStatus(prev => prev.pendingSyncCount === count ? prev : { ...prev, pendingSyncCount: count });
+        } catch {
+            // Ignorar errores transitorios en sondeo
+        }
+    }, 4000);
 
-    // 6. Check Cash Session
+    // 6. Check Cash Session (Optimizado a 60s con pausa en segundo plano)
     const checkCash = async () => {
+        if (document.hidden) return;
         if (!navigator.onLine) {
             const cached = localStorage.getItem('cache_caja');
             setStatus(prev => ({ ...prev, cashStatus: cached ? 'abierta' : 'cerrada' }));
@@ -147,13 +152,13 @@ export const useResilience = () => {
             } else {
                 setStatus(prev => ({ ...prev, cashStatus: data ? 'abierta' : 'cerrada' }));
             }
-        } catch (e) {
+        } catch {
             const cached = localStorage.getItem('cache_caja');
             setStatus(prev => ({ ...prev, cashStatus: cached ? 'abierta' : 'cerrada' }));
         }
     };
     checkCash();
-    const cashInterval = setInterval(checkCash, 10000); // Cada 10s
+    const cashInterval = setInterval(checkCash, 60000); // Cada 60s para evitar saturación de Postgres
 
     return () => {
       window.removeEventListener('online', handleOnline);

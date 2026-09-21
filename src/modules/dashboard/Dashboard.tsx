@@ -133,6 +133,16 @@ const toTitleCase = (str: string): string => {
         .join(' ');
 };
 
+function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, timeoutMs = 5000, fallback: T): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((resolve) => setTimeout(() => {
+      console.warn(`[Dashboard] Timeout de ${timeoutMs}ms alcanzado para petición de red.`);
+      resolve(fallback);
+    }, timeoutMs))
+  ]);
+}
+
 export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onManageBirthday }) => {
   const { showToast } = useToast();
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
@@ -159,6 +169,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
   
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSubmittingAddToEvent, setIsSubmittingAddToEvent] = useState(false);
+  const [isSavingPackageEdit, setIsSavingPackageEdit] = useState(false);
   const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
   const [privateEvents, setPrivateEvents] = useState<any[]>([]);
   const [cumpleanosActivos, setCumpleanosActivos] = useState<any[]>([]);
@@ -197,54 +209,68 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
   }, [editingPekePackage]);
 
   const refreshData = async () => {
+    if (isRefreshing) return;
     setIsRefreshing(true);
+
+    const safetyTimer = setTimeout(() => {
+      setIsRefreshing(false);
+    }, 8000);
+
     try {
       const [active, settings, privEvents, sCount, todayCount, cumples, paquetes] = await Promise.all([
-        getActiveSessions().catch(err => { console.error('Error fetching active sessions:', err); return []; }),
-        getSystemSettings().catch(err => { console.error('Error fetching settings:', err); return limits; }),
-        getActivePrivateEvents().catch(err => { console.error('Error fetching private events:', err); return []; }),
-        getScheduledPrivateEventsCount().catch(err => { console.error('Error fetching scheduled private events count:', err); return 0; }),
-        getTotalChildrenToday().catch(err => { console.error('Error fetching total children today:', err); return { total: 0, unique: 0 }; }),
-        birthdayService.getAgendadosYEnCurso().catch(err => { console.error('Error fetching active birthdays:', err); return []; }),
-        getPackages(true).catch(err => { console.error('Error fetching packages:', err); return []; })
+        withTimeout(getActiveSessions().catch(err => { console.error('Error fetching active sessions:', err); return []; }), 6000, []),
+        withTimeout(getSystemSettings().catch(err => { console.error('Error fetching settings:', err); return limits; }), 5000, limits),
+        withTimeout(getActivePrivateEvents().catch(err => { console.error('Error fetching private events:', err); return []; }), 6000, []),
+        withTimeout(getScheduledPrivateEventsCount().catch(err => { console.error('Error fetching scheduled private events count:', err); return 0; }), 5000, 0),
+        withTimeout(getTotalChildrenToday().catch(err => { console.error('Error fetching total children today:', err); return { total: 0, unique: 0 }; }), 5000, { total: 0, unique: 0 }),
+        withTimeout(birthdayService.getAgendadosYEnCurso().catch(err => { console.error('Error fetching active birthdays:', err); return []; }), 6000, []),
+        withTimeout(getPackages(true).catch(err => { console.error('Error fetching packages:', err); return []; }), 6000, [])
       ]);
-      setSessions(active);
-      setLimits(settings);
-      setPrivateEvents(privEvents);
-      setScheduledCount(sCount);
-      setTotalChildrenToday(todayCount);
+      setSessions(active || []);
+      setLimits(settings || limits);
+      setPrivateEvents(privEvents || []);
+      setScheduledCount(sCount || 0);
+      setTotalChildrenToday(todayCount || { total: 0, unique: 0 });
       const todayVal = new Date();
       const todayStr = `${todayVal.getFullYear()}-${String(todayVal.getMonth() + 1).padStart(2, '0')}-${String(todayVal.getDate()).padStart(2, '0')}`;
-      const filteredCumples = cumples.filter(c => 
+      const filteredCumples = (cumples || []).filter(c => 
           c.estado === 'en_curso' || 
           (c.estado === 'agendado' && c.fecha_evento === todayStr)
       );
       setCumpleanosActivos(filteredCumples);
 
       if (filteredCumples.length > 0) {
-        const { data: ninos, error: ninosErr } = await supabase
-          .from('ninos_cumpleanos')
-          .select('*, paquetes(nombre, area)')
-          .in('cumpleanos_id', filteredCumples.map(c => c.id));
-        
-        if (!ninosErr && ninos) {
-          setNinosCumpleanos(ninos);
-        } else {
+        try {
+          const { data: ninos, error: ninosErr } = await withTimeout(
+            supabase
+              .from('ninos_cumpleanos')
+              .select('*, paquetes(nombre, area)')
+              .in('cumpleanos_id', filteredCumples.map(c => c.id)),
+            5000,
+            { data: [], error: null } as any
+          );
+          
+          if (!ninosErr && ninos) {
+            setNinosCumpleanos(ninos);
+          } else {
+            setNinosCumpleanos([]);
+          }
+        } catch {
           setNinosCumpleanos([]);
         }
       } else {
         setNinosCumpleanos([]);
       }
 
-      setPaquetesDisponibles(paquetes);
+      setPaquetesDisponibles(paquetes || []);
       setLastRefreshed(new Date());
 
       // Obtener productos vendidos durante el corte activo
       try {
-        const activeSession = await getActiveSession();
+        const activeSession = await withTimeout(getActiveSession(), 5000, null);
         if (activeSession && activeSession.fecha_apertura) {
-          const prodSummary = await getShiftProductsSoldSummary(activeSession.fecha_apertura);
-          setShiftProducts(prodSummary);
+          const prodSummary = await withTimeout(getShiftProductsSoldSummary(activeSession.fecha_apertura), 5000, []);
+          setShiftProducts(prodSummary || []);
         } else {
           setShiftProducts([]);
         }
@@ -254,15 +280,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
 
       // Auto-archivado de paquetes de eventos terminados y vacíos
       const now = new Date();
-      privEvents.forEach(event => {
+      (privEvents || []).forEach(event => {
           const hasExpired = event.event_end_time ? now > new Date(event.event_end_time) : false;
-          const hasKidsInside = active.some(s => s.transaccionId === event.id);
+          const hasKidsInside = (active || []).some(s => s.transaccionId === event.id);
           if (hasExpired && !hasKidsInside && event.paquete_id) {
               archivePackage(event.paquete_id);
           }
       });
       setPresaleRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Error en refreshData:', err);
     } finally {
+      clearTimeout(safetyTimer);
       setIsRefreshing(false);
     }
   };
@@ -285,34 +314,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
       setCurrentTime(new Date());
     }, 30000);
 
-    const pollTimer = setInterval(() => { refreshData(); }, 45000);
+    const pollTimer = setInterval(() => {
+      if (!document.hidden) {
+        refreshData();
+      }
+    }, 45000);
 
     const handleSyncChange = async () => {
-        const pending = await syncService.getPendingItems();
-        console.log(`🧐 [Monitor] Items en cola de sincronización:`, pending.length);
-        const off: any[] = [];
-        pending.forEach(item => {
-            if (item.type === 'sale') {
-                item.data.children.forEach((c: any, idx: number) => {
-                    const startTime = new Date(item.timestamp);
-                    const endTime = new Date(startTime.getTime() + (c.duration || 60) * 60000);
-                    off.push({
-                        id: `off-${item.id}-${idx}`,
-                        childId: `off-${item.id}-${idx}`,
-                        childName: c.name,
-                        area: c.area,
-                        startTime: formatTime12H(startTime),
-                        endTime: formatTime12H(endTime),
-                        rawStartTime: startTime,
-                        rawEndTime: endTime,
-                        tutorContact: item.data.customer?.phone || '',
-                        tutorName: item.data.customer?.name || '',
-                        isOffline: true,
+        try {
+            const pending = await syncService.getPendingItems();
+            console.log(`🧐 [Monitor] Items en cola de sincronización:`, pending.length);
+            const off: any[] = [];
+            pending.forEach(item => {
+                if (item.type === 'sale' && item.data?.children) {
+                    item.data.children.forEach((c: any, idx: number) => {
+                        const startTime = new Date(item.timestamp);
+                        const endTime = new Date(startTime.getTime() + (c.duration || 60) * 60000);
+                        off.push({
+                            id: `off-${item.id}-${idx}`,
+                            childId: `off-${item.id}-${idx}`,
+                            childName: c.name,
+                            area: c.area,
+                            startTime: formatTime12H(startTime),
+                            endTime: formatTime12H(endTime),
+                            rawStartTime: startTime,
+                            rawEndTime: endTime,
+                            tutorContact: item.data.customer?.phone || '',
+                            tutorName: item.data.customer?.name || '',
+                            isOffline: true,
+                        });
                     });
-                });
-            }
-        });
-        setOfflineSessions(off);
+                }
+            });
+            setOfflineSessions(off);
+        } catch (err) {
+            console.warn('⚠️ Error procesando cambio de sincronización en Dashboard:', err);
+        }
     };
 
     const handleSyncSuccess = (item: any) => {
@@ -465,26 +502,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
   const [offlinePrivateEvents, setOfflinePrivateEvents] = useState<any[]>([]);
   
   useEffect(() => {
+    let isMounted = true;
     const fetchOfflinePrivate = async () => {
-        const pending = await syncService.getPendingItems();
-        const offPrivates = pending
-            .filter(item => item.type === 'sale' && item.data.esPrivado)
-            .map(item => ({
-                transaccionId: `off-${item.id}`,
-                tutorName: item.data.customer?.name || 'Tutor',
-                tutorId: item.data.customer?.id,
-                packageName: 'Paquete Privado', // El nombre real está en availablePackages, pero simplificamos
-                packageId: item.data.paquete_id,
-                area: 'Mundo de Pekes',
-                duration: 60,
-                eventStartTime: null,
-                eventEndTime: null,
-                sessions: [],
-                isOffline: true
-            }));
-        setOfflinePrivateEvents(offPrivates);
+        try {
+            const pending = await syncService.getPendingItems();
+            if (!isMounted) return;
+            const offPrivates = pending
+                .filter(item => item.type === 'sale' && item.data?.esPrivado)
+                .map(item => ({
+                    transaccionId: `off-${item.id}`,
+                    tutorName: item.data.customer?.name || 'Tutor',
+                    tutorId: item.data.customer?.id,
+                    packageName: 'Paquete Privado', // El nombre real está en availablePackages, pero simplificamos
+                    packageId: item.data.paquete_id,
+                    area: 'Mundo de Pekes',
+                    duration: 60,
+                    eventStartTime: null,
+                    eventEndTime: null,
+                    sessions: [],
+                    isOffline: true
+                }));
+            setOfflinePrivateEvents(offPrivates);
+        } catch (err) {
+            console.warn('⚠️ Error al cargar eventos privados offline:', err);
+        }
     };
     fetchOfflinePrivate();
+    return () => {
+        isMounted = false;
+    };
   }, [isRefreshing]);
 
   const privateEventGroups = [...onlinePrivateGroups, ...cumpleanosGroups, ...offlinePrivateEvents];
@@ -1924,7 +1970,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                         className="btn btn-ghost" 
                         style={{ flex: 1, fontWeight: 700 }} 
                         onClick={() => setAddToEventModal(null)}
-                        disabled={isRefreshing}
+                        disabled={isSubmittingAddToEvent}
                     >
                         Cancelar
                     </button>
@@ -1941,10 +1987,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                               ? '0 4px 12px rgba(109, 40, 217, 0.3)' 
                               : '0 4px 12px rgba(180, 83, 9, 0.3)'
                         }}
-                        disabled={!newPekeName || isRefreshing || (((addToEventModal as any).isCumpleanos) && !modalSelectedPackageId)}
+                        disabled={!newPekeName || isSubmittingAddToEvent || (((addToEventModal as any).isCumpleanos) && !modalSelectedPackageId)}
                         onClick={async () => {
                             if (!newPekeName) return;
-                            setIsRefreshing(true);
+                            setIsSubmittingAddToEvent(true);
                             try {
                                 if ((addToEventModal as any).isCumpleanos) {
                                     const pkgId = modalSelectedPackageId || addToEventModal.packageId;
@@ -1971,11 +2017,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                                 console.error(error);
                                 showToast('Error al ingresar el peke al evento.', 'error');
                             } finally {
-                                setIsRefreshing(false);
+                                setIsSubmittingAddToEvent(false);
                             }
                         }}
                     >
-                        {isRefreshing ? 'Registrando...' : 'Confirmar Ingreso'}
+                        {isSubmittingAddToEvent ? 'Registrando...' : 'Confirmar Ingreso'}
                     </button>
                 </div>
             </div>
@@ -2038,7 +2084,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                         className="btn btn-ghost" 
                         style={{ flex: 1, fontWeight: 700 }} 
                         onClick={() => setEditingPekePackage(null)}
-                        disabled={isRefreshing}
+                        disabled={isSavingPackageEdit}
                     >
                         Cancelar
                     </button>
@@ -2051,10 +2097,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                             fontWeight: 800,
                             boxShadow: '0 4px 12px rgba(109, 40, 217, 0.3)'
                         }}
-                        disabled={!newPekePackageId || !editPekeName.trim() || isRefreshing}
+                        disabled={!newPekePackageId || !editPekeName.trim() || isSavingPackageEdit}
                         onClick={async () => {
                             if (!newPekePackageId || !editPekeName.trim()) return;
-                            setIsRefreshing(true);
+                            setIsSavingPackageEdit(true);
                             try {
                                 const selectedPkg = paquetesDisponibles.find(p => p.id === newPekePackageId);
                                 const cost = selectedPkg ? selectedPkg.precio : 0;
@@ -2066,11 +2112,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
                                 console.error(error);
                                 showToast('Error al actualizar el paquete.', 'error');
                             } finally {
-                                setIsRefreshing(false);
+                                setIsSavingPackageEdit(false);
                             }
                         }}
                     >
-                        {isRefreshing ? 'Guardando...' : 'Guardar Cambios'}
+                        {isSavingPackageEdit ? 'Guardando...' : 'Guardar Cambios'}
                     </button>
                 </div>
             </div>

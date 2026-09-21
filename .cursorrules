@@ -1,18 +1,17 @@
-# Directivas de Proyecto — Mundo de Pekes (PekePark Admin OS)
+# Reglas del Proyecto PekePark Admin OS (Mundo de Pekes)
 
-## Estándares de Arquitectura y Rendimiento
-1. **Supabase & Realtime:**
-   - Evitar `select('*')`; especificar siempre las columnas requeridas.
-   - Limpiar siempre los canales de suscripción en el desmontaje (`useEffect` return `supabase.removeChannel`).
-   - Mantener nombres de canales unificados entre emisores (Broadcast) y receptores (Listener).
-   - Proteger todas las tablas con RLS y verificar `REPLICA IDENTITY FULL` en publicaciones de tiempo real.
+## 1. Stack Tecnológico & Arquitectura
+- React 18+ con TypeScript y Vite.
+- Tailwind CSS / CSS Modules para estilos consistentes. Prohibido usar estilos en línea desordenados o alerts/confirms nativos.
+- Supabase como Backend & DB principal (PostgreSQL, RLS activo, Realtime optimizado).
+- IndexedDB (`offlineDb.ts`) y `syncService.ts` para resiliencia offline.
 
-2. **UI / UX:**
-   - Estándar visual premium con Tailwind CSS y CSS Modules.
-   - Prohibido el uso de ventanas nativas del navegador (`alert()`, `confirm()`). Usar componentes modales y Toast del sistema.
-   - Font Awesome como librería estándar de iconografía.
+## 2. Reglas de Supabase & Rendimiento
+- Prohibido `select=*` innecesario; seleccionar solo las columnas requeridas.
+- Todas las llamadas asíncronas de red a Supabase deben estar protegidas con timeouts razonables (máx 5-8s) o fallbacks a caché local para evitar bloqueos en conexiones lentas.
+- Evitar polling agresivo no controlado; limpiar intervalos y canales Realtime al desmontar componentes.
 
-3. **Resiliencia & Robustez:**
-   - Tolerancia a micro-cortes de red mediante caché local / IndexedDB y fallback polling ligero.
-   - Manejo de estados de carga y error en todas las operaciones asíncronas.
-   - Preservación estricta de lógica de negocio existente en refactorizaciones.
+## 3. Resiliencia & Concurrencia
+- Desacoplar estados de carga globales de estados locales de componentes/modales.
+- Blindar siempre arrays y objetos con valores por defecto defensivos (`data || []`).
+- Preservar la lógica de negocio y autoría en movimientos de inventario y caja.

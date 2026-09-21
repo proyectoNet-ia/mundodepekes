@@ -48,7 +48,7 @@ export const getActiveSessions = async (): Promise<ActiveSession[]> => {
 
     if (error) throw error;
 
-    activeFromDb = data.map((s: any) => ({
+    activeFromDb = (data || []).map((s: any) => ({
       id: s.id,
       childId: s.ninos?.id,
       childName: s.ninos?.nombre || 'Desconocido',
@@ -151,7 +151,7 @@ export const getActivePrivateEvents = async () => {
         .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data;
+    return data || [];
 };
 
 /**
