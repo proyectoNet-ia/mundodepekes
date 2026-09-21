@@ -177,16 +177,68 @@ export const authService = {
         }
     },
 
-    async validateManagerPin(pin: string): Promise<UserProfile | null> {
-        // Validación SEGURA: Se ejecuta en el lado del servidor para evitar descarga masiva de PINs (Punto 3.1)
-        const { data, error } = await supabase.rpc('validar_pin_supervisor', { pin_ingresado: pin });
+    async validateManagerPin(
+        pin: string, 
+        context?: { accion?: string; motivo?: string; folio?: string }
+    ): Promise<UserProfile | null> {
+        const res = await this.validateManagerPinDetailed(pin, context);
+        return res.user;
+    },
 
-        if (error || !data) {
-            console.error('Error o PIN inválido:', error);
-            return null;
+    async validateManagerPinDetailed(
+        pin: string, 
+        context?: { accion?: string; motivo?: string; folio?: string }
+    ): Promise<{ success: boolean; user: UserProfile | null; error?: string }> {
+        try {
+            // 1. Intentar validar mediante la nueva RPC de consumo atómico (PIN Dinámico + PIN Estático)
+            const { data, error } = await supabase.rpc('validar_y_consumir_pin', {
+                pin_ingresado: pin,
+                p_accion: context?.accion || 'Autorización general',
+                p_motivo: context?.motivo || '',
+                p_folio: context?.folio || null
+            });
+
+            if (!error && data) {
+                if (data.success) {
+                    return {
+                        success: true,
+                        user: {
+                            id: data.id,
+                            email: data.email || 'admin@mundodepekes.com',
+                            role: data.role || 'admin',
+                            nombre_completo: data.nombre_completo || 'Administrador'
+                        }
+                    };
+                }
+                return {
+                    success: false,
+                    user: null,
+                    error: data.error || 'PIN inválido o no autorizado.'
+                };
+            }
+
+            // 2. Fallback de compatibilidad si la migración aún no se ha ejecutado
+            const { data: legacyData, error: legacyError } = await supabase.rpc('validar_pin_supervisor', { pin_ingresado: pin });
+            if (!legacyError && legacyData) {
+                return {
+                    success: true,
+                    user: legacyData as UserProfile
+                };
+            }
+
+            return {
+                success: false,
+                user: null,
+                error: 'PIN Incorrecto o sin permisos de Supervisor.'
+            };
+        } catch (err: any) {
+            console.error('Error validando PIN:', err);
+            return {
+                success: false,
+                user: null,
+                error: 'Error de red al validar el PIN.'
+            };
         }
-
-        return data as UserProfile;
     },
 
     async logSecurityEvent(event: {

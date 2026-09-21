@@ -18,11 +18,13 @@ import {
   faUserCircle,
   faBars,
   faTimes,
-  faCloudUploadAlt
+  faCloudUploadAlt,
+  faKey
 } from '@fortawesome/free-solid-svg-icons';
 import { syncService } from '../lib/syncService';
 import { useEffect } from 'react';
 import { getSystemSettings } from '../lib/settingsService';
+import { DynamicPinGeneratorModal } from './DynamicPinGeneratorModal';
 
 interface NavigationProps {
   activeTab: 'ingresos' | 'dashboard' | 'treasury' | 'analytics' | 'audit' | 'config' | 'records' | 'stock' | 'pos' | 'birthdays';
@@ -46,6 +48,7 @@ const TAB_LABELS: Record<string, string> = {
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, userRole, user }) => {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showPinModal, setShowPinModal] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [pendingSync, setPendingSync] = useState(0);
     const [systemLogo, setSystemLogo] = useState<string | null>(null);
@@ -206,6 +209,44 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             )}
 
             {userRole === 'admin' && (
+                <button 
+                    type="button"
+                    onClick={() => setShowPinModal(true)}
+                    style={{
+                        margin: '0.4rem 1rem',
+                        padding: '0.65rem 0.85rem',
+                        background: 'linear-gradient(135deg, #02457a 0%, #001b48 100%)',
+                        border: '1px solid #0284c7',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(2, 69, 122, 0.25)',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    <div style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#38bdf8'
+                    }}>
+                        <FontAwesomeIcon icon={faKey} />
+                    </div>
+                    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.1 }}>PIN Dinámico</span>
+                        <span style={{ fontSize: '0.68rem', color: '#93c5fd' }}>Autorización 1 uso (OTP)</span>
+                    </div>
+                </button>
+            )}
+
+            {userRole === 'admin' && (
                 <div style={{ 
                     padding: '0.75rem 1rem', 
                     margin: '0.5rem 1rem',
@@ -277,8 +318,31 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             <FontAwesomeIcon icon={faBars} />
           </button>
           <span className={styles.mobileActiveLabel}>{TAB_LABELS[activeTab] || 'PekePark'}</span>
-          {/* Spacer */}
-          <div style={{ width: 40 }} />
+          
+          {userRole === 'admin' ? (
+            <button 
+              onClick={() => setShowPinModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #02457a 0%, #001b48 100%)',
+                color: '#ffffff',
+                border: '1px solid #38bdf8',
+                borderRadius: '8px',
+                padding: '0.35rem 0.6rem',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                cursor: 'pointer'
+              }}
+              title="Generar PIN Dinámico OTP"
+            >
+              <FontAwesomeIcon icon={faKey} style={{ color: '#38bdf8' }} />
+              <span>PIN</span>
+            </button>
+          ) : (
+            <div style={{ width: 40 }} />
+          )}
         </div>
 
         {/* ── DRAWER OVERLAY ── */}
@@ -302,6 +366,44 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             </button>
           </div>
           <div className={styles.tabs}>{navItems}</div>
+          
+          {userRole === 'admin' && (
+              <button 
+                  type="button"
+                  onClick={() => { setShowPinModal(true); setDrawerOpen(false); }}
+                  style={{
+                      margin: '0.4rem 1rem',
+                      padding: '0.65rem 0.85rem',
+                      background: 'linear-gradient(135deg, #02457a 0%, #001b48 100%)',
+                      border: '1px solid #0284c7',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(2, 69, 122, 0.25)'
+                  }}
+              >
+                  <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#38bdf8'
+                  }}>
+                      <FontAwesomeIcon icon={faKey} />
+                  </div>
+                  <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.1 }}>PIN Dinámico</span>
+                      <span style={{ fontSize: '0.68rem', color: '#93c5fd' }}>Autorización 1 uso (OTP)</span>
+                  </div>
+              </button>
+          )}
+
           {userRole === 'admin' && (
               <div style={{ 
                   padding: '0.75rem 1rem', 
@@ -374,6 +476,12 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             message="¿Desea cerrar la sesión de PekePark Admin?"
             onCancel={() => setShowLogoutConfirm(false)}
             onConfirm={handleLogout}
+        />
+
+        {/* Modal de Generación de PIN Dinámico OTP */}
+        <DynamicPinGeneratorModal
+            isOpen={showPinModal}
+            onClose={() => setShowPinModal(false)}
         />
       </>
     );

@@ -23,11 +23,13 @@ export const PINModal: React.FC<PINModalProps> = ({
     const [pin, setPin] = useState('');
     const [isError, setIsError] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
     useEffect(() => {
         if (!isOpen) {
             setPin('');
             setIsError(false);
+            setErrorMessage('');
             setIsLoading(false);
         }
     }, [isOpen]);
@@ -38,26 +40,26 @@ export const PINModal: React.FC<PINModalProps> = ({
         
         setIsLoading(true);
         setIsError(false);
+        setErrorMessage('');
 
         try {
-            const manager = await authService.validateManagerPin(pin);
-            if (manager) {
-                // Log the security event
-                await authService.logSecurityEvent({
-                    autorizadorId: manager.id,
-                    solicitanteId: 'self',
-                    accion: 'AUTORIZACION_ESPECIAL',
-                    motivo: `Autorización de: ${actionDescription}`
-                });
-                onSuccess(manager);
+            const result = await authService.validateManagerPinDetailed(pin, {
+                accion: actionDescription,
+                motivo: message
+            });
+
+            if (result.success && result.user) {
+                onSuccess(result.user);
                 onClose();
             } else {
                 setIsError(true);
+                setErrorMessage(result.error || 'PIN incorrecto o sin privilegios.');
                 setPin('');
             }
         } catch (error) {
             console.error(error);
             setIsError(true);
+            setErrorMessage('Error de red al validar el PIN.');
         } finally {
             setIsLoading(false);
         }
@@ -144,9 +146,9 @@ export const PINModal: React.FC<PINModalProps> = ({
                                 background: isError ? '#fef2f2' : '#f8fafc'
                             }}
                         />
-                        {isError && (
+                        {errorMessage && (
                             <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'center', fontWeight: 'bold' }}>
-                                PIN incorrecto o sin privilegios de Gerencia.
+                                {errorMessage}
                             </p>
                         )}
                     </div>
