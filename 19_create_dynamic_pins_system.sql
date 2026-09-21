@@ -22,7 +22,10 @@ CREATE TABLE IF NOT EXISTS public.pines_dinamicos (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. ÍNDICES DE ALTO RENDIMIENTO (LOCAL-FIRST Y CERO DISK I/O)
+-- 2. HABILITAR ROW LEVEL SECURITY (RLS) INMEDIATAMENTE TRAS CREAR TABLA
+ALTER TABLE public.pines_dinamicos ENABLE ROW LEVEL SECURITY;
+
+-- 3. ÍNDICES DE ALTO RENDIMIENTO (LOCAL-FIRST Y CERO DISK I/O)
 CREATE INDEX IF NOT EXISTS idx_pines_dinamicos_codigo_activo 
 ON public.pines_dinamicos (pin_codigo) 
 WHERE usado = FALSE AND revocado = FALSE;
@@ -30,10 +33,7 @@ WHERE usado = FALSE AND revocado = FALSE;
 CREATE INDEX IF NOT EXISTS idx_pines_dinamicos_created_at 
 ON public.pines_dinamicos (created_at DESC);
 
--- 3. HABILITAR ROW LEVEL SECURITY (RLS)
-ALTER TABLE public.pines_dinamicos ENABLE ROW LEVEL SECURITY;
-
--- Solo administradores pueden consultar y gestionar la tabla directamente
+-- 4. POLÍTICAS RLS (Solo administradores pueden gestionar la tabla directamente)
 DROP POLICY IF EXISTS "Admin All Pines Dinamicos" ON public.pines_dinamicos;
 CREATE POLICY "Admin All Pines Dinamicos" 
 ON public.pines_dinamicos 
@@ -48,33 +48,30 @@ USING (
     OR auth.email() = 'admin@mundodepekes.com'
 );
 
--- 4. FUNCIÓN RPC: GENERAR PIN DINÁMICO (SOLO ADMINS)
+-- 5. FUNCIÓN RPC: GENERAR PIN DINÁMICO (SOLO ADMINS)
 CREATE OR REPLACE FUNCTION public.generar_pin_dinamico(
     p_motivo TEXT DEFAULT 'Autorización General',
     p_vigencia_minutos INTEGER DEFAULT 15
 )
 RETURNS JSON AS $$
 DECLARE
-    v_user_id UUID;
-    v_user_email TEXT;
-    v_user_role TEXT;
-    v_user_name TEXT;
+    v_uid UUID;
+    v_uemail TEXT;
+    v_rol TEXT;
+    v_nom TEXT;
     v_nuevo_pin TEXT;
     v_expira_en TIMESTAMPTZ;
     v_record RECORD;
     v_intentos INTEGER := 0;
 BEGIN
-    -- Obtener usuario actual
-    v_user_id := auth.uid();
-    v_user_email := auth.email();
+    v_uid := auth.uid();
+    v_uemail := auth.email();
 
-    -- Verificar permisos de Administrador
-    SELECT rol_slug, nombre_completo INTO v_user_role, v_user_name
-    FROM public.perfiles
-    WHERE id = v_user_id OR email = v_user_email
-    LIMIT 1;
+    -- Asignación directa sin 'SELECT INTO' para evitar falsos positivos del parser de Supabase
+    v_rol := (SELECT rol_slug FROM public.perfiles WHERE id = v_uid OR email = v_uemail LIMIT 1);
+    v_nom := (SELECT nombre_completo FROM public.perfiles WHERE id = v_uid OR email = v_uemail LIMIT 1);
 
-    IF v_user_role != 'admin' AND v_user_email != 'admin@mundodepekes.com' THEN
+    IF v_rol != 'admin' AND v_uemail != 'admin@mundodepekes.com' THEN
         RETURN json_build_object('success', false, 'error', 'Solo administradores pueden generar PINs dinámicos.');
     END IF;
 
@@ -84,13 +81,11 @@ BEGIN
     END IF;
     v_expira_en := NOW() + (p_vigencia_minutos || ' minutes')::INTERVAL;
 
-    -- Generar PIN numérico de 4 o 6 dígitos único (evitar colisión activa)
+    -- Generar PIN numérico de 4 dígitos único
     LOOP
         v_intentos := v_intentos + 1;
-        -- Genera un número aleatorio de 4 dígitos entre 1000 y 9999
         v_nuevo_pin := LPAD((FLOOR(RANDOM() * 9000) + 1000)::TEXT, 4, '0');
 
-        -- Verificar que no haya un PIN igual activo
         IF NOT EXISTS (
             SELECT 1 FROM public.pines_dinamicos 
             WHERE pin_codigo = v_nuevo_pin 
@@ -102,7 +97,6 @@ BEGIN
         END IF;
 
         IF v_intentos > 10 THEN
-            -- Si hay muchas colisiones, genera de 6 dígitos
             v_nuevo_pin := LPAD((FLOOR(RANDOM() * 900000) + 100000)::TEXT, 6, '0');
             EXIT;
         END IF;
@@ -118,8 +112,8 @@ BEGIN
         expira_en
     ) VALUES (
         v_nuevo_pin,
-        v_user_id,
-        COALESCE(v_user_name, 'Administrador'),
+        v_uid,
+        COALESCE(v_nom, 'Administrador'),
         p_motivo,
         p_vigencia_minutos,
         v_expira_en
@@ -138,8 +132,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 5. FUNCIÓN RPC UNIFICADA: VALIDAR Y CONSUMIR PIN (ATÓMICO CON FOR UPDATE)
--- Soporta tanto PIN Dinámico OTP (1 solo uso) como PIN Estático de Supervisor/Gerente
+-- 6. FUNCIÓN RPC UNIFICADA: VALIDAR Y CONSUMIR PIN (ATÓMICO)
 CREATE OR REPLACE FUNCTION public.validar_y_consumir_pin(
     pin_ingresado TEXT,
     p_accion TEXT DEFAULT 'Autorización de movimiento',
@@ -157,25 +150,25 @@ BEGIN
     v_consumidor_id := auth.uid();
     v_consumidor_email := auth.email();
 
-    -- Obtener nombre del usuario que está en caja
-    SELECT nombre_completo INTO v_consumidor_nombre
-    FROM public.perfiles
-    WHERE id = v_consumidor_id OR email = v_consumidor_email
-    LIMIT 1;
+    v_consumidor_nombre := (
+        SELECT nombre_completo 
+        FROM public.perfiles 
+        WHERE id = v_consumidor_id OR email = v_consumidor_email 
+        LIMIT 1
+    );
 
     IF v_consumidor_nombre IS NULL THEN
         v_consumidor_nombre := COALESCE(v_consumidor_email, 'Usuario en Caja');
     END IF;
 
     -- 1. BUSCAR EN PINES DINÁMICOS (CON BLOQUEO ATÓMICO FOR UPDATE)
-    SELECT * INTO v_dinamico
-    FROM public.pines_dinamicos
-    WHERE pin_codigo = pin_ingresado
-    ORDER BY created_at DESC
-    LIMIT 1
-    FOR UPDATE;
-
-    IF FOUND THEN
+    FOR v_dinamico IN 
+        SELECT * FROM public.pines_dinamicos 
+        WHERE pin_codigo = pin_ingresado 
+        ORDER BY created_at DESC 
+        LIMIT 1 
+        FOR UPDATE 
+    LOOP
         -- Verificar si fue revocado
         IF v_dinamico.revocado THEN
             RETURN json_build_object(
@@ -226,7 +219,6 @@ BEGIN
                 p_folio
             );
         EXCEPTION WHEN OTHERS THEN
-            -- Si falla la bitácora, permitir continuar
             NULL;
         END;
 
@@ -240,16 +232,16 @@ BEGIN
             'nombre_completo', COALESCE(v_dinamico.creador_nombre, 'Administrador (PIN Dinámico OTP)'),
             'motivo_pin', v_dinamico.motivo
         );
-    END IF;
+    END LOOP;
 
     -- 2. SI NO ES DINÁMICO, VALIDAR COMO PIN ESTÁTICO DE SUPERVISOR / GERENTE / ADMIN
-    SELECT * INTO v_supervisor
-    FROM public.perfiles
-    WHERE pin_seguridad = pin_ingresado 
-    AND rol_slug IN ('admin', 'supervisor', 'gerente')
-    LIMIT 1;
-
-    IF FOUND THEN
+    FOR v_supervisor IN 
+        SELECT id, email, rol_slug, nombre_completo 
+        FROM public.perfiles 
+        WHERE pin_seguridad = pin_ingresado 
+        AND rol_slug IN ('admin', 'supervisor', 'gerente') 
+        LIMIT 1 
+    LOOP
         -- Registrar en bitácora de seguridad
         BEGIN
             INSERT INTO public.bitacora_seguridad (
@@ -277,7 +269,7 @@ BEGIN
             'role', v_supervisor.rol_slug,
             'nombre_completo', v_supervisor.nombre_completo
         );
-    END IF;
+    END LOOP;
 
     -- 3. NO COINCIDE CON NINGÚN PIN
     RETURN json_build_object(
@@ -288,7 +280,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 6. FUNCIÓN RPC: REVOCAR PIN DINÁMICO (SOLO ADMIN)
+-- 7. FUNCIÓN RPC: REVOCAR PIN DINÁMICO (SOLO ADMIN)
 CREATE OR REPLACE FUNCTION public.revocar_pin_dinamico(p_pin_id UUID)
 RETURNS JSON AS $$
 BEGIN
