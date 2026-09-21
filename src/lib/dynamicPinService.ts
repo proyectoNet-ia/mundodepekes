@@ -99,13 +99,12 @@ export const dynamicPinService = {
       ? expiraEnDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
       : '15 minutos';
 
-    const mensaje = `🔐 *Mundo de Pekes - PIN de Autorización*\n\n` +
-      `Tu código de autorización de *1 solo uso* es:\n\n` +
-      `👉 *${pin}*\n\n` +
-      `📋 *Motivo:* ${motivo}\n` +
-      `⏳ *Válido hasta:* ${horaExpira}\n` +
-      `⚠️ _Este PIN se desactivará automáticamente tras ser ingresado._`;
+    const mensaje = `*Mundo de Pekes - PIN de Autorización*\n\n` +
+      `Código de 1 solo uso: *${pin}*\n\n` +
+      `• Motivo: ${motivo}\n` +
+      `• Válido hasta: ${horaExpira}\n\n` +
+      `_(Este PIN se desactivará automáticamente tras ser ingresado)_`;
 
-    return `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
   }
 };
