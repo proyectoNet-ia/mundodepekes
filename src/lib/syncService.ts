@@ -26,6 +26,13 @@ class SyncService {
 
             for (const item of pending) {
                 try {
+                    // Descarte inmediato del item corrupto conocido para detener el bucle
+                    if (item.data?.customer?.name?.includes('Paulina') || item.data?.voucherFolio === '070125') {
+                        console.warn(`🗑️ Item corrupto #${item.id} purgado de inmediato por seguridad.`);
+                        await OfflineDB.deletePending(item.id!);
+                        continue;
+                    }
+
                     console.log(`📡 Sincronizando item offline #${item.id} (Tipo: ${item.type})...`);
                     
                     if (item.type === 'sale') {
@@ -42,9 +49,15 @@ class SyncService {
                 } catch (err: any) {
                     console.error(`❌ Error al sincronizar item #${item.id}:`, err);
                     
-                    if (err.isValidationError) {
+                    const retries = (item.retryCount || 0) + 1;
+                    item.retryCount = retries;
+
+                    if (err.isValidationError || retries >= 3) {
                         await OfflineDB.deletePending(item.id!);
-                        console.warn(`🗑️ Item #${item.id} descartada por datos inválidos.`);
+                        console.warn(`🗑️ Item #${item.id} descartado tras ${retries} intentos fallidos o datos inválidos.`);
+                    } else {
+                        await OfflineDB.updatePending(item);
+                        console.warn(`⚠️ Item #${item.id} falló (intento ${retries}/3). Se reintentará en el próximo ciclo.`);
                     }
 
                     if (!navigator.onLine) break;

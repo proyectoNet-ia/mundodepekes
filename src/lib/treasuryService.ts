@@ -110,6 +110,18 @@ export const openCash = async (montoInicial: number): Promise<CashSession> => {
 
   if (error) throw error;
 
+  // Vincular transacciones huérfanas registradas hoy sin arqueo previo (ej. anticipos cobrados antes de abrir turno)
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    await supabase
+      .from('transacciones')
+      .update({ arqueo_id: data.id })
+      .is('arqueo_id', null)
+      .gte('fecha', `${today}T00:00:00.000Z`);
+  } catch (orphanErr) {
+    console.warn('Aviso al asociar transacciones huérfanas al arqueo:', orphanErr);
+  }
+
   await AuditService.log({
     accion: 'APERTURA',
     modulo: 'TESORERIA',

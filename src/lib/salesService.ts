@@ -136,6 +136,8 @@ export const registerFullEntry = async (data: {
     return formatOfflineResponse(localId);
   }
 
+  let createdTransactionId: string | null = null;
+
   try {
     // 1. Get or Create Customer
     const allPhones = data.customer?.phone || (data as any).clientId;
@@ -227,6 +229,7 @@ export const registerFullEntry = async (data: {
       .select().single();
 
     if (tError || !transaction) throw tError || new Error('Error al crear la transacción');
+    createdTransactionId = transaction.id;
 
     await AuditService.log({
       accion: 'VENTAS' as any, // Ajuste para que coincida con el enum o string
@@ -236,11 +239,12 @@ export const registerFullEntry = async (data: {
     });
 
     // 3. Process Children and Sessions
+    const isUUID = (str?: string) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
     const registeredChildrenDetails = [];
     for (const childInfo of data.children) {
       let childId: string;
 
-      if (childInfo.id) {
+      if (childInfo.id && isUUID(childInfo.id)) {
         // Niño conocido: actualizar nombre/edad si cambiaron (sin crear duplicado)
         childId = childInfo.id;
         await supabase.from('ninos').update({
@@ -359,6 +363,15 @@ export const registerFullEntry = async (data: {
       }
     };
   } catch (err: any) {
+    if (createdTransactionId) {
+      try {
+        await supabase.from('transacciones').delete().eq('id', createdTransactionId);
+        console.warn(`🔄 Rollback preventivo: Transacción ${createdTransactionId} eliminada por fallo en sesiones.`);
+      } catch (rbErr) {
+        console.error('Error al revertir transacción:', rbErr);
+      }
+    }
+
     if (isSync || err.isValidationError) {
         throw err; // Re-lanzamos si es validación o si ya estamos sincronizando
     }

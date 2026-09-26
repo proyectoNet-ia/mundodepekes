@@ -19,9 +19,11 @@ import {
   faBars,
   faTimes,
   faCloudUploadAlt,
-  faKey
+  faKey,
+  faTrashAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { syncService } from '../lib/syncService';
+import { OfflineDB } from '../lib/offlineDb';
 import { useEffect } from 'react';
 import { getSystemSettings } from '../lib/settingsService';
 import { DynamicPinGeneratorModal } from './DynamicPinGeneratorModal';
@@ -48,6 +50,7 @@ const TAB_LABELS: Record<string, string> = {
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab, userRole, user }) => {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
     const [showPinModal, setShowPinModal] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [pendingSync, setPendingSync] = useState(0);
@@ -63,6 +66,16 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
     const handleLogout = async () => {
         await authService.signOut();
         setShowLogoutConfirm(false);
+    };
+
+    const handlePurgeOffline = async () => {
+        try {
+            await OfflineDB.hardReset();
+        } catch (e) {
+            console.error('Error al purgar IndexedDB:', e);
+        }
+        setShowPurgeConfirm(false);
+        window.location.reload();
     };
 
     const canSee = (tab: string) => {
@@ -295,6 +308,44 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
                 </div>
             )}
 
+            {/* Botón Provisional para Purgar Cola Offline (Caja) */}
+            <button 
+                type="button"
+                onClick={() => setShowPurgeConfirm(true)}
+                style={{
+                    margin: '0.4rem 1rem',
+                    padding: '0.65rem 0.85rem',
+                    background: 'linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)',
+                    border: '1px solid #ef4444',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(185, 28, 28, 0.25)',
+                    transition: 'all 0.2s ease'
+                }}
+                title="Vaciar cola de ventas offline y reiniciar base local"
+            >
+                <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '6px',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fca5a5'
+                }}>
+                    <FontAwesomeIcon icon={faTrashAlt} />
+                </div>
+                <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.1 }}>Resetear Offline</span>
+                    <span style={{ fontSize: '0.68rem', color: '#fca5a5' }}>Vaciar cola de caja</span>
+                </div>
+            </button>
+
             <div className={styles.premiumCardWrapper}>
               {user && (
                 <div className={styles.userPremiumCard}>
@@ -453,6 +504,44 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
               </div>
           )}
 
+          {/* Botón Provisional para Purgar Cola Offline (Caja) */}
+          <button 
+              type="button"
+              onClick={() => { setShowPurgeConfirm(true); setDrawerOpen(false); }}
+              style={{
+                  margin: '0.4rem 1rem',
+                  padding: '0.65rem 0.85rem',
+                  background: 'linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)',
+                  border: '1px solid #ef4444',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(185, 28, 28, 0.25)',
+                  transition: 'all 0.2s ease'
+              }}
+              title="Vaciar cola de ventas offline y reiniciar base local"
+          >
+              <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '6px',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fca5a5'
+              }}>
+                  <FontAwesomeIcon icon={faTrashAlt} />
+              </div>
+              <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.1 }}>Resetear Offline</span>
+                  <span style={{ fontSize: '0.68rem', color: '#fca5a5' }}>Vaciar cola de caja</span>
+              </div>
+          </button>
+
           <div className={styles.premiumCardWrapper}>
             {user && (
               <div className={styles.userPremiumCard}>
@@ -476,6 +565,17 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
             message="¿Desea cerrar la sesión de PekePark Admin?"
             onCancel={() => setShowLogoutConfirm(false)}
             onConfirm={handleLogout}
+        />
+
+        <ConfirmDialog
+            isOpen={showPurgeConfirm}
+            title="Purgar Cola de Ventas Offline"
+            message="¿Deseas vaciar la cola de ventas offline y reiniciar la memoria del navegador? Usa esta opción si la terminal presenta ventas atascadas o duplicados."
+            confirmText="Sí, vaciar y reiniciar"
+            cancelText="Cancelar"
+            status="danger"
+            onCancel={() => setShowPurgeConfirm(false)}
+            onConfirm={handlePurgeOffline}
         />
 
         {/* Modal de Generación de PIN Dinámico OTP */}

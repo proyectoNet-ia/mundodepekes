@@ -149,6 +149,23 @@ export class OfflineDB {
         }
     }
 
+    static async updatePending(item: PendingSync): Promise<void> {
+        return this.runWithRetry((db) => {
+            return new Promise((resolve, reject) => {
+                try {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(STORE_NAME);
+                    const request = store.put(item);
+                    request.onsuccess = () => resolve();
+                    request.onerror = (e) => reject(e);
+                    tx.onerror = (e) => reject(e);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
     static async deletePending(id: number): Promise<void> {
         return this.runWithRetry((db) => {
             return new Promise((resolve, reject) => {
@@ -163,6 +180,19 @@ export class OfflineDB {
                     reject(err);
                 }
             });
+        });
+    }
+
+    static async hardReset(): Promise<void> {
+        this.resetConnection();
+        return new Promise((resolve) => {
+            const req = indexedDB.deleteDatabase(DB_NAME);
+            req.onsuccess = () => resolve();
+            req.onerror = () => resolve();
+            req.onblocked = () => {
+                this.resetConnection();
+                resolve();
+            };
         });
     }
 }

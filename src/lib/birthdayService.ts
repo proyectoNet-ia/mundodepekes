@@ -226,12 +226,12 @@ export const birthdayService = {
             const { AuditService } = await import('./auditService');
             
             const session = await getActiveSession();
-            if (!session) return; // Si no hay caja abierta, no registramos transacción
+            const arqueoId = session?.id || null;
             
             const { data, error } = await supabase.from('transacciones').insert({
                 total: monto,
                 metodo_pago: metodoPago,
-                arqueo_id: session.id,
+                arqueo_id: arqueoId,
                 es_privado: false,
                 paquete_id: paqueteId || null
             }).select('id').single();
@@ -241,7 +241,7 @@ export const birthdayService = {
                     accion: 'VENTAS' as any,
                     modulo: 'VENTAS',
                     descripcion: `${descripcion} por $ ${monto}`,
-                    metadatos: { transaction_id: data.id, arqueo_id: session.id, evento_cumpleanos: true }
+                    metadatos: { transaction_id: data.id, arqueo_id: arqueoId, evento_cumpleanos: true }
                 });
             } else if (error) {
                 console.error("Error al registrar transaccion financiera de cumpleaños:", error);

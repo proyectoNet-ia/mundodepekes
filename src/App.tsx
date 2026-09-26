@@ -36,6 +36,13 @@ function App() {
   const isPortalRoute = window.location.pathname.startsWith('/portal');
 
   React.useEffect(() => {
+    if (window.location.search.includes('reset_offline=1')) {
+      indexedDB.deleteDatabase('MundoPekesOffline');
+      window.location.href = window.location.pathname;
+    }
+  }, []);
+
+  React.useEffect(() => {
     let isMounted = true;
     
     const initAuth = async () => {
