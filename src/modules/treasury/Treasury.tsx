@@ -227,7 +227,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     montoInicial: activeSession.monto_inicial,
                     ventasEfectivo: summary.efectivo,
                     ventasTarjeta: summary.tarjeta,
-                    ventasTransferencia: summary.transferencia,
+                    ventasTransferencia: summary.transferencia || 0,
                     gastos: expenses.map(e => ({ concepto: e.descripcion, monto: e.monto })),
                     totalGastos: summary.gastos,
                     esperadoEfectivo: summary.efectivo + activeSession.monto_inicial - summary.gastos,
@@ -236,7 +236,8 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
                     realTarjeta: realTarjeta,
                     diferenciaEfectivo: realEfectivo - (summary.efectivo + activeSession.monto_inicial - summary.gastos),
                     diferenciaTarjeta: realTarjeta - summary.tarjeta,
-                    totalVentas: summary.total,
+                    totalVentas: summary.efectivo + summary.tarjeta + (summary.transferencia || 0),
+                    ventasNetas: summary.total,
                     productosVendidos: ticketProducts
                 };
                 const ticketRaw = PrinterService.formatArqueoTicket(arqueoTicketData);

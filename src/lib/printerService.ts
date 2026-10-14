@@ -65,6 +65,7 @@ export interface ArqueoTicketData {
     montoInicial: number;
     ventasEfectivo: number;
     ventasTarjeta: number;
+    ventasTransferencia?: number;
     gastos: { concepto: string; monto: number }[];
     totalGastos: number;
     esperadoEfectivo: number;
@@ -74,6 +75,7 @@ export interface ArqueoTicketData {
     diferenciaEfectivo: number;
     diferenciaTarjeta: number;
     totalVentas: number;
+    ventasNetas?: number;
     productosVendidos?: { nombre: string; cantidad: number; categoria?: string }[];
 }
 
@@ -262,12 +264,18 @@ export class PrinterService {
         lines.push(line);
         lines.push('\x1B\x61\x00'); // Left
 
+        const totalVentasBruto = data.ventasEfectivo + data.ventasTarjeta + (data.ventasTransferencia || 0);
+
         lines.push('RESUMEN DE VENTAS');
         lines.push('EFECTIVO:'.padEnd(25) + `$ ${data.ventasEfectivo.toFixed(2)}`.padStart(13));
         lines.push('TARJETA:'.padEnd(25)  + `$ ${data.ventasTarjeta.toFixed(2)}`.padStart(13));
-        lines.push(bold('TOTAL VENTAS:'.padEnd(25) + `$ ${data.totalVentas.toFixed(2)}`.padStart(13)));
+        if (data.ventasTransferencia && data.ventasTransferencia > 0) {
+            lines.push('TRANSFERENCIA:'.padEnd(25) + `$ ${data.ventasTransferencia.toFixed(2)}`.padStart(13));
+        }
+        lines.push(bold('TOTAL VENTAS:'.padEnd(25) + `$ ${totalVentasBruto.toFixed(2)}`.padStart(13)));
 
         if (data.gastos.length > 0) {
+            lines.push(line);
             lines.push('MOVIMIENTOS DE CAJA:');
             data.gastos.forEach(g => {
                 const label = g.monto < 0 ? '(+) ENTRADA ' : '(-) SALIDA  ';
@@ -275,6 +283,9 @@ export class PrinterService {
                 lines.push(` - ${label}${n(g.concepto).substring(0, 10).padEnd(11)}$ ${absMonto.toFixed(2)}`);
             });
             lines.push('NETO EGRESOS:'.padEnd(25) + `$ ${data.totalGastos.toFixed(2)}`.padStart(13));
+            lines.push(line);
+            const ventasNetas = data.ventasNetas !== undefined ? data.ventasNetas : (totalVentasBruto - data.totalGastos);
+            lines.push(bold('VENTAS NETAS:'.padEnd(25) + `$ ${ventasNetas.toFixed(2)}`.padStart(13)));
         }
 
         if (data.productosVendidos && data.productosVendidos.length > 0) {
