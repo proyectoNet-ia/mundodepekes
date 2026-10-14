@@ -9,6 +9,7 @@ import { AuthPinModal } from '../../components/AuthPinModal';
 import type { UserProfile } from '../../lib/authService';
 import { PrinterService } from '../../lib/printerService';
 import { formatTime12H } from '../../lib/dateUtils';
+import { numeroALetras } from '../../lib/numberUtils';
 
 const formatMoney = (val: string) => {
     const clean = val.replace(/\D/g, '');
@@ -178,8 +179,20 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
     };
 
     const [showCloseModal, setShowCloseModal] = useState(false);
+    const [isConfirmingClose, setIsConfirmingClose] = useState(false);
     const [montoRealEfectivo, setMontoRealEfectivo] = useState('');
     const [montoRealTarjeta, setMontoRealTarjeta] = useState('');
+
+    const handleProceedToConfirmation = () => {
+        if (!activeSession) return;
+        const realEfectivo = getNumericAmount(montoRealEfectivo);
+        const realTarjeta = getNumericAmount(montoRealTarjeta);
+        
+        if (!montoRealEfectivo || isNaN(realEfectivo)) return showToast('Ingrese el monto físico de efectivo.', 'warning', 'Arqueo Erróneo');
+        if (!montoRealTarjeta || isNaN(realTarjeta)) return showToast('Ingrese el monto total en vouchers de tarjeta.', 'warning', 'Arqueo Erróneo');
+
+        setIsConfirmingClose(true);
+    };
 
     const handleClose = async () => {
         if (!activeSession) return;
@@ -251,6 +264,7 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
             setMontoRealEfectivo('');
             setMontoRealTarjeta('');
             setShowCloseModal(false);
+            setIsConfirmingClose(false);
             await loadData();
         } catch (error) {
             showToast('No se pudo completar el cierre de caja.', 'error', 'Error Técnico');
@@ -469,94 +483,151 @@ export const Treasury: React.FC<TreasuryProps> = ({ user, onCancel }) => {
 
                     <button 
                         className={styles.closeBtn} 
-                        onClick={() => setShowCloseModal(true)} 
+                        onClick={() => { setIsConfirmingClose(false); setShowCloseModal(true); }} 
                         disabled={isLoading}
                     >
                         <FontAwesomeIcon icon={faCheckCircle} /> Finalizar Turno y Cerrar Caja
                     </button>
 
                     {showCloseModal && activeSession && (
-                        <div className={styles.modalOverlay} onClick={() => setShowCloseModal(false)}>
+                        <div className={styles.modalOverlay} onClick={() => { setShowCloseModal(false); setIsConfirmingClose(false); }}>
                             <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                                <div className={styles.modalHeader}>
-                                    <h3>Confirmar Cierre de Caja</h3>
-                                    <p>Revisión final de valores antes de cerrar el turno.</p>
-                                </div>
-                                
-                                <div className={styles.balanceInfo}>
-                                    <div className={styles.balanceRow}>
-                                        <span><FontAwesomeIcon icon={faCashRegister} style={{marginRight: '8px'}} /> Fondo Inicial:</span>
-                                        <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${activeSession.monto_inicial.toFixed(2)}</span>
-                                    </div>
-                                    <div className={styles.balanceRow}>
-                                        <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Ventas Efectivo:</span>
-                                        <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${summary.efectivo.toFixed(2)}</span>
-                                    </div>
-                                    <div className={styles.balanceRow}>
-                                        <span><FontAwesomeIcon icon={faCreditCard} style={{marginRight: '8px'}} /> Ventas Tarjeta:</span>
-                                        <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${summary.tarjeta.toFixed(2)}</span>
-                                    </div>
-                                    <div className={styles.balanceRow}>
-                                        <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Transferencias:</span>
-                                        <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${(summary.transferencia || 0).toFixed(2)}</span>
-                                    </div>
-                                    {totalEntradas > 0 && (
-                                        <div className={styles.balanceRow} style={{ color: '#10b981' }}>
-                                            <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Entradas/Refuerzos:</span>
-                                            <span>+${totalEntradas.toFixed(2)}</span>
+                                {isConfirmingClose ? (
+                                    <div>
+                                        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+                                            <div style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', width: '48px', height: '48px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem', fontSize: '1.25rem' }}>
+                                                <FontAwesomeIcon icon={faShieldAlt} />
+                                            </div>
+                                            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', color: '#0f172a' }}>Verifica tu Conteo Físico</h3>
+                                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
+                                                Revisa con atención que las cantidades que capturaste coincidan con lo que contaste en físico:
+                                            </p>
                                         </div>
-                                    )}
-                                    <div className={styles.balanceRow}>
-                                        <span><FontAwesomeIcon icon={faMinusCircle} style={{marginRight: '8px'}} /> Gastos Registrados:</span>
-                                        <span>-${totalSalidas.toFixed(2)}</span>
-                                    </div>
-                                    <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid var(--border-color)' }} />
-                                    <div className={styles.balanceRow}>
-                                        <span style={{ fontWeight: 800 }}>Esperado en Efectivo:</span>
-                                        <strong style={{ fontSize: '1.8rem', color: 'var(--brand-600)' }} className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>
-                                            ${(activeSession.monto_inicial + summary.efectivo + totalEntradas - totalSalidas).toFixed(2)}
-                                        </strong>
-                                    </div>
-                                </div>
 
-                                <div className={styles.inputGrid}>
-                                    <div className={styles.inputGroup}>
-                                        <label>Efectivo contado (Físico)</label>
-                                        <div className={styles.inputWithIcon}>
-                                            <span>$</span>
-                                            <input 
-                                                type="text" 
-                                                autoFocus
-                                                value={montoRealEfectivo}
-                                                onChange={(e) => setMontoRealEfectivo(formatMoney(e.target.value))}
-                                                onFocus={(e) => e.target.select()}
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className={styles.inputGroup}>
-                                        <label>Vouchers Tarjeta (Total)</label>
-                                        <div className={styles.inputWithIcon}>
-                                            <span>$</span>
-                                            <input 
-                                                type="text" 
-                                                value={montoRealTarjeta}
-                                                onChange={(e) => setMontoRealTarjeta(formatMoney(e.target.value))}
-                                                onFocus={(e) => e.target.select()}
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                    <FontAwesomeIcon icon={faMoneyBillWave} style={{ color: '#10b981' }} /> Efectivo Físico Declarado:
+                                                </span>
+                                                <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#0f172a', margin: '0.2rem 0' }}>
+                                                    ${getNumericAmount(montoRealEfectivo).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', color: '#2563eb', fontWeight: 600, fontStyle: 'italic', background: 'rgba(37, 99, 235, 0.05)', padding: '0.35rem 0.6rem', borderRadius: '6px', borderLeft: '3px solid #2563eb' }}>
+                                                    {numeroALetras(getNumericAmount(montoRealEfectivo))}
+                                                </div>
+                                            </div>
 
-                                <div className={styles.modalActions}>
-                                    <button className="btn btn-secondary" onClick={() => setShowCloseModal(false)}>
-                                        Cancelar
-                                    </button>
-                                    <button className="btn btn-primary" onClick={handleClose} disabled={isLoading}>
-                                        {isLoading ? 'Cerrando...' : 'Finalizar Turno'}
-                                    </button>
-                                </div>
+                                            <hr style={{ border: 'none', borderTop: '1px dashed #cbd5e1', margin: '0.75rem 0' }} />
+
+                                            <div>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                    <FontAwesomeIcon icon={faCreditCard} style={{ color: '#6366f1' }} /> Vouchers de Tarjeta (Total):
+                                                </span>
+                                                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', margin: '0.2rem 0' }}>
+                                                    ${getNumericAmount(montoRealTarjeta).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', color: '#6366f1', fontWeight: 600, fontStyle: 'italic', background: 'rgba(99, 102, 241, 0.05)', padding: '0.35rem 0.6rem', borderRadius: '6px', borderLeft: '3px solid #6366f1' }}>
+                                                    {numeroALetras(getNumericAmount(montoRealTarjeta))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'center', margin: '0 0 1.25rem' }}>
+                                            ⚠️ Al confirmar, el turno se cerrará formalmente y se imprimirá el ticket de arqueo.
+                                        </p>
+
+                                        <div className={styles.modalActions}>
+                                            <button className="btn btn-secondary" onClick={() => setIsConfirmingClose(false)} disabled={isLoading}>
+                                                ✏️ Modificar Cifras
+                                            </button>
+                                            <button className="btn btn-primary" onClick={handleClose} disabled={isLoading}>
+                                                {isLoading ? 'Cerrando...' : 'Sí, Confirmar y Cerrar'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={styles.modalHeader}>
+                                            <h3>Confirmar Cierre de Caja</h3>
+                                            <p>Revisión final de valores antes de cerrar el turno.</p>
+                                        </div>
+                                        
+                                        <div className={styles.balanceInfo}>
+                                            <div className={styles.balanceRow}>
+                                                <span><FontAwesomeIcon icon={faCashRegister} style={{marginRight: '8px'}} /> Fondo Inicial:</span>
+                                                <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>${activeSession.monto_inicial.toFixed(2)}</span>
+                                            </div>
+                                            <div className={styles.balanceRow}>
+                                                <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Ventas Efectivo:</span>
+                                                <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${summary.efectivo.toFixed(2)}</span>
+                                            </div>
+                                            <div className={styles.balanceRow}>
+                                                <span><FontAwesomeIcon icon={faCreditCard} style={{marginRight: '8px'}} /> Ventas Tarjeta:</span>
+                                                <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${summary.tarjeta.toFixed(2)}</span>
+                                            </div>
+                                            <div className={styles.balanceRow}>
+                                                <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Transferencias:</span>
+                                                <span className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>+${(summary.transferencia || 0).toFixed(2)}</span>
+                                            </div>
+                                            {totalEntradas > 0 && (
+                                                <div className={styles.balanceRow} style={{ color: '#10b981' }}>
+                                                    <span><FontAwesomeIcon icon={faMoneyBillWave} style={{marginRight: '8px'}} /> Entradas/Refuerzos:</span>
+                                                    <span>+${totalEntradas.toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                            <div className={styles.balanceRow}>
+                                                <span><FontAwesomeIcon icon={faMinusCircle} style={{marginRight: '8px'}} /> Gastos Registrados:</span>
+                                                <span>-${totalSalidas.toFixed(2)}</span>
+                                            </div>
+                                            <hr style={{ margin: '1rem 0', border: 'none', borderTop: '1px solid var(--border-color)' }} />
+                                            <div className={styles.balanceRow}>
+                                                <span style={{ fontWeight: 800 }}>Esperado en Efectivo:</span>
+                                                <strong style={{ fontSize: '1.8rem', color: 'var(--brand-600)' }} className={user?.role === 'cajero' || user?.role === 'gerente' ? styles.blurredAmount : ''}>
+                                                    ${(activeSession.monto_inicial + summary.efectivo + totalEntradas - totalSalidas).toFixed(2)}
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.inputGrid}>
+                                            <div className={styles.inputGroup}>
+                                                <label>Efectivo contado (Físico)</label>
+                                                <div className={styles.inputWithIcon}>
+                                                    <span>$</span>
+                                                    <input 
+                                                        type="text" 
+                                                        autoFocus
+                                                        value={montoRealEfectivo}
+                                                        onChange={(e) => setMontoRealEfectivo(formatMoney(e.target.value))}
+                                                        onFocus={(e) => e.target.select()}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className={styles.inputGroup}>
+                                                <label>Vouchers Tarjeta (Total)</label>
+                                                <div className={styles.inputWithIcon}>
+                                                    <span>$</span>
+                                                    <input 
+                                                        type="text" 
+                                                        value={montoRealTarjeta}
+                                                        onChange={(e) => setMontoRealTarjeta(formatMoney(e.target.value))}
+                                                        onFocus={(e) => e.target.select()}
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.modalActions}>
+                                            <button className="btn btn-secondary" onClick={() => { setShowCloseModal(false); setIsConfirmingClose(false); }}>
+                                                Cancelar
+                                            </button>
+                                            <button className="btn btn-primary" onClick={handleProceedToConfirmation}>
+                                                Revisar y Finalizar Turno →
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
