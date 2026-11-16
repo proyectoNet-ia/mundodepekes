@@ -364,18 +364,19 @@ export const registerFullEntry = async (data: {
         );
     }
 
-    // 5. Update Loyalty en segundo plano no bloqueante
-    if (!data.isReentry) {
-        supabase.rpc('increment_visit_count', { client_uuid: customerId })
-            .then(({ error }) => {
-                if (error) {
-                    supabase.from('clientes')
-                        .update({ visitas_acumuladas: ((customer as any).visitas_acumuladas || 0) + 1 })
-                        .eq('id', customerId)
-                        .then(() => {});
-                }
-            })
-            .catch(() => {});
+    // 5. Update Loyalty en segundo plano no bloqueante (actualización directa en clientes)
+    if (!data.isReentry && customerId) {
+        (async () => {
+            try {
+                const currentVisits = (customer as any)?.visitas_acumuladas || 0;
+                await supabase
+                    .from('clientes')
+                    .update({ visitas_acumuladas: currentVisits + 1 })
+                    .eq('id', customerId);
+            } catch (err) {
+                console.warn('Error actualizando visitas acumuladas:', err);
+            }
+        })();
     }
 
     return { 
