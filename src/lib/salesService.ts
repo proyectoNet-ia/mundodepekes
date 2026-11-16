@@ -379,6 +379,48 @@ export const registerFullEntry = async (data: {
         })();
     }
 
+    // 6. Auto-confirmar órdenes en espera (preventas) asociadas al cliente o teléfono recién ingresado
+    try {
+        const explicitPresaleId = (data as any).presaleId;
+        if (explicitPresaleId) {
+            await supabase
+                .from('preventas')
+                .update({ estado: 'confirmada' })
+                .eq('id', explicitPresaleId);
+        }
+
+        const digits = (primaryPhone || '').replace(/\D/g, '');
+        const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+        const tutorNameNorm = (data.customer?.name || '').trim().toLowerCase();
+
+        const { data: pendingList } = await supabase
+            .from('preventas')
+            .select('id, tutor_nombre, tutor_telefono')
+            .eq('estado', 'pendiente');
+
+        if (pendingList && pendingList.length > 0) {
+            const matchingIds = pendingList
+                .filter((p: any) => {
+                    const pDigits = (p.tutor_telefono || '').replace(/\D/g, '');
+                    const pPhone10 = pDigits.length >= 10 ? pDigits.slice(-10) : pDigits;
+                    const pNameNorm = (p.tutor_nombre || '').trim().toLowerCase();
+                    if (phone10 && pPhone10 && phone10.length === 10 && phone10 === pPhone10) return true;
+                    if (tutorNameNorm && pNameNorm && tutorNameNorm === pNameNorm) return true;
+                    return false;
+                })
+                .map((p: any) => p.id);
+
+            if (matchingIds.length > 0) {
+                await supabase
+                    .from('preventas')
+                    .update({ estado: 'confirmada' })
+                    .in('id', matchingIds);
+            }
+        }
+    } catch (err) {
+        console.warn('Error auto-confirmando preventas asociadas:', err);
+    }
+
     return { 
       success: true, 
       transaction: {

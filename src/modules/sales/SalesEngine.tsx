@@ -247,16 +247,21 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
             setChildren([{ name: '', age: 0, included: true }]); 
             return;
           }
+          const rawIncomingPhone = reentryData.tutorContact || reentryData.tutorPhone || reentryData.clientes?.telefono || reentryData.phone || '';
+          const firstRawPhone = rawIncomingPhone.split(',')[0].trim();
+          const digitsOnly = firstRawPhone.replace(/\D/g, '');
+          const cleanLocalPhone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+
           setCustomer({
             id: reentryData.tutorId || reentryData.clientes?.id,
-            phone: reentryData.tutorContact || reentryData.tutorPhone || reentryData.clientes?.telefono || reentryData.phone || '',
+            phone: cleanLocalPhone,
             name: reentryData.tutorName || reentryData.clientes?.nombre || reentryData.name || '',
             email: reentryData.email || reentryData.clientes?.email || '',
             visitsCount: reentryData.visitsCount || reentryData.clientes?.visitas_acumuladas || 0,
             whatsapp_verificado: reentryData.whatsapp_verificado || reentryData.clientes?.whatsapp_verificado || false
           });
           // Actualizar el prefijo basado en el número real
-          setMainPrefix(extractPrefix(reentryData.tutorContact || reentryData.tutorPhone || reentryData.clientes?.telefono || reentryData.phone || ''));
+          setMainPrefix(extractPrefix(firstRawPhone));
           if (reentryData.presaleChildren && reentryData.presaleChildren.length > 0) {
             setChildren(reentryData.presaleChildren.map((n: any) => ({
               name: n.nombre || '',
@@ -531,7 +536,9 @@ export const SalesEngine: React.FC<SalesEngineProps> = ({ user, reentryData, onC
                     return { id: c.id, name: c.name, age: c.age, packageId: childPackages[i], area: selPkg?.area || 'Mundo de Pekes', duration: selPkg?.duracion_minutos || 60, previousEndTime: c.previousEndTime };
                 }),
             accessories: selectedAccessories.map(a => ({ id: a.id, name: a.name, quantity: a.qty })),
-            paymentMethod: method, voucherFolio, total, isReentry: !!reentryData, 
+            paymentMethod: method, voucherFolio, total,
+            isReentry: !!(reentryData && !reentryData.presaleId && !reentryData.presaleChildren),
+            presaleId: reentryData?.presaleId || null,
             esPrivado: isPrivateEvent, paquete_id: isPrivateEvent ? privatePackageId : null,
             limite_invitados: isPrivateEvent ? guestLimit : null
         } as any);

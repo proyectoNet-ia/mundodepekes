@@ -167,6 +167,7 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute, refreshTr
   };
 
   const handleExecute = (presale: Presale) => {
+    setPresales(prev => prev.filter(p => p.id !== presale.id));
     onExecute({
       tutorNombre: presale.tutor_nombre,
       tutorTelefono: presale.tutor_telefono,

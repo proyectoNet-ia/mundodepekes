@@ -75,7 +75,77 @@ export const getPendingPresales = async (): Promise<Presale[]> => {
     .order('created_at', { ascending: true });
 
   if (error) throw error;
-  return (data || []) as Presale[];
+  const pending = (data || []) as Presale[];
+  if (pending.length === 0) return [];
+
+  // Auto-filtrar y confirmar preventas cuyos clientes/niños ya fueron ingresados hoy
+  try {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const { data: recentSessions } = await supabase
+      .from('sesiones')
+      .select('hora_inicio, ninos(nombre, clientes(nombre, telefono))')
+      .gte('hora_inicio', startOfToday.toISOString());
+
+    if (recentSessions && recentSessions.length > 0) {
+      const toAutoConfirm: string[] = [];
+      const normalize = (s?: string) =>
+        (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const last10 = (p?: string) => {
+        const d = (p || '').replace(/\D/g, '');
+        return d.length >= 10 ? d.slice(-10) : d;
+      };
+
+      const filtered = pending.filter(presale => {
+        const presaleTime = new Date(presale.created_at).getTime() - 5 * 60 * 1000;
+        const pPhone10 = last10(presale.tutor_telefono);
+        const pTutorName = normalize(presale.tutor_nombre);
+        const pChildNames = (presale.ninos || []).map(n => normalize(n.nombre)).filter(Boolean);
+
+        const alreadyEntered = recentSessions.some((s: any) => {
+          const sessionTime = new Date(s.hora_inicio).getTime();
+          if (sessionTime < presaleTime) return false;
+
+          const ninoObj = Array.isArray(s.ninos) ? s.ninos[0] : s.ninos;
+          const clienteObj = ninoObj?.clientes
+            ? Array.isArray(ninoObj.clientes)
+              ? ninoObj.clientes[0]
+              : ninoObj.clientes
+            : null;
+
+          const sPhone10 = last10(clienteObj?.telefono);
+          const sTutorName = normalize(clienteObj?.nombre);
+          const sChildName = normalize(ninoObj?.nombre);
+
+          if (pPhone10 && sPhone10 && pPhone10.length === 10 && pPhone10 === sPhone10) return true;
+          if (pTutorName && sTutorName && pTutorName === sTutorName) return true;
+          if (sChildName && pChildNames.includes(sChildName)) return true;
+          return false;
+        });
+
+        if (alreadyEntered) {
+          toAutoConfirm.push(presale.id);
+          return false;
+        }
+        return true;
+      });
+
+      if (toAutoConfirm.length > 0) {
+        supabase
+          .from('preventas')
+          .update({ estado: 'confirmada' })
+          .in('id', toAutoConfirm)
+          .then(() => {});
+      }
+
+      return filtered;
+    }
+  } catch (e) {
+    console.warn('Error cruzando preventas con sesiones activas:', e);
+  }
+
+  return pending;
 };
 
 /** Marca una preventa como confirmada (cajero procesó el cobro) */
@@ -153,48 +223,64 @@ export const isCustomerRegistered = async (phone: string): Promise<boolean> => {
 
 /** Registra un cliente y sus niños de forma permanente (Solo Registro) */
 export const registerCustomerOnly = async (data: { tutor_nombre: string, tutor_telefono: string, ninos: { nombre: string, edad: number }[] }) => {
-  const primaryPhone = data.tutor_telefono.replace(/\D/g, '');
+  const digits = data.tutor_telefono.replace(/\D/g, '');
+  const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
   
-  // 1. Buscar o Crear el tutor
+  // 1. Buscar o Crear el tutor usando los últimos 10 dígitos y limit(1)
   let tutorId: string;
-  const { data: existing } = await supabase
+  const { data: existingRows } = await supabase
     .from('clientes')
     .select('id')
-    .ilike('telefono', `%${primaryPhone}%`)
-    .maybeSingle();
+    .ilike('telefono', `%${phone10}%`)
+    .limit(1);
+
+  const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
 
   if (existing) {
     tutorId = existing.id;
-    // Opcional: Actualizar nombre si es diferente
-    await supabase.from('clientes').update({ nombre: data.tutor_nombre }).eq('id', tutorId);
+    await supabase.from('clientes').update({ nombre: data.tutor_nombre.trim() }).eq('id', tutorId);
   } else {
-    const { data: newTutor, error: tError } = await supabase
+    const { data: newTutorRows, error: tError } = await supabase
       .from('clientes')
-      .insert({ nombre: data.tutor_nombre, telefono: data.tutor_telefono })
-      .select()
-      .maybeSingle();
+      .insert({ nombre: data.tutor_nombre.trim(), telefono: data.tutor_telefono.trim() })
+      .select('id')
+      .limit(1);
     if (tError) {
       if (tError.code === '42501' || tError.message.includes('policy')) {
         throw new Error('Permiso denegado: La tabla "clientes" no permite registros públicos. Activa la política RLS para INSERT.');
       }
       throw tError;
     }
+    const newTutor = newTutorRows && newTutorRows.length > 0 ? newTutorRows[0] : null;
     if (!newTutor) throw new Error('No se pudo crear el registro del tutor.');
     tutorId = newTutor.id;
   }
 
-  // 2. Registrar a los niños
-  const ninosToInsert = data.ninos.map(n => ({
-    nombre: n.nombre,
-    edad: n.edad,
-    cliente_id: tutorId
-  }));
-
-  const { error: nError } = await supabase
+  // 2. Registrar a los niños evitando duplicados para el mismo tutor
+  const { data: existingChildren } = await supabase
     .from('ninos')
-    .insert(ninosToInsert);
+    .select('id, nombre')
+    .eq('cliente_id', tutorId);
 
-  if (nError) throw nError;
+  const existingNames = new Set(
+    (existingChildren || []).map((c: any) => (c.nombre || '').trim().toLowerCase())
+  );
+
+  const ninosToInsert = data.ninos
+    .filter(n => n.nombre && !existingNames.has(n.nombre.trim().toLowerCase()))
+    .map(n => ({
+      nombre: n.nombre.trim(),
+      edad: n.edad,
+      cliente_id: tutorId
+    }));
+
+  if (ninosToInsert.length > 0) {
+    const { error: nError } = await supabase
+      .from('ninos')
+      .insert(ninosToInsert);
+
+    if (nError) throw nError;
+  }
 
   return { success: true, tutorId };
 };
