@@ -10,7 +10,15 @@ export interface UserProfile {
     pin?: string;
 }
 
+let memoryProfile: UserProfile | null = null;
+
 export const authService = {
+    setMemoryProfile(p: UserProfile | null) {
+        memoryProfile = p;
+    },
+    getMemoryProfile() {
+        return memoryProfile;
+    },
     async signIn(email: string, pass: string) {
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -21,6 +29,7 @@ export const authService = {
     },
 
     async signOut() {
+        memoryProfile = null;
         localStorage.removeItem('cached_user_profile');
         await supabase.auth.signOut();
     },
@@ -36,7 +45,9 @@ export const authService = {
                     } else {
                         const cached = localStorage.getItem('cached_user_profile');
                         if (cached) {
-                            callback(JSON.parse(cached));
+                            const p = JSON.parse(cached);
+                            memoryProfile = p;
+                            callback(p);
                         } else {
                             console.warn('Fallback activado: perfil devolvió null.');
                             callback({ id: session.user.id, email: session.user.email || 'admin@mundodepekes.com', role: 'cajero', nombre_completo: 'Usuario (Fallback)' });
@@ -45,20 +56,37 @@ export const authService = {
                 } catch (e) {
                     const cached = localStorage.getItem('cached_user_profile');
                     if (cached) {
-                        callback(JSON.parse(cached));
+                        const p = JSON.parse(cached);
+                        memoryProfile = p;
+                        callback(p);
                     } else {
                         console.warn('Auth fallback triggered after profile failure');
                         callback({ id: session.user.id, email: session.user.email || 'admin@mundodepekes.com', role: 'cajero', nombre_completo: 'Usuario (Fallback)' });
                     }
                 }
             } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
+                memoryProfile = null;
                 localStorage.removeItem('cached_user_profile');
                 callback(null);
             }
         });
     },
 
-    async getCurrentUser(): Promise<UserProfile | null> {
+    async getCurrentUser(forceRefresh = false): Promise<UserProfile | null> {
+        if (!forceRefresh && memoryProfile) {
+            return memoryProfile;
+        }
+
+        const cached = localStorage.getItem('cached_user_profile');
+        if (!forceRefresh && cached) {
+            try {
+                memoryProfile = JSON.parse(cached) as UserProfile;
+                return memoryProfile;
+            } catch {
+                // Continuar a fetch
+            }
+        }
+
         if (!navigator.onLine) {
             console.info('Modo offline en navegador. Recurriendo a sesión local...');
             return this.getLocalEmergencySession();
@@ -66,7 +94,7 @@ export const authService = {
 
         let timeoutId: ReturnType<typeof setTimeout>;
         const timeout = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error('TIMEOUT_SUPABASE')), 4000); // Reducido a 4s para evitar congelamiento
+            timeoutId = setTimeout(() => reject(new Error('TIMEOUT_SUPABASE')), 4000);
         });
 
         try {
@@ -79,7 +107,7 @@ export const authService = {
                     const { data: adminProfile } = await supabase
                         .from('perfiles')
                         .select('nombre_completo')
-                        .or(`id.eq.${user.id},email.eq.${user.email}`)
+                        .eq('id', user.id)
                         .maybeSingle();
 
                     const finalProfile = {
@@ -88,15 +116,25 @@ export const authService = {
                         role: 'admin' as UserRole,
                         nombre_completo: adminProfile?.nombre_completo || 'Fernando Admin'
                     };
+                    memoryProfile = finalProfile;
                     localStorage.setItem('cached_user_profile', JSON.stringify(finalProfile));
                     return finalProfile;
                 }
 
-                const { data: profile, error: dbError } = await supabase
+                let { data: profile, error: dbError } = await supabase
                     .from('perfiles')
                     .select('rol_slug, nombre_completo')
-                    .or(`id.eq.${user.id},email.eq.${user.email}`)
+                    .eq('id', user.id)
                     .maybeSingle();
+
+                if (!profile && user.email) {
+                    const { data: byEmail } = await supabase
+                        .from('perfiles')
+                        .select('rol_slug, nombre_completo')
+                        .eq('email', user.email)
+                        .maybeSingle();
+                    if (byEmail) profile = byEmail;
+                }
 
                 if (dbError) {
                     console.error('Error obteniendo perfil desde BD (RLS O Vacío):', dbError);
@@ -121,7 +159,7 @@ export const authService = {
                     nombre_completo: profile?.nombre_completo || resolveAlias(user.email || '')
                 };
 
-                // Guardamos en caché para usarlo en caso de que la red falle después
+                memoryProfile = finalProfile;
                 localStorage.setItem('cached_user_profile', JSON.stringify(finalProfile));
                 return finalProfile;
             })();

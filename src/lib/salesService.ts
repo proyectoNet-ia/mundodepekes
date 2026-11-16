@@ -3,6 +3,7 @@ import { stockService } from './stockService';
 import { getActiveSession } from './treasuryService';
 import { AuditService } from './auditService';
 import { syncService } from './syncService';
+import { authService } from './authService';
 
 export interface SearchResult {
   id: string;
@@ -231,16 +232,19 @@ export const registerFullEntry = async (data: {
     if (tError || !transaction) throw tError || new Error('Error al crear la transacción');
     createdTransactionId = transaction.id;
 
-    await AuditService.log({
-      accion: 'VENTAS' as any, // Ajuste para que coincida con el enum o string
+    AuditService.log({
+      accion: 'VENTAS' as any,
       modulo: 'VENTAS',
       descripcion: `Venta registrada por $ ${data.total} (Folio: ${transaction.id.substring(0,8)})`,
       metadatos: { transaction_id: transaction.id, arqueo_id: transaction.arqueo_id }
-    });
+    }).catch(e => console.warn('Non-blocking audit log error:', e));
 
     // 3. Process Children and Sessions
     const isUUID = (str?: string) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
     const registeredChildrenDetails = [];
+    const sessionsToInsert: any[] = [];
+    const childrenToClosePreviousSession: string[] = [];
+
     for (const childInfo of data.children) {
       let childId: string;
 
@@ -279,19 +283,13 @@ export const registerFullEntry = async (data: {
       let startTime = originalTimestamp ? new Date(originalTimestamp) : new Date();
       
       // Lógica de Reingreso con Exceso de Tiempo:
-      // Si el niño ya tenía una sesión hoy, la nueva sesión debe empezar donde terminó la anterior
-      // para "cobrar" el tiempo excedido.
       if (childInfo.previousEndTime) {
           const prevEnd = new Date(childInfo.previousEndTime);
           const now = new Date();
-          
-          // Solo aplicamos si la sesión previa es de HOY y no es ridículamente vieja (ej. más de 12 horas)
           const isSameDay = prevEnd.toDateString() === now.toDateString();
           const hoursDiff = (now.getTime() - prevEnd.getTime()) / (1000 * 60 * 60);
 
           if (isSameDay && hoursDiff < 12) {
-              // Si prevEnd está en el pasado (excedido) o en el futuro (extensión),
-              // usamos prevEnd como el nuevo startTime.
               startTime = prevEnd;
           }
       }
@@ -309,48 +307,75 @@ export const registerFullEntry = async (data: {
         endTime: endTime
       });
 
-      // --- LIMPIEZA DE SESIONES PREVIAS (Evita Duplicados) ---
-      // Si el niño ya estaba adentro, cerramos su sesión anterior para que la nueva tome el control
+      childrenToClosePreviousSession.push(childId);
+
+      sessionsToInsert.push({
+        transaccion_id: transaction.id,
+        nino_id: childId,
+        paquete_id: childInfo.packageId,
+        hora_inicio: startTime.toISOString(),
+        hora_fin: endTime.toISOString(),
+        area_actual: childInfo.area,
+        estado: 'activo'
+      });
+    }
+
+    // Cerrar sesiones anteriores en paralelo (1 sola query)
+    if (childrenToClosePreviousSession.length > 0) {
       await supabase
         .from('sesiones')
         .update({ estado: 'finalizado' })
-        .eq('nino_id', childId)
+        .in('nino_id', childrenToClosePreviousSession)
         .eq('estado', 'activo');
+    }
 
+    // Inserción por lote (Batch Insert) de todas las sesiones en 1 sola query
+    if (sessionsToInsert.length > 0) {
       const { error: sError } = await supabase
         .from('sesiones')
-        .insert({
-          transaccion_id: transaction.id,
-          nino_id: childId,
-          paquete_id: childInfo.packageId,
-          hora_inicio: startTime.toISOString(),
-          hora_fin: endTime.toISOString(),
-          area_actual: childInfo.area,
-          estado: 'activo'
-        });
+        .insert(sessionsToInsert);
       if (sError) throw sError;
     }
 
-    // 4. Process Accessories and Stock
-    for (const acc of data.accessories) {
-        await stockService.recordMovement(
-            acc.id, 
-            acc.quantity, 
-            'salida', 
-            `Venta Transacción ID: ${transaction.id}`
+    // 4. Process Accessories and Stock (con usuario pre-cargado para evitar llamadas a auth en bucle)
+    const cachedUser = authService.getMemoryProfile() || (() => {
+        try {
+            const raw = localStorage.getItem('cached_user_profile');
+            return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+    })();
+
+    const stockUserMeta = cachedUser ? {
+        nombre: cachedUser.nombre_completo || cachedUser.email?.split('@')[0] || 'Cajero',
+        email: cachedUser.email || 'cajero@mundodepekes.com',
+        rol: cachedUser.role || 'cajero'
+    } : undefined;
+
+    if (data.accessories.length > 0) {
+        await Promise.all(
+            data.accessories.map(acc => stockService.recordMovement(
+                acc.id, 
+                acc.quantity, 
+                'salida', 
+                `Venta Transacción ID: ${transaction.id}`,
+                false,
+                stockUserMeta
+            ))
         );
     }
 
-    // 5. Update Loyalty (Solo si NO es reingreso)
+    // 5. Update Loyalty en segundo plano no bloqueante
     if (!data.isReentry) {
-        try {
-            await supabase.rpc('increment_visit_count', { client_uuid: customerId });
-        } catch (e) {
-            console.warn('RPC loyalty increment failed, trying manual update:', e);
-            await supabase.from('clientes')
-                .update({ visitas_acumuladas: (customer as any).visitas_acumuladas + 1 })
-                .eq('id', customerId);
-        }
+        supabase.rpc('increment_visit_count', { client_uuid: customerId })
+            .then(({ error }) => {
+                if (error) {
+                    supabase.from('clientes')
+                        .update({ visitas_acumuladas: ((customer as any).visitas_acumuladas || 0) + 1 })
+                        .eq('id', customerId)
+                        .then(() => {});
+                }
+            })
+            .catch(() => {});
     }
 
     return { 

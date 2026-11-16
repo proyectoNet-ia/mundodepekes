@@ -84,6 +84,19 @@ const proxySupabaseFrom = (table: string) => {
       filters.push({ type: 'lt', field, val });
       return builder;
     },
+    or: (_filterStr?: string) => builder,
+    ilike: (field: string, pattern: string) => {
+      filters.push({ type: 'ilike', field, val: pattern });
+      return builder;
+    },
+    contains: (field: string, val: any) => {
+      filters.push({ type: 'contains', field, val });
+      return builder;
+    },
+    is: (field: string, val: any) => {
+      filters.push({ type: 'eq', field, val });
+      return builder;
+    },
     order: (field: string, options?: { ascending?: boolean }) => {
       orderVal = { field, ascending: options?.ascending !== false };
       return builder;
