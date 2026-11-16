@@ -3,10 +3,10 @@
 -- Ejecutar en: Supabase Dashboard → SQL Editor
 -- ══════════════════════════════════════════════════════════════
 
--- 1. CONFIGURACIÓN ANTI-CONEXIONES ZOMBIES
--- Mata automáticamente cualquier transacción colgada o inactiva en 5 segundos
-ALTER DATABASE postgres SET idle_in_transaction_session_timeout = '5s';
-ALTER DATABASE postgres SET statement_timeout = '10s';
+-- 1. CONFIGURACIÓN ANTI-CONEXIONES ZOMBIES (VALORES ESTABLES DE PRODUCCIÓN)
+-- Mata automáticamente cualquier transacción inactiva después de 60 segundos
+ALTER DATABASE postgres SET idle_in_transaction_session_timeout = '60s';
+ALTER DATABASE postgres SET statement_timeout = '30s';
 
 -- 2. ÍNDICES PARCIALES DE ALTA VELOCIDAD (ZERO-COST EN LECTURAS ACTIVAS)
 
