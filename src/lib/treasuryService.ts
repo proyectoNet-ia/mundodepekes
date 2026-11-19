@@ -29,7 +29,15 @@ export interface Expense {
   autorizado_por?: string;
 }
 
-export const getActiveSession = async (): Promise<CashSession | null> => {
+const CASH_CACHE_TTL_MS = 30000;
+let activeCashCache: { data: CashSession | null; expiresAt: number } | null = null;
+let inFlightCashPromise: Promise<CashSession | null> | null = null;
+
+export const invalidateActiveSessionCache = () => {
+  activeCashCache = null;
+};
+
+export const getActiveSession = async (forceRefresh = false): Promise<CashSession | null> => {
   if (!navigator.onLine) {
     const cached = localStorage.getItem('cache_caja');
     // Si no hay internet, asumimos que la caja está abierta virtualmente para no bloquear al cajero
@@ -43,40 +51,55 @@ export const getActiveSession = async (): Promise<CashSession | null> => {
     };
   }
 
-  try {
-    const { data, error } = await supabase
-      .from('arqueos_caja')
-      .select('*')
-      .eq('estado', 'abierta')
-      .order('fecha_apertura', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      console.warn('Error fetching cash session:', error);
-      const cached = localStorage.getItem('cache_caja');
-      return cached ? JSON.parse(cached) : null;
-    }
-
-    if (data) {
-        localStorage.setItem('cache_caja', JSON.stringify(data));
-    } else if (!error) {
-        localStorage.removeItem('cache_caja');
-    }
-    
-    return data;
-  } catch (e) {
-    console.warn('Fallo red al verificar caja. Usando caché...', e);
-    const cached = localStorage.getItem('cache_caja');
-    return cached ? JSON.parse(cached) : { 
-      id: `OFFLINE-${Date.now()}`, 
-      estado: 'abierta', 
-      monto_inicial: 0,
-      fecha_apertura: new Date().toISOString(),
-      monto_final_efectivo_esperado: 0,
-      monto_final_tarjeta_esperado: 0 
-    };
+  if (!forceRefresh && activeCashCache && Date.now() < activeCashCache.expiresAt) {
+    return activeCashCache.data;
   }
+
+  if (!forceRefresh && inFlightCashPromise) {
+    return inFlightCashPromise;
+  }
+
+  inFlightCashPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('arqueos_caja')
+        .select('id, fecha_apertura, fecha_cierre, monto_inicial, monto_final_efectivo_esperado, monto_final_tarjeta_esperado, monto_final_real, monto_final_tarjeta_real, observaciones, estado')
+        .eq('estado', 'abierta')
+        .order('fecha_apertura', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.warn('Error fetching cash session:', error);
+        const cached = localStorage.getItem('cache_caja');
+        return cached ? JSON.parse(cached) : null;
+      }
+
+      if (data) {
+        localStorage.setItem('cache_caja', JSON.stringify(data));
+      } else if (!error) {
+        localStorage.removeItem('cache_caja');
+      }
+
+      activeCashCache = { data: data || null, expiresAt: Date.now() + CASH_CACHE_TTL_MS };
+      return data;
+    } catch (e) {
+      console.warn('Fallo red al verificar caja. Usando caché...', e);
+      const cached = localStorage.getItem('cache_caja');
+      return cached ? JSON.parse(cached) : { 
+        id: `OFFLINE-${Date.now()}`, 
+        estado: 'abierta', 
+        monto_inicial: 0,
+        fecha_apertura: new Date().toISOString(),
+        monto_final_efectivo_esperado: 0,
+        monto_final_tarjeta_esperado: 0 
+      };
+    } finally {
+      inFlightCashPromise = null;
+    }
+  })();
+
+  return inFlightCashPromise;
 };
 
 export const openCash = async (montoInicial: number): Promise<CashSession> => {
@@ -136,6 +159,7 @@ export const openCash = async (montoInicial: number): Promise<CashSession> => {
     { arqueo_id: data.id, monto: montoInicial }
   );
 
+  invalidateActiveSessionCache();
   return data;
 };
 
@@ -217,6 +241,7 @@ export const getShiftTransactions = async (arqueoId: string) => {
     .order('fecha', { ascending: false });
 
   if (error) throw error;
+  invalidateActiveSessionCache();
   return data;
 };
 
@@ -294,7 +319,8 @@ export const recordExpense = async (monto: number, descripcion: string, tieneCom
       metadatos: { expense_id: data.id, arqueo_id: data.arqueo_id }
     });
   
-    return data;
+    invalidateActiveSessionCache();
+  return data;
 };
   
 export const getExpenses = async (arqueoId: string): Promise<Expense[]> => {
@@ -305,7 +331,8 @@ export const getExpenses = async (arqueoId: string): Promise<Expense[]> => {
       .order('created_at', { ascending: false });
   
     if (error) throw error;
-    return data;
+    invalidateActiveSessionCache();
+  return data;
 };
 
 export const closeCash = async (id: string, data: {
@@ -395,6 +422,7 @@ export const closeCash = async (id: string, data: {
     console.warn('Advertencia en limpieza defensiva de sesiones huérfanas:', cleanErr);
   }
 
+  invalidateActiveSessionCache();
   return { success: true, estado: estadoFinal };
 };
 

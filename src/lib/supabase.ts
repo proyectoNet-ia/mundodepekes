@@ -9,7 +9,38 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const isTrainingMode = () => localStorage.getItem('modo_entrenamiento') === 'true';
 
-const rawSupabase = createClient(supabaseUrl, supabaseAnonKey);
+const REQUEST_TIMEOUT_MS = 9000;
+
+/**
+ * Fetch con AbortController real para evitar peticiones HTTP colgadas que saturen el pool de PostgREST.
+ */
+export const fetchWithTimeout: typeof fetch = async (input, init) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  const externalSignal = init?.signal;
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+    }
+  }
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+    externalSignal?.removeEventListener('abort', onExternalAbort);
+  }
+};
+
+const rawSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: {
+    fetch: fetchWithTimeout,
+  },
+});
 
 // Emulador de base de datos en LocalStorage para el Modo Entrenamiento (Pruebas del Admin)
 const proxySupabaseFrom = (table: string) => {

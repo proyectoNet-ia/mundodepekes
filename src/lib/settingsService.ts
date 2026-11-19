@@ -39,23 +39,41 @@ const DEFAULT_SETTINGS: SystemSettings = {
   categorias_inventario: ['Bebidas', 'Alimentos', 'Juguetes', 'Higiene', 'Ropa', 'Accesorios', 'Otros']
 };
 
-export const getSystemSettings = async (): Promise<SystemSettings> => {
-  const { data, error } = await supabase
-    .from('config_sistema')
-    .select('valor')
-    .eq('clave', 'capacidades')
-    .maybeSingle();
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+let settingsCache: { data: SystemSettings; expiresAt: number } | null = null;
+let inFlightSettingsPromise: Promise<SystemSettings> | null = null;
 
-  if (error) {
-    console.error('Error fetching settings:', error);
-    return DEFAULT_SETTINGS; // Fallback
+export const getSystemSettings = async (forceRefresh = false): Promise<SystemSettings> => {
+  if (!forceRefresh && settingsCache && Date.now() < settingsCache.expiresAt) {
+    return settingsCache.data;
   }
 
-  if (!data) {
-    return DEFAULT_SETTINGS;
+  if (!forceRefresh && inFlightSettingsPromise) {
+    return inFlightSettingsPromise;
   }
 
-  return { ...DEFAULT_SETTINGS, ...(data.valor as any) };
+  inFlightSettingsPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('config_sistema')
+        .select('valor')
+        .eq('clave', 'capacidades')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching settings:', error);
+        return settingsCache?.data || DEFAULT_SETTINGS;
+      }
+
+      const resolved = data ? { ...DEFAULT_SETTINGS, ...(data.valor as any) } : DEFAULT_SETTINGS;
+      settingsCache = { data: resolved, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
+      return resolved;
+    } finally {
+      inFlightSettingsPromise = null;
+    }
+  })();
+
+  return inFlightSettingsPromise;
 };
 
 export const updateSystemSettings = async (settings: SystemSettings) => {
@@ -66,4 +84,6 @@ export const updateSystemSettings = async (settings: SystemSettings) => {
   if (error) {
     throw error;
   }
+
+  settingsCache = { data: settings, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
 };

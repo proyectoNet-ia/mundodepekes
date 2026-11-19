@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { syncService } from '../lib/syncService';
-import { supabase } from '../lib/supabase';
+import { getActiveSession } from '../lib/treasuryService';
 
 interface SystemStatus {
   isOnline: boolean;
@@ -129,29 +129,12 @@ export const useResilience = () => {
         }
     }, 4000);
 
-    // 6. Check Cash Session (Optimizado a 60s con pausa en segundo plano)
+    // 6. Check Cash Session (Reutiliza caché compartida de 30s con pausa en segundo plano)
     const checkCash = async () => {
         if (document.hidden) return;
-        if (!navigator.onLine) {
-            const cached = localStorage.getItem('cache_caja');
-            setStatus(prev => ({ ...prev, cashStatus: cached ? 'abierta' : 'cerrada' }));
-            return;
-        }
         try {
-            const { data, error } = await supabase
-                .from('arqueos_caja')
-                .select('id')
-                .eq('estado', 'abierta')
-                .order('fecha_apertura', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-            
-            if (error && error.code !== 'PGRST116') {
-                const cached = localStorage.getItem('cache_caja');
-                setStatus(prev => ({ ...prev, cashStatus: cached ? 'abierta' : 'cerrada' }));
-            } else {
-                setStatus(prev => ({ ...prev, cashStatus: data ? 'abierta' : 'cerrada' }));
-            }
+            const session = await getActiveSession();
+            setStatus(prev => ({ ...prev, cashStatus: session ? 'abierta' : 'cerrada' }));
         } catch {
             const cached = localStorage.getItem('cache_caja');
             setStatus(prev => ({ ...prev, cashStatus: cached ? 'abierta' : 'cerrada' }));

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { fetchWithTimeout } from './supabase';
 
 /**
  * Cliente Supabase PÚBLICO — solo para el portal de pre-registro.
@@ -19,6 +20,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabasePublic = createClient(supabaseUrl, supabaseAnonKey, {
+  global: {
+    fetch: fetchWithTimeout,
+  },
   auth: {
     persistSession:    false,
     autoRefreshToken:  false,

@@ -166,6 +166,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
   
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const circuitBreakerUntilRef = React.useRef<number>(0);
   const [isSubmittingAddToEvent, setIsSubmittingAddToEvent] = useState(false);
   const [isSavingPackageEdit, setIsSavingPackageEdit] = useState(false);
   const [offlineSessions, setOfflineSessions] = useState<ActiveSession[]>([]);
@@ -205,24 +206,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
     }
   }, [editingPekePackage]);
 
-  const refreshData = async () => {
+  const refreshData = async (force = false) => {
     if (isRefreshing) return;
+    if (!force && Date.now() < circuitBreakerUntilRef.current) {
+      return;
+    }
     setIsRefreshing(true);
 
     const safetyTimer = setTimeout(() => {
       setIsRefreshing(false);
     }, 15000);
 
+    let hadServiceUnavailable = false;
+    const handleFetchErr = (label: string, fallbackVal: any) => (err: any) => {
+      const msg = String(err?.message || err || '');
+      const status = err?.status || err?.code;
+      if (status === 503 || msg.includes('503') || err?.name === 'AbortError') {
+        hadServiceUnavailable = true;
+      }
+      console.error(`Error fetching ${label}:`, err);
+      return fallbackVal;
+    };
+
     try {
-      const [active, settings, privEvents, sCount, todayCount, cumples, paquetes] = await Promise.all([
-        withTimeout(getActiveSessions().catch(err => { console.error('Error fetching active sessions:', err); return []; }), 12000, []),
-        withTimeout(getSystemSettings().catch(err => { console.error('Error fetching settings:', err); return limits; }), 10000, limits),
-        withTimeout(getActivePrivateEvents().catch(err => { console.error('Error fetching private events:', err); return []; }), 12000, []),
-        withTimeout(getScheduledPrivateEventsCount().catch(err => { console.error('Error fetching scheduled private events count:', err); return 0; }), 10000, 0),
-        withTimeout(getTotalChildrenToday().catch(err => { console.error('Error fetching total children today:', err); return { total: 0, unique: 0 }; }), 10000, { total: 0, unique: 0 }),
-        withTimeout(birthdayService.getAgendadosYEnCurso().catch(err => { console.error('Error fetching active birthdays:', err); return []; }), 12000, []),
-        withTimeout(getPackages(true).catch(err => { console.error('Error fetching packages:', err); return []; }), 12000, [])
+      // Lote 1: Sesiones activas + catálogos cacheados (5 min TTL)
+      const [active, settings, paquetes] = await Promise.all([
+        withTimeout(getActiveSessions().catch(handleFetchErr('active sessions', [])), 10000, []),
+        withTimeout(getSystemSettings().catch(handleFetchErr('settings', limits)), 10000, limits),
+        withTimeout(getPackages(true).catch(handleFetchErr('packages', [])), 10000, [])
       ]);
+
+      // Lote 2: Eventos y conteos del día (escalonado para evitar picos en PostgREST)
+      const [privEvents, sCount, todayCount, cumples] = await Promise.all([
+        withTimeout(getActivePrivateEvents().catch(handleFetchErr('private events', [])), 10000, []),
+        withTimeout(getScheduledPrivateEventsCount().catch(handleFetchErr('scheduled private events count', 0)), 10000, 0),
+        withTimeout(getTotalChildrenToday().catch(handleFetchErr('total children today', { total: 0, unique: 0 })), 10000, { total: 0, unique: 0 }),
+        withTimeout(birthdayService.getAgendadosYEnCurso().catch(handleFetchErr('active birthdays', [])), 10000, [])
+      ]);
+
+      if (hadServiceUnavailable) {
+        circuitBreakerUntilRef.current = Date.now() + 90000;
+        console.warn('⏳ Circuit breaker activado por 90s tras respuesta lenta/503 de Supabase.');
+      } else {
+        circuitBreakerUntilRef.current = 0;
+      }
       setSessions(active || []);
       setLimits(settings || limits);
       setPrivateEvents(privEvents || []);
@@ -640,7 +667,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
           <div className={styles.headerActions}>
             <button 
               className={styles.refreshBtn} 
-              onClick={refreshData} 
+              onClick={() => refreshData(true)} 
               disabled={isRefreshing}
               title="Actualizar registros del portal"
             >

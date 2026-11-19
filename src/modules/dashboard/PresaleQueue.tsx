@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getPendingPresales,
   cancelPresale,
@@ -87,15 +87,18 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute, refreshTr
   const [registeringId, setRegisteringId] = useState<string | null>(null);
   const { showToast } = useToast();
   const [, forceRender] = useState(0); // Tick cada 30s para actualizar timers
+  const isFetchingRef = useRef(false);
 
   const load = useCallback(async () => {
-    if (document.hidden) return;
+    if (document.hidden || isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const data = await getPendingPresales();
       setPresales(data);
     } catch (err) {
       console.warn('Error al cargar preventas:', err);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   }, []);
@@ -103,14 +106,7 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute, refreshTr
   useEffect(() => {
     load();
 
-    // Polling de preventas de solo lectura (cada 45 segundos) pausado si la pestaña no está activa
-    const pollInterval = setInterval(() => {
-      if (!document.hidden) {
-        load();
-      }
-    }, 45000);
-
-    // Re-render cada 30s para actualizar los timers en UI
+    // Re-render cada 30s para actualizar los timers en UI (sin red; el polling viene de Dashboard via refreshTrigger)
     const ticker = setInterval(() => {
       if (!document.hidden) {
         forceRender(x => x + 1);
@@ -118,7 +114,6 @@ export const PresaleQueue: React.FC<PresaleQueueProps> = ({ onExecute, refreshTr
     }, 30000);
 
     return () => {
-      clearInterval(pollInterval);
       clearInterval(ticker);
     };
   }, [load]);
