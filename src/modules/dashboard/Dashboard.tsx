@@ -218,7 +218,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
     }, 15000);
 
     let hadServiceUnavailable = false;
-    const handleFetchErr = (label: string, fallbackVal: any) => (err: any) => {
+    const handleFetchErr = <T,>(label: string, fallbackVal: T) => (err: any): T => {
       const msg = String(err?.message || err || '');
       const status = err?.status || err?.code;
       if (status === 503 || msg.includes('503') || err?.name === 'AbortError') {
@@ -231,17 +231,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onReentry, onPresale, onMa
     try {
       // Lote 1: Sesiones activas + catálogos cacheados (5 min TTL)
       const [active, settings, paquetes] = await Promise.all([
-        withTimeout(getActiveSessions().catch(handleFetchErr('active sessions', [])), 10000, []),
+        withTimeout(getActiveSessions().catch(handleFetchErr<ActiveSession[]>('active sessions', [])), 10000, [] as ActiveSession[]),
         withTimeout(getSystemSettings().catch(handleFetchErr('settings', limits)), 10000, limits),
-        withTimeout(getPackages(true).catch(handleFetchErr('packages', [])), 10000, [])
+        withTimeout(getPackages(true).catch(handleFetchErr<any[]>('packages', [])), 10000, [] as any[])
       ]);
 
       // Lote 2: Eventos y conteos del día (escalonado para evitar picos en PostgREST)
       const [privEvents, sCount, todayCount, cumples] = await Promise.all([
-        withTimeout(getActivePrivateEvents().catch(handleFetchErr('private events', [])), 10000, []),
+        withTimeout(getActivePrivateEvents().catch(handleFetchErr<any[]>('private events', [])), 10000, [] as any[]),
         withTimeout(getScheduledPrivateEventsCount().catch(handleFetchErr('scheduled private events count', 0)), 10000, 0),
         withTimeout(getTotalChildrenToday().catch(handleFetchErr('total children today', { total: 0, unique: 0 })), 10000, { total: 0, unique: 0 }),
-        withTimeout(birthdayService.getAgendadosYEnCurso().catch(handleFetchErr('active birthdays', [])), 10000, [])
+        withTimeout(birthdayService.getAgendadosYEnCurso().catch(handleFetchErr<any[]>('active birthdays', [])), 10000, [] as any[])
       ]);
 
       if (hadServiceUnavailable) {
